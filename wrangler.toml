@@ -9,7 +9,7 @@ crons = ["0 */6 * * *"]
 [[d1_databases]]
 binding = "DB"
 database_name = "feedmail"
-database_id = "placeholder"
+database_id = "5a427f97-0e66-499c-85e3-687980dab09c"
 
 [[routes]]
 pattern = "feedmail.cc"
@@ -41,6 +41,7 @@ VERIFY_WINDOW_HOURS = "24"
 [[rules]]
 type = "Text"
 globs = ["**/*.hbs"]
+fallthrough = true
 
 [observability.logs]
 enabled = true

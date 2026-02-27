@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "db:migrate": "wrangler d1 migrations apply feedmail",
+    "db:migrate": "wrangler d1 migrations apply feedmail --remote",
     "db:migrate:local": "wrangler d1 migrations apply feedmail --local"
   },
   "dependencies": {
