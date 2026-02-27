@@ -1,0 +1,46 @@
+name = "feedmail"
+main = "src/index.js"
+compatibility_date = "2025-07-01"
+compatibility_flags = ["nodejs_compat"]
+
+[triggers]
+crons = ["0 */6 * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "feedmail"
+database_id = "placeholder"
+
+[[routes]]
+pattern = "feedmail.cc"
+custom_domain = true
+
+[vars]
+SITES = '''
+[
+  {
+    "id": "alxm.me",
+    "url": "https://alxm.me",
+    "name": "Alex Marshall",
+    "fromEmail": "hello@alxm.me",
+    "fromName": "Alex Marshall",
+    "corsOrigins": ["https://alxm.me"],
+    "feeds": ["https://alxm.me/writing.atom"]
+  }
+]
+'''
+
+VERIFY_MAX_ATTEMPTS = "5"
+VERIFY_WINDOW_HOURS = "24"
+
+# Secrets (set via `wrangler secret put`):
+# SENDGRID_API_KEY
+# TURNSTILE_SECRET_KEY
+# ADMIN_API_KEY
+
+[[rules]]
+type = "Text"
+globs = ["**/*.hbs"]
+
+[observability.logs]
+enabled = true

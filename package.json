@@ -1,0 +1,20 @@
+{
+  "name": "feedmail",
+  "version": "0.1.0",
+  "description": "RSS-to-email microservice on Cloudflare Workers. Monitor feeds, manage subscribers, send newsletters.",
+  "type": "module",
+  "license": "AGPL-3.0",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply feedmail",
+    "db:migrate:local": "wrangler d1 migrations apply feedmail --local"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^4.5.3",
+    "handlebars": "^4.7.8"
+  },
+  "devDependencies": {
+    "wrangler": "^4.14.4"
+  }
+}

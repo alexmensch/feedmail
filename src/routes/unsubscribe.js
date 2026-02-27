@@ -1,0 +1,70 @@
+/**
+ * GET/POST /api/unsubscribe?token=xxx
+ * Handles unsubscribe requests (link clicks and List-Unsubscribe-Post).
+ */
+
+import { getSiteById } from "../lib/config.js";
+import { render } from "../lib/templates.js";
+import {
+  getSubscriberByUnsubscribeToken,
+  markSubscriberUnsubscribed,
+} from "../lib/db.js";
+
+/**
+ * Handle an unsubscribe request.
+ * @param {Request} request
+ * @param {object} env
+ * @param {URL} url
+ * @returns {Promise<Response>}
+ */
+export async function handleUnsubscribe(request, env, url) {
+  const token = url.searchParams.get("token");
+
+  if (!token) {
+    return errorPage(env, null, "Invalid unsubscribe link.");
+  }
+
+  const subscriber = await getSubscriberByUnsubscribeToken(env.DB, token);
+
+  if (!subscriber) {
+    return errorPage(env, null, "Invalid unsubscribe link.");
+  }
+
+  // Mark as unsubscribed (idempotent — already-unsubscribed is fine)
+  if (subscriber.status !== "unsubscribed") {
+    await markSubscriberUnsubscribed(env.DB, subscriber.id);
+  }
+
+  const site = getSiteById(env, subscriber.site_id);
+
+  // POST requests come from List-Unsubscribe-Post (RFC 8058) — return 200 OK
+  if (request.method === "POST") {
+    return new Response("OK", { status: 200 });
+  }
+
+  // GET requests render the confirmation page
+  const html = render("unsubscribePage", {
+    siteName: site?.name || "the newsletter",
+    siteUrl: site?.url || "/",
+  });
+
+  return new Response(html, {
+    status: 200,
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
+}
+
+function errorPage(env, siteId, message) {
+  const site = siteId ? getSiteById(env, siteId) : null;
+
+  const html = render("errorPage", {
+    siteName: site?.name || "feedmail",
+    siteUrl: site?.url || "/",
+    errorMessage: message,
+  });
+
+  return new Response(html, {
+    status: 200,
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
+}
