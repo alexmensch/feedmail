@@ -51,6 +51,7 @@ src/
     error-page.hbs      # Error page (invalid/expired tokens)
 migrations/
   0001_initial.sql      # D1 schema: subscribers, verification_attempts, sent_items
+  0002_subscriber_sends.sql  # Per-subscriber send tracking for partial send recovery
 wrangler.toml           # Worker config, cron, D1 binding, SITES config, custom domain
 ```
 
@@ -60,16 +61,18 @@ wrangler.toml           # Worker config, cron, D1 binding, SITES config, custom 
 - **No info leakage:** Subscribe endpoint always returns the same success response regardless of whether email is new, already subscribed, rate-limited, or unsubscribed. Verify endpoint shows the same error for invalid and expired tokens.
 - **Verification rate limiting:** `verification_attempts` table tracks emails sent per subscriber. Rolling window (`VERIFY_WINDOW_HOURS`, default 24h) with max attempts (`VERIFY_MAX_ATTEMPTS`, default 5).
 - **Feed bootstrapping:** First time a feed URL is seen, all existing items are inserted into `sent_items` with `recipient_count = 0` — prevents blasting historical content on first deployment.
-- **Per-subscriber sends:** Each subscriber gets an individual email with personalized `List-Unsubscribe` headers. Template uses `%%UNSUBSCRIBE_URL%%` placeholder replaced per-subscriber before sending.
+- **Per-subscriber sends:** Each subscriber gets an individual email with personalized `List-Unsubscribe` headers. Template uses `%%UNSUBSCRIBE_URL%%` placeholder replaced per-subscriber before sending. The `subscriber_sends` table tracks delivery per-subscriber so partial sends (from quota exhaustion) can resume on the next cron run without duplicates.
+- **Resend rate limit handling:** The email module retries 429 responses up to 3 times, respecting the `retry-after` header (capped at 60s). If quota is exhausted, the send loop halts and the item is left unmarked in `sent_items` so the next run retries remaining subscribers.
 - **Handlebars templates** are precompiled at build time (`scripts/precompile-templates.mjs`) because Cloudflare Workers disallow `new Function()`. The runtime uses `Handlebars.template()` with precompiled specs.
 - **User-Agent** uses semver from `package.json` (imported with `{ type: "json" }`).
 - **Zero tracking:** No open pixels or click tracking.
 
-### D1 Schema (3 tables)
+### D1 Schema (4 tables)
 
 - `subscribers` — email, site_id, status (pending/verified/unsubscribed), verify_token, unsubscribe_token. UNIQUE(email, site_id).
 - `verification_attempts` — subscriber_id, sent_at. Used for rolling window rate limiting.
-- `sent_items` — item_id, feed_url, title, recipient_count. UNIQUE(item_id, feed_url). Tracks both seeded (bootstrapped) and actually-sent items.
+- `sent_items` — item_id, feed_url, title, recipient_count. UNIQUE(item_id, feed_url). Tracks both seeded (bootstrapped) and actually-sent items. Only inserted when all subscribers have been reached.
+- `subscriber_sends` — subscriber_id, item_id, feed_url. UNIQUE(subscriber_id, item_id, feed_url). Per-subscriber deduplication so partial sends (interrupted by quota exhaustion) can resume without re-sending.
 
 ### API Routes
 
