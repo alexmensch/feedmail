@@ -41,14 +41,19 @@ export function htmlToText(html) {
     "$2 ($1)",
   );
 
-  // Strip all remaining HTML tags
-  text = text.replace(/<[^>]+>/g, "");
-
-  // Decode HTML entities
+  // Decode HTML entities (before final tag strip so decoded < > are caught)
   text = text.replace(
     /&[#a-z0-9]+;/gi,
     (entity) => ENTITY_MAP[entity] || decodeNumericEntity(entity) || entity,
   );
+
+  // Strip all remaining HTML tags; repeat in case earlier replacements
+  // produce new tag-like patterns (defense against incomplete sanitization).
+  let prevText;
+  do {
+    prevText = text;
+    text = text.replace(/<[^>]+>/g, "");
+  } while (text !== prevText);
 
   // Collapse multiple blank lines into two newlines max
   text = text.replace(/\n{3,}/g, "\n\n");
