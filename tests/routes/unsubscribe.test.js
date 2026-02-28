@@ -1,0 +1,231 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+vi.mock("../../src/lib/config.js", () => ({
+  getSiteById: vi.fn(),
+}));
+vi.mock("../../src/lib/templates.js", () => ({
+  render: vi.fn().mockReturnValue("<html>rendered</html>"),
+}));
+vi.mock("../../src/lib/db.js", () => ({
+  getSubscriberByUnsubscribeToken: vi.fn(),
+  markSubscriberUnsubscribed: vi.fn(),
+}));
+
+import { handleUnsubscribe } from "../../src/routes/unsubscribe.js";
+import { getSiteById } from "../../src/lib/config.js";
+import { render } from "../../src/lib/templates.js";
+import {
+  getSubscriberByUnsubscribeToken,
+  markSubscriberUnsubscribed,
+} from "../../src/lib/db.js";
+
+const SITE = {
+  id: "test-site",
+  name: "Test Site",
+  url: "https://example.com",
+};
+
+const env = { DB: {} };
+
+function makeUrl(token) {
+  const url = new URL("https://feedmail.cc/api/unsubscribe");
+  if (token !== undefined) url.searchParams.set("token", token);
+  return url;
+}
+
+function makeRequest(method = "GET") {
+  return new Request("https://feedmail.cc/api/unsubscribe", { method });
+}
+
+describe("handleUnsubscribe", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getSiteById.mockReturnValue(SITE);
+  });
+
+  describe("missing or invalid token", () => {
+    it("returns error page when token is missing", async () => {
+      const url = new URL("https://feedmail.cc/api/unsubscribe");
+
+      const response = await handleUnsubscribe(makeRequest(), env, url);
+
+      expect(response.status).toBe(200);
+      expect(render).toHaveBeenCalledWith("errorPage", {
+        siteName: "feedmail",
+        siteUrl: "/",
+        errorMessage: "Invalid unsubscribe link.",
+      });
+    });
+
+    it("returns error page when subscriber not found", async () => {
+      getSubscriberByUnsubscribeToken.mockResolvedValue(null);
+
+      const response = await handleUnsubscribe(
+        makeRequest(),
+        env,
+        makeUrl("invalid-token"),
+      );
+
+      expect(response.status).toBe(200);
+      expect(render).toHaveBeenCalledWith("errorPage", expect.objectContaining({
+        errorMessage: "Invalid unsubscribe link.",
+      }));
+    });
+
+    it("error page uses fallback site info", async () => {
+      await handleUnsubscribe(
+        makeRequest(),
+        env,
+        new URL("https://feedmail.cc/api/unsubscribe"),
+      );
+
+      expect(render).toHaveBeenCalledWith("errorPage", {
+        siteName: "feedmail",
+        siteUrl: "/",
+        errorMessage: "Invalid unsubscribe link.",
+      });
+    });
+  });
+
+  describe("successful unsubscribe", () => {
+    const subscriber = {
+      id: 42,
+      status: "verified",
+      site_id: "test-site",
+    };
+
+    it("marks verified subscriber as unsubscribed", async () => {
+      getSubscriberByUnsubscribeToken.mockResolvedValue(subscriber);
+
+      await handleUnsubscribe(makeRequest(), env, makeUrl("valid-token"));
+
+      expect(markSubscriberUnsubscribed).toHaveBeenCalledWith(env.DB, 42);
+    });
+
+    it("marks pending subscriber as unsubscribed", async () => {
+      getSubscriberByUnsubscribeToken.mockResolvedValue({
+        ...subscriber,
+        status: "pending",
+      });
+
+      await handleUnsubscribe(makeRequest(), env, makeUrl("valid-token"));
+
+      expect(markSubscriberUnsubscribed).toHaveBeenCalledWith(env.DB, 42);
+    });
+
+    it("is idempotent — does not call DB for already-unsubscribed", async () => {
+      getSubscriberByUnsubscribeToken.mockResolvedValue({
+        ...subscriber,
+        status: "unsubscribed",
+      });
+
+      await handleUnsubscribe(makeRequest(), env, makeUrl("valid-token"));
+
+      expect(markSubscriberUnsubscribed).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("GET response", () => {
+    it("returns HTML page for GET requests", async () => {
+      getSubscriberByUnsubscribeToken.mockResolvedValue({
+        id: 42,
+        status: "verified",
+        site_id: "test-site",
+      });
+
+      const response = await handleUnsubscribe(
+        makeRequest("GET"),
+        env,
+        makeUrl("valid-token"),
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("Content-Type")).toBe(
+        "text/html; charset=utf-8",
+      );
+      expect(render).toHaveBeenCalledWith("unsubscribePage", {
+        siteName: "Test Site",
+        siteUrl: "https://example.com",
+      });
+    });
+  });
+
+  describe("POST response (RFC 8058)", () => {
+    it("returns plain text OK for POST requests", async () => {
+      getSubscriberByUnsubscribeToken.mockResolvedValue({
+        id: 42,
+        status: "verified",
+        site_id: "test-site",
+      });
+
+      const response = await handleUnsubscribe(
+        makeRequest("POST"),
+        env,
+        makeUrl("valid-token"),
+      );
+      const text = await response.text();
+
+      expect(response.status).toBe(200);
+      expect(text).toBe("OK");
+    });
+
+    it("marks as unsubscribed before returning OK", async () => {
+      getSubscriberByUnsubscribeToken.mockResolvedValue({
+        id: 42,
+        status: "verified",
+        site_id: "test-site",
+      });
+
+      await handleUnsubscribe(
+        makeRequest("POST"),
+        env,
+        makeUrl("valid-token"),
+      );
+
+      expect(markSubscriberUnsubscribed).toHaveBeenCalledWith(env.DB, 42);
+    });
+  });
+
+  describe("site fallbacks", () => {
+    it("uses fallback when site not found in config", async () => {
+      getSiteById.mockReturnValue(null);
+      getSubscriberByUnsubscribeToken.mockResolvedValue({
+        id: 42,
+        status: "verified",
+        site_id: "unknown-site",
+      });
+
+      await handleUnsubscribe(
+        makeRequest("GET"),
+        env,
+        makeUrl("valid-token"),
+      );
+
+      expect(render).toHaveBeenCalledWith("unsubscribePage", {
+        siteName: "the newsletter",
+        siteUrl: "/",
+      });
+    });
+  });
+
+  describe("other HTTP methods", () => {
+    it("accepts PUT method (any non-POST returns HTML page)", async () => {
+      getSubscriberByUnsubscribeToken.mockResolvedValue({
+        id: 42,
+        status: "verified",
+        site_id: "test-site",
+      });
+
+      const response = await handleUnsubscribe(
+        new Request("https://feedmail.cc/api/unsubscribe", { method: "PUT" }),
+        env,
+        makeUrl("valid-token"),
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("Content-Type")).toBe(
+        "text/html; charset=utf-8",
+      );
+    });
+  });
+});

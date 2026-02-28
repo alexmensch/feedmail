@@ -1,5 +1,7 @@
 # feedmail
 
+[![codecov](https://codecov.io/gh/alexmensch/feedmail/branch/master/graph/badge.svg)](https://codecov.io/gh/alexmensch/feedmail)
+
 An open-source RSS-to-email microservice that runs on Cloudflare Workers. Monitor RSS/Atom feeds for new items and email them to subscribers automatically.
 
 ## Features
