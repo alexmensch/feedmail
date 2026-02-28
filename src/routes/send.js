@@ -14,6 +14,8 @@ import {
   isItemSent,
   insertSentItem,
   getVerifiedSubscribers,
+  isItemSentToSubscriber,
+  insertSubscriberSend,
 } from "../lib/db.js";
 
 const USER_AGENT = `feedmail/${pkg.version}`;
@@ -129,36 +131,54 @@ async function processSiteFeeds(env, site, summary) {
 
   // Send each unseen item to all subscribers
   for (const item of unseenItems) {
-    const recipientCount = await sendItemToSubscribers(
+    const result = await sendItemToSubscribers(
       env,
       site,
       item,
       subscribers,
     );
 
-    await insertSentItem(env.DB, {
-      itemId: item.id,
-      feedUrl: item.feedUrl,
-      title: item.title,
-      recipientCount,
-    });
+    // Only mark the item as fully sent if all subscribers were reached
+    // (no quota interruption). This ensures the next run retries any
+    // subscribers that were missed.
+    if (result.complete) {
+      await insertSentItem(env.DB, {
+        itemId: item.id,
+        feedUrl: item.feedUrl,
+        title: item.title,
+        recipientCount: result.sent,
+      });
+    }
 
-    summary.sent += recipientCount;
+    summary.sent += result.sent;
     summary.items.push({
       title: item.title,
-      recipients: recipientCount,
+      recipients: result.sent,
+      complete: result.complete,
       siteId: site.id,
     });
 
     console.log(
-      `Sent "${item.title}" to ${recipientCount} subscribers for ${site.id}`,
+      `Sent "${item.title}" to ${result.sent} subscribers for ${site.id}` +
+        (result.complete ? "" : " (incomplete — quota exhausted, will retry)"),
     );
+
+    // If quota was exhausted, stop processing further items for this site —
+    // all subsequent sends would fail too.
+    if (!result.complete) break;
   }
 }
 
 /**
  * Send a single feed item to all verified subscribers.
- * Returns the number of successful sends.
+ *
+ * Uses subscriber_sends for per-subscriber deduplication so that partial
+ * sends (interrupted by quota exhaustion) can be resumed on the next run
+ * without re-sending to subscribers who already received the item.
+ *
+ * @returns {{ sent: number, complete: boolean }}
+ *   sent — number of emails successfully delivered this run
+ *   complete — true if all subscribers were reached (safe to mark item as done)
  */
 async function sendItemToSubscribers(env, site, item, subscribers) {
   // Determine email content
@@ -191,9 +211,19 @@ async function sendItemToSubscribers(env, site, item, subscribers) {
     unsubscribeUrl: "%%UNSUBSCRIBE_URL%%",
   });
 
-  let successCount = 0;
+  let sent = 0;
 
   for (const subscriber of subscribers) {
+    // Skip if this subscriber already received this item (from a previous
+    // partial run that was interrupted by quota exhaustion).
+    const alreadySent = await isItemSentToSubscriber(
+      env.DB,
+      subscriber.id,
+      item.id,
+      item.feedUrl,
+    );
+    if (alreadySent) continue;
+
     const unsubscribeUrl = `https://feedmail.cc/api/unsubscribe?token=${subscriber.unsubscribe_token}`;
 
     const personalizedHtml = emailHtml.replace(
@@ -220,14 +250,24 @@ async function sendItemToSubscribers(env, site, item, subscribers) {
     });
 
     if (result.success) {
-      successCount++;
-    } else {
+      await insertSubscriberSend(env.DB, subscriber.id, item.id, item.feedUrl);
+      sent++;
+    } else if (result.quotaExhausted) {
+      // Quota or rate limit exhausted after retries — stop the loop.
+      // Don't mark the item as sent so the next run retries the remaining
+      // subscribers.
       console.error(
-        `Failed to send to ${subscriber.email}:`,
-        result.error,
+        `Quota exhausted sending to ${subscriber.email}: ${result.error}`,
+      );
+      return { sent, complete: false };
+    } else {
+      // Permanent failure (bad address, validation error, etc.) —
+      // log and continue to the next subscriber.
+      console.error(
+        `Failed to send to ${subscriber.email}: ${result.error}`,
       );
     }
   }
 
-  return successCount;
+  return { sent, complete: true };
 }

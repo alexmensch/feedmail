@@ -163,6 +163,28 @@ export async function insertSentItem(
     .run();
 }
 
+// ─── Subscriber Sends (per-subscriber deduplication) ────────────────────────
+
+export async function isItemSentToSubscriber(db, subscriberId, itemId, feedUrl) {
+  const result = await db
+    .prepare(
+      "SELECT id FROM subscriber_sends WHERE subscriber_id = ? AND item_id = ? AND feed_url = ? LIMIT 1",
+    )
+    .bind(subscriberId, itemId, feedUrl)
+    .first();
+  return !!result;
+}
+
+export async function insertSubscriberSend(db, subscriberId, itemId, feedUrl) {
+  return db
+    .prepare(
+      `INSERT OR IGNORE INTO subscriber_sends (subscriber_id, item_id, feed_url)
+       VALUES (?, ?, ?)`,
+    )
+    .bind(subscriberId, itemId, feedUrl)
+    .run();
+}
+
 // ─── Admin Queries ──────────────────────────────────────────────────────────
 
 export async function getSubscriberStats(db, siteId) {
