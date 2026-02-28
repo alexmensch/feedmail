@@ -47,8 +47,13 @@ export function htmlToText(html) {
     (entity) => ENTITY_MAP[entity] || decodeNumericEntity(entity) || entity,
   );
 
-  // Strip all remaining HTML tags
-  text = text.replace(/<[^>]+>/g, "");
+  // Strip all remaining HTML tags; repeat in case earlier replacements
+  // produce new tag-like patterns (defense against incomplete sanitization).
+  let prevText;
+  do {
+    prevText = text;
+    text = text.replace(/<[^>]+>/g, "");
+  } while (text !== prevText);
 
   // Collapse multiple blank lines into two newlines max
   text = text.replace(/\n{3,}/g, "\n\n");
