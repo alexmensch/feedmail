@@ -228,7 +228,7 @@ async function sendItemToSubscribers(env, site, item, subscribers) {
     );
     if (alreadySent) continue;
 
-    const unsubscribeUrl = `https://feedmail.cc/api/unsubscribe?token=${subscriber.unsubscribe_token}`;
+    const unsubscribeUrl = `${env.BASE_URL}/api/unsubscribe?token=${subscriber.unsubscribe_token}`;
 
     const personalizedHtml = emailHtml.replace(
       /%%UNSUBSCRIBE_URL%%/g,
