@@ -1,17 +1,21 @@
 /**
- * Handlebars template compilation and rendering.
- * Templates are imported as strings at build time.
+ * Handlebars template rendering using precompiled specs.
+ *
+ * Templates are precompiled at build time (scripts/precompile-templates.mjs)
+ * into JS modules that export template specification objects. At runtime,
+ * Handlebars.template() instantiates them without needing new Function() —
+ * which Cloudflare Workers disallows.
  */
 
-import Handlebars from "handlebars";
+import Handlebars from "handlebars/runtime.js";
 
-// Import templates as raw strings
-import newsletterHtml from "../templates/newsletter.hbs";
-import newsletterText from "../templates/newsletter.txt.hbs";
-import verificationEmailHtml from "../templates/verification-email.hbs";
-import verifyPageHtml from "../templates/verify-page.hbs";
-import unsubscribePageHtml from "../templates/unsubscribe-page.hbs";
-import errorPageHtml from "../templates/error-page.hbs";
+// Import precompiled template specs
+import newsletterSpec from "../templates/compiled/newsletter.js";
+import newsletterTextSpec from "../templates/compiled/newsletter.txt.js";
+import verificationEmailSpec from "../templates/compiled/verification-email.js";
+import verifyPageSpec from "../templates/compiled/verify-page.js";
+import unsubscribePageSpec from "../templates/compiled/unsubscribe-page.js";
+import errorPageSpec from "../templates/compiled/error-page.js";
 
 // Register Handlebars helpers
 Handlebars.registerHelper("formatDate", (dateStr) => {
@@ -26,14 +30,14 @@ Handlebars.registerHelper("formatDate", (dateStr) => {
 
 Handlebars.registerHelper("currentYear", () => new Date().getFullYear());
 
-// Compile templates once
+// Instantiate templates from precompiled specs
 const templates = {
-  newsletter: Handlebars.compile(newsletterHtml),
-  newsletterText: Handlebars.compile(newsletterText),
-  verificationEmail: Handlebars.compile(verificationEmailHtml),
-  verifyPage: Handlebars.compile(verifyPageHtml),
-  unsubscribePage: Handlebars.compile(unsubscribePageHtml),
-  errorPage: Handlebars.compile(errorPageHtml),
+  newsletter: Handlebars.template(newsletterSpec),
+  newsletterText: Handlebars.template(newsletterTextSpec),
+  verificationEmail: Handlebars.template(verificationEmailSpec),
+  verifyPage: Handlebars.template(verifyPageSpec),
+  unsubscribePage: Handlebars.template(unsubscribePageSpec),
+  errorPage: Handlebars.template(errorPageSpec),
 };
 
 /**
