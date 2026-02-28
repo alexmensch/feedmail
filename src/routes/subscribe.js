@@ -152,7 +152,7 @@ async function trySendVerification(env, site, email, verifyToken, subscriberId) 
     return; // Silently skip — no info leak
   }
 
-  const verifyUrl = `https://feedmail.cc/api/verify?token=${verifyToken}`;
+  const verifyUrl = `${env.BASE_URL}/api/verify?token=${verifyToken}`;
 
   const html = render("verificationEmail", {
     siteName: site.name,

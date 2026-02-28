@@ -89,6 +89,7 @@ wrangler.toml           # Worker config, cron, D1 binding, SITES config, custom 
 ### Configuration
 
 **`wrangler.toml` vars:**
+- `BASE_URL` — Public base URL of the service (e.g. `https://feedmail.cc`), used to construct verify/unsubscribe links in emails
 - `SITES` — JSON array of site objects (id, url, name, fromEmail, fromName, replyTo (optional), corsOrigins, feeds)
 - `VERIFY_MAX_ATTEMPTS` — Max verification emails per rolling window (default "5")
 - `VERIFY_WINDOW_HOURS` — Rolling window in hours (default "24")

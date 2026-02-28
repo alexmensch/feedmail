@@ -34,6 +34,7 @@ SITES = '''
 ]
 '''
 
+BASE_URL = "https://feedmail.cc"
 VERIFY_MAX_ATTEMPTS = "5"
 VERIFY_WINDOW_HOURS = "24"
 

@@ -6,9 +6,10 @@
   "license": "AGPL-3.0",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "deploy": "wrangler d1 migrations apply feedmail --remote && wrangler deploy",
     "db:migrate": "wrangler d1 migrations apply feedmail --remote",
-    "db:migrate:local": "wrangler d1 migrations apply feedmail --local"
+    "db:migrate:local": "wrangler d1 migrations apply feedmail --local",
+    "build:check": "wrangler deploy --dry-run --outdir dist"
   },
   "dependencies": {
     "fast-xml-parser": "^5.4.1",
@@ -16,5 +17,6 @@
   },
   "devDependencies": {
     "wrangler": "^4.14.4"
-  }
+  },
+  "packageManager": "pnpm@10.30.2"
 }
