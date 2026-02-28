@@ -16,6 +16,7 @@ import {
   getVerifiedSubscribers,
   isItemSentToSubscriber,
   insertSubscriberSend,
+  deleteSubscriberSends,
 } from "../lib/db.js";
 
 const USER_AGENT = `feedmail/${pkg.version}`;
@@ -148,6 +149,9 @@ async function processSiteFeeds(env, site, summary) {
         title: item.title,
         recipientCount: result.sent,
       });
+      // Clean up per-subscriber tracking rows — no longer needed once the
+      // item is recorded in sent_items (isItemSent will skip it from now on).
+      await deleteSubscriberSends(env.DB, item.id, item.feedUrl);
     }
 
     summary.sent += result.sent;

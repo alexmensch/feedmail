@@ -185,6 +185,13 @@ export async function insertSubscriberSend(db, subscriberId, itemId, feedUrl) {
     .run();
 }
 
+export async function deleteSubscriberSends(db, itemId, feedUrl) {
+  return db
+    .prepare("DELETE FROM subscriber_sends WHERE item_id = ? AND feed_url = ?")
+    .bind(itemId, feedUrl)
+    .run();
+}
+
 // ─── Admin Queries ──────────────────────────────────────────────────────────
 
 export async function getSubscriberStats(db, siteId) {
