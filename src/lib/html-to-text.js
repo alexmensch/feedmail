@@ -41,8 +41,12 @@ export function htmlToText(html) {
     "$2 ($1)",
   );
 
-  // Strip all remaining HTML tags
-  text = text.replace(/<[^>]+>/g, "");
+  // Strip all remaining HTML tags (repeat until stable to avoid incomplete multi-character sanitization)
+  let previous;
+  do {
+    previous = text;
+    text = text.replace(/<[^>]+>/g, "");
+  } while (text !== previous);
 
   // Decode HTML entities
   text = text.replace(
