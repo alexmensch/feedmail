@@ -7,7 +7,7 @@ import pkg from "../../package.json" with { type: "json" };
 import { getSites, getSiteById } from "../lib/config.js";
 import { fetchAndParseFeed } from "../lib/feed-parser.js";
 import { sendEmail } from "../lib/email.js";
-import { htmlToText } from "../lib/html-to-text.js";
+import { htmlToText, constrainImages } from "../lib/html-to-text.js";
 import { render } from "../lib/templates.js";
 import {
   isFeedSeeded,
@@ -162,9 +162,10 @@ async function processSiteFeeds(env, site, summary) {
  */
 async function sendItemToSubscribers(env, site, item, subscribers) {
   // Determine email content
-  const emailContent = item.content || item.summary || "";
+  const rawContent = item.content || item.summary || "";
+  const emailContent = constrainImages(rawContent);
   const hasFullContent = !!item.content;
-  const textContent = htmlToText(emailContent);
+  const textContent = htmlToText(rawContent);
 
   // Render the email templates
   const emailHtml = render("newsletter", {
@@ -207,6 +208,7 @@ async function sendItemToSubscribers(env, site, item, subscribers) {
     const result = await sendEmail(env.RESEND_API_KEY, {
       from: site.fromEmail,
       fromName: site.fromName,
+      replyTo: site.replyTo,
       to: subscriber.email,
       subject: item.title,
       html: personalizedHtml,

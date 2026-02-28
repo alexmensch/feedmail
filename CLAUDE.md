@@ -38,7 +38,7 @@ src/
     cors.js             # CORS preflight + response header helpers
     db.js               # All D1 query helpers (subscribers, verification_attempts, sent_items)
     feed-parser.js      # RSS 2.0 + Atom parsing via fast-xml-parser, normalized item shape
-    html-to-text.js     # HTML stripping for plain text email fallback
+    html-to-text.js     # HTML processing: plain text fallback + image constraining
     email.js            # Resend API email sending wrapper
     templates.js        # Handlebars precompiled template rendering — render(name, data)
     turnstile.js        # Cloudflare Turnstile server-side verification
@@ -86,7 +86,7 @@ wrangler.toml           # Worker config, cron, D1 binding, SITES config, custom 
 ### Configuration
 
 **`wrangler.toml` vars:**
-- `SITES` — JSON array of site objects (id, url, name, fromEmail, fromName, corsOrigins, feeds)
+- `SITES` — JSON array of site objects (id, url, name, fromEmail, fromName, replyTo (optional), corsOrigins, feeds)
 - `VERIFY_MAX_ATTEMPTS` — Max verification emails per rolling window (default "5")
 - `VERIFY_WINDOW_HOURS` — Rolling window in hours (default "24")
 

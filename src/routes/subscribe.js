@@ -174,6 +174,7 @@ async function trySendVerification(env, site, email, verifyToken, subscriberId) 
   const result = await sendEmail(env.RESEND_API_KEY, {
     from: site.fromEmail,
     fromName: site.fromName,
+    replyTo: site.replyTo,
     to: email,
     subject: `Confirm your subscription to ${site.name}`,
     html,

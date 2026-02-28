@@ -27,8 +27,9 @@ SITES = '''
     "name": "Alex Marshall",
     "fromEmail": "hello@newsletter.alxm.me",
     "fromName": "Alex Marshall",
+    "replyTo": "hello@alxm.me",
     "corsOrigins": ["https://alxm.me", "https://claude-quirky-newton-alxm-site.moveolabs.workers.dev", "http://localhost:8080"],
-    "feeds": ["https://alxm.me/writing.atom"]
+    "feeds": ["https://alxm.me/writing.atom", "https://claude-quirky-newton-alxm-site.moveolabs.workers.dev/writing.atom"]
   }
 ]
 '''

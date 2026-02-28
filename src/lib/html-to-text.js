@@ -1,5 +1,5 @@
 /**
- * Convert HTML to plain text for email text/plain alternative.
+ * HTML processing helpers for email content.
  */
 
 const ENTITY_MAP = {
@@ -57,6 +57,33 @@ export function htmlToText(html) {
   text = text.trim();
 
   return text;
+}
+
+/**
+ * Add inline styles to <img> tags so they don't overflow the email viewport.
+ * Merges with any existing style attribute rather than replacing it.
+ * @param {string} html - HTML string
+ * @returns {string} HTML with constrained images
+ */
+export function constrainImages(html) {
+  if (!html) return "";
+
+  const imgStyles = "max-width: 100%; height: auto;";
+
+  return html.replace(/<img\b([^>]*)>/gi, (match, attrs) => {
+    const hasStyle = /style\s*=/i.test(attrs);
+
+    if (hasStyle) {
+      // Prepend our styles to the existing style value
+      const updated = attrs.replace(
+        /style\s*=\s*"([^"]*)"/i,
+        (_, existing) => `style="${imgStyles} ${existing}"`,
+      );
+      return `<img${updated}>`;
+    }
+
+    return `<img${attrs} style="${imgStyles}">`;
+  });
 }
 
 /**
