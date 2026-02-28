@@ -25,7 +25,7 @@ SITES = '''
     "id": "alxm.me",
     "url": "https://alxm.me",
     "name": "Alex Marshall",
-    "fromEmail": "hello@alxm.me",
+    "fromEmail": "hello@newsletter.alxm.me",
     "fromName": "Alex Marshall",
     "corsOrigins": ["https://alxm.me", "https://claude-quirky-newton-alxm-site.moveolabs.workers.dev", "http://localhost:8080"],
     "feeds": ["https://alxm.me/writing.atom"]
@@ -37,7 +37,7 @@ VERIFY_MAX_ATTEMPTS = "5"
 VERIFY_WINDOW_HOURS = "24"
 
 # Secrets (set via `wrangler secret put`):
-# SENDGRID_API_KEY
+# RESEND_API_KEY
 # TURNSTILE_SECRET_KEY
 # ADMIN_API_KEY
 

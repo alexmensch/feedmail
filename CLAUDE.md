@@ -13,13 +13,13 @@ pnpm run db:migrate:local # Apply D1 migrations (local dev)
 
 ## Architecture
 
-feedmail is an RSS-to-email microservice on Cloudflare Workers. It monitors RSS/Atom feeds for new items and emails them to verified subscribers via SendGrid. Licensed AGPL-3.0.
+feedmail is an RSS-to-email microservice on Cloudflare Workers. It monitors RSS/Atom feeds for new items and emails them to verified subscribers via Resend. Licensed AGPL-3.0.
 
 ### Runtime Stack
 
 - **Cloudflare Workers** — HTTP request handling and cron triggers
 - **Cloudflare D1** (SQLite) — Subscribers, verification attempts, sent item history
-- **SendGrid v3 API** — Transactional email delivery
+- **Resend API** — Transactional email delivery
 - **Cloudflare Turnstile** — Bot protection on subscribe endpoint
 
 ### Directory Structure
@@ -39,10 +39,10 @@ src/
     db.js               # All D1 query helpers (subscribers, verification_attempts, sent_items)
     feed-parser.js      # RSS 2.0 + Atom parsing via fast-xml-parser, normalized item shape
     html-to-text.js     # HTML stripping for plain text email fallback
-    sendgrid.js         # SendGrid v3 mail/send wrapper
-    templates.js        # Handlebars template compilation + render(name, data)
+    email.js            # Resend API email sending wrapper
+    templates.js        # Handlebars precompiled template rendering — render(name, data)
     turnstile.js        # Cloudflare Turnstile server-side verification
-  templates/            # Handlebars (.hbs) files imported as text via wrangler rules
+  templates/            # Handlebars (.hbs) source files, precompiled at build time
     newsletter.hbs      # HTML newsletter email (table-based, inline styles)
     newsletter.txt.hbs  # Plain text newsletter
     verification-email.hbs  # Verification CTA email
@@ -61,7 +61,7 @@ wrangler.toml           # Worker config, cron, D1 binding, SITES config, custom 
 - **Verification rate limiting:** `verification_attempts` table tracks emails sent per subscriber. Rolling window (`VERIFY_WINDOW_HOURS`, default 24h) with max attempts (`VERIFY_MAX_ATTEMPTS`, default 5).
 - **Feed bootstrapping:** First time a feed URL is seen, all existing items are inserted into `sent_items` with `recipient_count = 0` — prevents blasting historical content on first deployment.
 - **Per-subscriber sends:** Each subscriber gets an individual email with personalized `List-Unsubscribe` headers. Template uses `%%UNSUBSCRIBE_URL%%` placeholder replaced per-subscriber before sending.
-- **Handlebars templates** are imported as raw text strings via wrangler's `[[rules]]` config (`type = "Text"` for `**/*.hbs` with `fallthrough = true`).
+- **Handlebars templates** are precompiled at build time (`scripts/precompile-templates.mjs`) because Cloudflare Workers disallow `new Function()`. The runtime uses `Handlebars.template()` with precompiled specs.
 - **User-Agent** uses semver from `package.json` (imported with `{ type: "json" }`).
 - **Zero tracking:** No open pixels or click tracking.
 
@@ -91,13 +91,13 @@ wrangler.toml           # Worker config, cron, D1 binding, SITES config, custom 
 - `VERIFY_WINDOW_HOURS` — Rolling window in hours (default "24")
 
 **Secrets (set via `wrangler secret put`):**
-- `SENDGRID_API_KEY`
+- `RESEND_API_KEY`
 - `TURNSTILE_SECRET_KEY`
 - `ADMIN_API_KEY`
 
 **Local dev secrets** go in `.dev.vars` (gitignored):
 ```
-SENDGRID_API_KEY=your-key
+RESEND_API_KEY=re_xxxxxxxxx
 TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
 ADMIN_API_KEY=any-test-value
 ```

@@ -5,7 +5,7 @@
 
 import { getSiteById, getVerifyLimits } from "../lib/config.js";
 import { verifyTurnstile } from "../lib/turnstile.js";
-import { sendEmail } from "../lib/sendgrid.js";
+import { sendEmail } from "../lib/email.js";
 import { render } from "../lib/templates.js";
 import {
   getSubscriberByEmail,
@@ -171,7 +171,7 @@ async function trySendVerification(env, site, email, verifyToken, subscriberId) 
     "If you didn't request this, you can safely ignore this email.",
   ].join("\n");
 
-  const result = await sendEmail(env.SENDGRID_API_KEY, {
+  const result = await sendEmail(env.RESEND_API_KEY, {
     from: site.fromEmail,
     fromName: site.fromName,
     to: email,

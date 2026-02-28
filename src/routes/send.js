@@ -6,7 +6,7 @@
 import pkg from "../../package.json" with { type: "json" };
 import { getSites, getSiteById } from "../lib/config.js";
 import { fetchAndParseFeed } from "../lib/feed-parser.js";
-import { sendEmail } from "../lib/sendgrid.js";
+import { sendEmail } from "../lib/email.js";
 import { htmlToText } from "../lib/html-to-text.js";
 import { render } from "../lib/templates.js";
 import {
@@ -204,7 +204,7 @@ async function sendItemToSubscribers(env, site, item, subscribers) {
       unsubscribeUrl,
     );
 
-    const result = await sendEmail(env.SENDGRID_API_KEY, {
+    const result = await sendEmail(env.RESEND_API_KEY, {
       from: site.fromEmail,
       fromName: site.fromName,
       to: subscriber.email,
