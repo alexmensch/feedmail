@@ -6,7 +6,7 @@
   "license": "AGPL-3.0",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "deploy": "wrangler d1 migrations apply feedmail --remote && wrangler deploy",
     "db:migrate": "wrangler d1 migrations apply feedmail --remote",
     "db:migrate:local": "wrangler d1 migrations apply feedmail --local"
   },
