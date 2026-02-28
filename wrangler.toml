@@ -2,6 +2,7 @@ name = "feedmail"
 main = "src/index.js"
 compatibility_date = "2025-07-01"
 compatibility_flags = ["nodejs_compat"]
+account_id = "ecd2a3d65ecc1018f93da07542223581"
 
 [build]
 command = "node scripts/precompile-templates.mjs"
