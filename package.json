@@ -11,7 +11,7 @@
     "db:migrate:local": "wrangler d1 migrations apply feedmail --local"
   },
   "dependencies": {
-    "fast-xml-parser": "^4.5.3",
+    "fast-xml-parser": "^5.4.1",
     "handlebars": "^4.7.8"
   },
   "devDependencies": {
