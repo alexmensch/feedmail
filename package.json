@@ -8,7 +8,8 @@
     "dev": "wrangler dev",
     "deploy": "wrangler d1 migrations apply feedmail --remote && wrangler deploy",
     "db:migrate": "wrangler d1 migrations apply feedmail --remote",
-    "db:migrate:local": "wrangler d1 migrations apply feedmail --local"
+    "db:migrate:local": "wrangler d1 migrations apply feedmail --local",
+    "build:check": "wrangler deploy --dry-run --outdir dist"
   },
   "dependencies": {
     "fast-xml-parser": "^5.4.1",
