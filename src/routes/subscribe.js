@@ -16,8 +16,8 @@ import {
   insertVerificationAttempt,
 } from "../lib/db.js";
 
-// Basic email validation (RFC 5322 simplified)
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Basic email validation (RFC 5322 simplified, ReDoS-safe)
+const EMAIL_REGEX = /^[^\s@]+@[^\s@.]+\.[^\s@]+$/;
 
 const SUCCESS_RESPONSE = {
   success: true,
