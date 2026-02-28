@@ -10,8 +10,10 @@
     "db:migrate": "wrangler d1 migrations apply feedmail --remote",
     "db:migrate:local": "wrangler d1 migrations apply feedmail --local",
     "build:check": "wrangler deploy --dry-run --outdir dist",
+    "pretest": "node scripts/precompile-templates.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
+    "pretest:coverage": "node scripts/precompile-templates.mjs",
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
