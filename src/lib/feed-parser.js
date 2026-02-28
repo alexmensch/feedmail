@@ -33,6 +33,7 @@ const parser = new XMLParser({
 function textValue(field) {
   if (field == null) return null;
   if (typeof field === "string") return field;
+  if (Array.isArray(field)) return textValue(field[0]);
   if (typeof field === "object" && field["#text"] != null) {
     return String(field["#text"]);
   }
