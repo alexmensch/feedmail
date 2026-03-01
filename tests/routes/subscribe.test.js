@@ -5,9 +5,6 @@ vi.mock("../../src/lib/config.js", () => ({
   getSiteById: vi.fn(),
   getVerifyLimits: vi.fn(),
 }));
-vi.mock("../../src/lib/turnstile.js", () => ({
-  verifyTurnstile: vi.fn(),
-}));
 vi.mock("../../src/lib/email.js", () => ({
   sendEmail: vi.fn(),
 }));
@@ -25,7 +22,6 @@ vi.mock("../../src/lib/db.js", () => ({
 
 import { handleSubscribe } from "../../src/routes/subscribe.js";
 import { getSiteById, getVerifyLimits } from "../../src/lib/config.js";
-import { verifyTurnstile } from "../../src/lib/turnstile.js";
 import { sendEmail } from "../../src/lib/email.js";
 import { render } from "../../src/lib/templates.js";
 import {
@@ -51,7 +47,6 @@ const SITE = {
 const env = {
   DB: {},
   RESEND_API_KEY: "re_test",
-  TURNSTILE_SECRET_KEY: "ts_test",
   BASE_URL: "https://feedmail.cc",
   SITES: JSON.stringify([SITE]),
 };
@@ -77,7 +72,6 @@ describe("handleSubscribe", () => {
 
     getSiteById.mockReturnValue(SITE);
     getVerifyLimits.mockReturnValue({ maxAttempts: 5, windowHours: 24 });
-    verifyTurnstile.mockResolvedValue({ success: true });
     sendEmail.mockResolvedValue({ success: true });
     countRecentVerificationAttempts.mockResolvedValue(0);
     insertSubscriber.mockResolvedValue({
@@ -102,7 +96,7 @@ describe("handleSubscribe", () => {
 
     it("returns 400 for missing siteId", async () => {
       const response = await handleSubscribe(
-        makeRequest({ email: "a@b.com", turnstileToken: "tok" }),
+        makeRequest({ email: "a@b.com" }),
         env,
       );
       const body = await response.json();
@@ -118,7 +112,6 @@ describe("handleSubscribe", () => {
         makeRequest({
           email: "a@b.com",
           siteId: "unknown",
-          turnstileToken: "tok",
         }),
         env,
       );
@@ -130,7 +123,7 @@ describe("handleSubscribe", () => {
 
     it("returns 400 for missing email", async () => {
       const response = await handleSubscribe(
-        makeRequest({ siteId: "test-site", turnstileToken: "tok" }),
+        makeRequest({ siteId: "test-site" }),
         env,
       );
       const body = await response.json();
@@ -151,7 +144,7 @@ describe("handleSubscribe", () => {
 
       for (const email of invalidEmails) {
         const response = await handleSubscribe(
-          makeRequest({ email, siteId: "test-site", turnstileToken: "tok" }),
+          makeRequest({ email, siteId: "test-site" }),
           env,
         );
         const body = await response.json();
@@ -171,7 +164,7 @@ describe("handleSubscribe", () => {
 
       for (const email of validEmails) {
         const response = await handleSubscribe(
-          makeRequest({ email, siteId: "test-site", turnstileToken: "tok" }),
+          makeRequest({ email, siteId: "test-site" }),
           env,
         );
         const body = await response.json();
@@ -181,46 +174,64 @@ describe("handleSubscribe", () => {
     });
   });
 
-  describe("Turnstile verification", () => {
-    it("returns 400 when Turnstile fails", async () => {
-      verifyTurnstile.mockResolvedValue({
-        success: false,
-        error: "invalid-token",
-      });
-
+  describe("strict field validation", () => {
+    it("rejects request with unexpected field (honeypot support)", async () => {
       const response = await handleSubscribe(
         makeRequest({
           email: "a@b.com",
           siteId: "test-site",
-          turnstileToken: "bad",
+          honeypot: "gotcha",
         }),
         env,
       );
       const body = await response.json();
 
       expect(response.status).toBe(400);
-      expect(body.message).toBe(
-        "Bot verification failed. Please try again.",
-      );
+      expect(body.success).toBe(false);
+      expect(body.message).toBe("Invalid request body.");
     });
 
-    it("passes CF-Connecting-IP to Turnstile", async () => {
+    it("rejects request with multiple extra fields", async () => {
+      const response = await handleSubscribe(
+        makeRequest({
+          email: "a@b.com",
+          siteId: "test-site",
+          name: "Bot",
+          phone: "123",
+        }),
+        env,
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body.message).toBe("Invalid request body.");
+    });
+
+    it("accepts request with exactly the expected fields", async () => {
       getSubscriberByEmail.mockResolvedValue(null);
 
+      const response = await handleSubscribe(
+        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        env,
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.success).toBe(true);
+    });
+
+    it("rejects before any DB or email work is done", async () => {
       await handleSubscribe(
         makeRequest({
           email: "a@b.com",
           siteId: "test-site",
-          turnstileToken: "tok",
+          honeypot: "filled",
         }),
         env,
       );
 
-      expect(verifyTurnstile).toHaveBeenCalledWith(
-        "ts_test",
-        "tok",
-        "1.2.3.4",
-      );
+      expect(getSubscriberByEmail).not.toHaveBeenCalled();
+      expect(sendEmail).not.toHaveBeenCalled();
     });
   });
 
@@ -236,7 +247,6 @@ describe("handleSubscribe", () => {
         makeRequest({
           email: "a@b.com",
           siteId: "test-site",
-          turnstileToken: "tok",
         }),
         env,
       );
@@ -259,7 +269,6 @@ describe("handleSubscribe", () => {
         makeRequest({
           email: "a@b.com",
           siteId: "test-site",
-          turnstileToken: "tok",
         }),
         env,
       );
@@ -286,7 +295,6 @@ describe("handleSubscribe", () => {
         makeRequest({
           email: "a@b.com",
           siteId: "test-site",
-          turnstileToken: "tok",
         }),
         env,
       );
@@ -316,7 +324,6 @@ describe("handleSubscribe", () => {
         vi.clearAllMocks();
         getSiteById.mockReturnValue(SITE);
         getVerifyLimits.mockReturnValue({ maxAttempts: 5, windowHours: 24 });
-        verifyTurnstile.mockResolvedValue({ success: true });
         sendEmail.mockResolvedValue({ success: true });
         countRecentVerificationAttempts.mockResolvedValue(0);
         insertSubscriber.mockResolvedValue({ meta: { last_row_id: 1 } });
@@ -326,7 +333,6 @@ describe("handleSubscribe", () => {
           makeRequest({
             email: "a@b.com",
             siteId: "test-site",
-            turnstileToken: "tok",
           }),
           env,
         );
@@ -353,7 +359,6 @@ describe("handleSubscribe", () => {
         makeRequest({
           email: "New@Example.COM",
           siteId: "test-site",
-          turnstileToken: "tok",
         }),
         env,
       );
@@ -380,7 +385,6 @@ describe("handleSubscribe", () => {
         makeRequest({
           email: "USER@DOMAIN.COM",
           siteId: "test-site",
-          turnstileToken: "tok",
         }),
         env,
       );
@@ -399,7 +403,6 @@ describe("handleSubscribe", () => {
         makeRequest({
           email: "  USER@DOMAIN.COM  ",
           siteId: "test-site",
-          turnstileToken: "tok",
         }),
         env,
       );
@@ -420,7 +423,6 @@ describe("handleSubscribe", () => {
         makeRequest({
           email: "a@b.com",
           siteId: "test-site",
-          turnstileToken: "tok",
         }),
         env,
       );
@@ -439,7 +441,6 @@ describe("handleSubscribe", () => {
         makeRequest({
           email: "a@b.com",
           siteId: "test-site",
-          turnstileToken: "tok",
         }),
         env,
       );
@@ -458,7 +459,6 @@ describe("handleSubscribe", () => {
         makeRequest({
           email: "a@b.com",
           siteId: "test-site",
-          turnstileToken: "tok",
         }),
         env,
       );
@@ -473,7 +473,6 @@ describe("handleSubscribe", () => {
         makeRequest({
           email: "a@b.com",
           siteId: "test-site",
-          turnstileToken: "tok",
         }),
         env,
       );
@@ -492,7 +491,6 @@ describe("handleSubscribe", () => {
         makeRequest({
           email: "a@b.com",
           siteId: "test-site",
-          turnstileToken: "tok",
         }),
         env,
       );
@@ -509,7 +507,6 @@ describe("handleSubscribe", () => {
         makeRequest({
           email: "a@b.com",
           siteId: "test-site",
-          turnstileToken: "tok",
         }),
         env,
       );
@@ -528,7 +525,6 @@ describe("handleSubscribe", () => {
         makeRequest({
           email: "user@test.com",
           siteId: "test-site",
-          turnstileToken: "tok",
         }),
         env,
       );

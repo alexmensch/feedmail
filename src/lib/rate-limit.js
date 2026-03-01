@@ -1,0 +1,86 @@
+/**
+ * IP-based rate limiting using D1.
+ * Rolling window counting — tracks individual requests per IP per endpoint.
+ */
+
+/**
+ * Rate limit configuration per endpoint.
+ * Keys are logical endpoint names, values define the limits.
+ * @type {Record<string, { maxRequests: number, windowSeconds: number }>}
+ */
+export const RATE_LIMITS = {
+  subscribe: { maxRequests: 10, windowSeconds: 3600 },
+  verify: { maxRequests: 20, windowSeconds: 3600 },
+  unsubscribe: { maxRequests: 20, windowSeconds: 3600 },
+  send: { maxRequests: 5, windowSeconds: 3600 },
+  admin: { maxRequests: 30, windowSeconds: 3600 },
+};
+
+/**
+ * Check whether a request from the given IP to the given endpoint is allowed.
+ * If allowed, records the request. If denied, returns retryAfter in seconds.
+ *
+ * Uses the "oldest request expiry" strategy for Retry-After: the value tells
+ * the client when the first slot in the rolling window will free up.
+ *
+ * @param {object} db - D1 database binding
+ * @param {string} ip - Client IP address
+ * @param {string} endpoint - Logical endpoint name (key of RATE_LIMITS)
+ * @param {number} maxRequests - Maximum requests allowed in the window
+ * @param {number} windowSeconds - Rolling window size in seconds
+ * @returns {Promise<{ allowed: boolean, retryAfter?: number }>}
+ */
+export async function checkRateLimit(db, ip, endpoint, maxRequests, windowSeconds) {
+  // Clean up expired rows for this IP+endpoint (keeps table small)
+  await db
+    .prepare(
+      "DELETE FROM rate_limits WHERE ip = ? AND endpoint = ? AND requested_at < datetime('now', ? || ' seconds')",
+    )
+    .bind(ip, endpoint, `-${windowSeconds}`)
+    .run();
+
+  // Count recent requests within the rolling window
+  const result = await db
+    .prepare(
+      `SELECT COUNT(*) as count, MIN(requested_at) as oldest
+       FROM rate_limits
+       WHERE ip = ? AND endpoint = ? AND requested_at >= datetime('now', ? || ' seconds')`,
+    )
+    .bind(ip, endpoint, `-${windowSeconds}`)
+    .first();
+
+  const count = result?.count || 0;
+
+  if (count >= maxRequests) {
+    // Calculate retryAfter: when the oldest request in the window expires
+    const oldest = result?.oldest ? new Date(result.oldest + "Z") : new Date();
+    const expiresAt = new Date(oldest.getTime() + windowSeconds * 1000);
+    const retryAfter = Math.max(1, Math.ceil((expiresAt - new Date()) / 1000));
+
+    return { allowed: false, retryAfter };
+  }
+
+  // Record this request
+  await db
+    .prepare("INSERT INTO rate_limits (ip, endpoint) VALUES (?, ?)")
+    .bind(ip, endpoint)
+    .run();
+
+  return { allowed: true };
+}
+
+/**
+ * Map a URL pathname to its rate limit endpoint name.
+ * Returns null if the path has no rate limiting configured.
+ *
+ * @param {string} pathname - URL pathname
+ * @returns {string|null} Endpoint name or null
+ */
+export function getEndpointName(pathname) {
+  if (pathname === "/api/subscribe") return "subscribe";
+  if (pathname === "/api/verify") return "verify";
+  if (pathname === "/api/unsubscribe") return "unsubscribe";
+  if (pathname === "/api/send") return "send";
+  if (pathname.startsWith("/api/admin/")) return "admin";
+  return null;
+}
