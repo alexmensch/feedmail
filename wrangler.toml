@@ -16,8 +16,8 @@ database_name = "feedmail"
 database_id = "5a427f97-0e66-499c-85e3-687980dab09c"
 
 [[routes]]
-pattern = "feedmail.cc"
-custom_domain = true
+pattern = "feedmail.cc/api/*"
+zone_name = "feedmail.cc"
 
 [vars]
 SITES = '''
