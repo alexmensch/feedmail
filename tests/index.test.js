@@ -203,9 +203,9 @@ describe("index.js — fetch handler", () => {
       expect(handleAdmin).not.toHaveBeenCalled();
     });
 
-    it("matches any path starting with /api/admin/", async () => {
+    it("delegates to handleAdmin for /api/admin/subscribers", async () => {
       await app.fetch(
-        makeRequest("GET", "/api/admin/anything", {
+        makeRequest("GET", "/api/admin/subscribers?siteId=test", {
           Authorization: "Bearer test-admin-key",
         }),
         env,
@@ -237,18 +237,53 @@ describe("index.js — fetch handler", () => {
     });
   });
 
-  describe("non-API paths", () => {
-    it("returns 404 for root path", async () => {
+  describe("unknown paths", () => {
+    it("returns 404 with no body for root path", async () => {
       const response = await app.fetch(makeRequest("GET", "/"), env);
       expect(response.status).toBe(404);
+      expect(response.body).toBeNull();
     });
 
-    it("returns 404 for non-API paths", async () => {
+    it("returns 404 with no body for non-API paths", async () => {
       const response = await app.fetch(makeRequest("GET", "/unknown"), env);
-
       expect(response.status).toBe(404);
-      const text = await response.text();
-      expect(text).toBe("Not Found");
+      expect(response.body).toBeNull();
+    });
+
+    it("returns 404 for unknown /api paths", async () => {
+      const response = await app.fetch(makeRequest("GET", "/api/unknown"), env);
+      expect(response.status).toBe(404);
+      expect(response.body).toBeNull();
+    });
+
+    it("returns 404 for unknown /api/admin subpaths", async () => {
+      const response = await app.fetch(
+        makeRequest("GET", "/api/admin/anything", {
+          Authorization: "Bearer test-admin-key",
+        }),
+        env,
+      );
+      expect(response.status).toBe(404);
+      expect(handleAdmin).not.toHaveBeenCalled();
+    });
+
+    it("returns 404 immediately without delay for unknown paths", async () => {
+      vi.useFakeTimers();
+
+      let resolved = false;
+      const responsePromise = app.fetch(
+        makeRequest("GET", "/api/unknown"),
+        env,
+      ).then((r) => { resolved = true; return r; });
+
+      // Advance just 1ms — far less than the 10s timeout delay
+      await vi.advanceTimersByTimeAsync(1);
+      expect(resolved).toBe(true);
+
+      const response = await responsePromise;
+      expect(response.status).toBe(404);
+
+      vi.useRealTimers();
     });
   });
 
@@ -347,17 +382,6 @@ describe("index.js — fetch handler", () => {
       const response = await responsePromise;
 
       expect(handleAdmin).not.toHaveBeenCalled();
-      expect(response.status).toBe(408);
-    });
-
-    it("times out for unknown /api paths", async () => {
-      const responsePromise = app.fetch(
-        makeRequest("GET", "/api/unknown"),
-        env,
-      );
-      await vi.advanceTimersByTimeAsync(10_000);
-      const response = await responsePromise;
-
       expect(response.status).toBe(408);
     });
 

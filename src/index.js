@@ -17,13 +17,15 @@ import {
 
 /**
  * Allowed HTTP methods per route path.
- * Admin routes use a prefix match and are handled separately.
+ * Every routable path must be listed here explicitly.
  */
 const ROUTE_METHODS = {
   "/api/subscribe": ["POST"],
   "/api/verify": ["GET"],
   "/api/unsubscribe": ["GET", "POST"],
   "/api/send": ["POST"],
+  "/api/admin/stats": ["GET"],
+  "/api/admin/subscribers": ["GET"],
 };
 
 /** Delay duration (ms) for timeout responses on invalid method/path. */
@@ -54,7 +56,7 @@ function unauthorizedResponse() {
 
 /**
  * Delay then return a 408 Request Timeout with no body.
- * Discourages bots probing unsupported methods and unknown paths.
+ * Discourages bots probing unsupported methods on known routes.
  * @returns {Promise<Response>}
  */
 async function timeoutResponse() {
@@ -64,29 +66,14 @@ async function timeoutResponse() {
 
 /**
  * Check if the given method is allowed for the given pathname.
- * Returns true if the method is allowed, false otherwise.
  * @param {string} method
  * @param {string} pathname
  * @returns {boolean|null} true = allowed, false = wrong method, null = unknown path
  */
 function isMethodAllowed(method, pathname) {
-  // Check exact path matches
-  if (ROUTE_METHODS[pathname]) {
-    return ROUTE_METHODS[pathname].includes(method);
-  }
-
-  // Check admin prefix
-  if (pathname.startsWith("/api/admin/")) {
-    return method === "GET";
-  }
-
-  // Unknown /api path
-  if (pathname.startsWith("/api/")) {
-    return null;
-  }
-
-  // Non-API path — not handled by method enforcement
-  return true;
+  const methods = ROUTE_METHODS[pathname];
+  if (!methods) return null;
+  return methods.includes(method);
 }
 
 export default {
@@ -104,9 +91,12 @@ export default {
       return handleCORSPreflight(request, env);
     }
 
-    // Method enforcement for /api/* paths
+    // Method enforcement: unknown paths get immediate 404, wrong methods get timeout
     const methodCheck = isMethodAllowed(request.method, url.pathname);
-    if (methodCheck === false || methodCheck === null) {
+    if (methodCheck === null) {
+      return new Response(null, { status: 404 });
+    }
+    if (methodCheck === false) {
       return timeoutResponse();
     }
 
@@ -164,8 +154,8 @@ export default {
         return handleAdmin(request, env, url);
       }
 
-      // Not found (non-API paths)
-      return new Response("Not Found", { status: 404 });
+      // Safety fallback (should not be reached if ROUTE_METHODS is in sync)
+      return new Response(null, { status: 404 });
     } catch (err) {
       console.error("Unhandled error:", err);
       return new Response(JSON.stringify({ error: "Internal Server Error" }), {
