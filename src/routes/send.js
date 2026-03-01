@@ -73,6 +73,8 @@ export async function checkFeedsAndSend(env, targetSiteId = null) {
  * Process all feeds for a single site.
  */
 async function processSiteFeeds(env, site, summary) {
+  if (!site.feeds || site.feeds.length === 0) return;
+
   const unseenItems = [];
 
   for (const feedUrl of site.feeds) {

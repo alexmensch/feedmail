@@ -568,4 +568,44 @@ describe("checkFeedsAndSend", () => {
       expect(result.items).toHaveLength(2);
     });
   });
+
+  describe("empty feeds list", () => {
+    it("skips site with empty feeds array without errors", async () => {
+      const siteNoFeeds = { ...SITE, feeds: [] };
+      getSites.mockReturnValue([siteNoFeeds]);
+
+      const result = await checkFeedsAndSend(env);
+
+      expect(result.sent).toBe(0);
+      expect(result.items).toHaveLength(0);
+      expect(fetchAndParseFeed).not.toHaveBeenCalled();
+    });
+
+    it("skips site with undefined feeds without errors", async () => {
+      const { feeds, ...siteNoFeeds } = SITE;
+      getSites.mockReturnValue([siteNoFeeds]);
+
+      const result = await checkFeedsAndSend(env);
+
+      expect(result.sent).toBe(0);
+      expect(result.items).toHaveLength(0);
+      expect(fetchAndParseFeed).not.toHaveBeenCalled();
+    });
+
+    it("processes other sites normally when one site has empty feeds", async () => {
+      const siteNoFeeds = { ...SITE, id: "no-feeds", feeds: [] };
+      const siteWithFeeds = { ...SITE, id: "has-feeds" };
+      getSites.mockReturnValue([siteNoFeeds, siteWithFeeds]);
+
+      isItemSent.mockResolvedValue(true); // all items already sent
+
+      const result = await checkFeedsAndSend(env);
+
+      expect(fetchAndParseFeed).toHaveBeenCalledTimes(1);
+      expect(fetchAndParseFeed).toHaveBeenCalledWith(
+        "https://example.com/feed.xml",
+        expect.any(String),
+      );
+    });
+  });
 });
