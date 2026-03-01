@@ -1,10 +1,9 @@
 /**
  * POST /api/subscribe
- * Handles new subscription requests with Turnstile validation and rate limiting.
+ * Handles new subscription requests with rate limiting.
  */
 
 import { getSiteById, getVerifyLimits } from "../lib/config.js";
-import { verifyTurnstile } from "../lib/turnstile.js";
 import { sendEmail } from "../lib/email.js";
 import { render } from "../lib/templates.js";
 import {
@@ -18,6 +17,10 @@ import {
 
 // Basic email validation (RFC 5322 simplified, ReDoS-safe)
 const EMAIL_REGEX = /^[^\s@]+@[^\s@.]+\.[^\s@]+$/;
+
+// Only these fields are accepted in the request body.
+// Any additional field causes rejection (enables invisible honeypot fields).
+const ALLOWED_FIELDS = new Set(["email", "siteId"]);
 
 const SUCCESS_RESPONSE = {
   success: true,
@@ -41,7 +44,19 @@ export async function handleSubscribe(request, env) {
     });
   }
 
-  const { email, turnstileToken, siteId } = body;
+  // Reject requests with unexpected fields (honeypot support).
+  // Uses the same error message as invalid JSON to avoid leaking info.
+  const hasUnexpectedFields = Object.keys(body).some(
+    (key) => !ALLOWED_FIELDS.has(key),
+  );
+  if (hasUnexpectedFields) {
+    return jsonResponse(400, {
+      success: false,
+      message: "Invalid request body.",
+    });
+  }
+
+  const { email, siteId } = body;
 
   // Validate siteId
   if (!siteId) {
@@ -68,21 +83,6 @@ export async function handleSubscribe(request, env) {
   }
 
   const normalizedEmail = email.toLowerCase().trim();
-
-  // Verify Turnstile
-  const turnstileResult = await verifyTurnstile(
-    env.TURNSTILE_SECRET_KEY,
-    turnstileToken,
-    request.headers.get("CF-Connecting-IP"),
-  );
-
-  if (!turnstileResult.success) {
-    console.error("Turnstile verification failed:", turnstileResult.error);
-    return jsonResponse(400, {
-      success: false,
-      message: "Bot verification failed. Please try again.",
-    });
-  }
 
   // Check for existing subscriber
   const existing = await getSubscriberByEmail(

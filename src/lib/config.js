@@ -34,7 +34,7 @@ export function getSiteById(env, siteId) {
  */
 export function getVerifyLimits(env) {
   return {
-    maxAttempts: parseInt(env.VERIFY_MAX_ATTEMPTS || "5", 10),
+    maxAttempts: parseInt(env.VERIFY_MAX_ATTEMPTS || "3", 10),
     windowHours: parseInt(env.VERIFY_WINDOW_HOURS || "24", 10),
   };
 }

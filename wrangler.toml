@@ -36,12 +36,11 @@ SITES = '''
 '''
 
 BASE_URL = "https://feedmail.cc"
-VERIFY_MAX_ATTEMPTS = "5"
+VERIFY_MAX_ATTEMPTS = "3"
 VERIFY_WINDOW_HOURS = "24"
 
 # Secrets (set via `wrangler secret put`):
 # RESEND_API_KEY
-# TURNSTILE_SECRET_KEY
 # ADMIN_API_KEY
 
 [observability.logs]

@@ -96,7 +96,7 @@ describe("config", () => {
 
     it("uses defaults when env vars are missing", () => {
       const limits = getVerifyLimits({});
-      expect(limits).toEqual({ maxAttempts: 5, windowHours: 24 });
+      expect(limits).toEqual({ maxAttempts: 3, windowHours: 24 });
     });
 
     it("parses custom values", () => {
