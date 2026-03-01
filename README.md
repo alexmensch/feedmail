@@ -14,7 +14,8 @@ An open-source RSS-to-email microservice that runs on Cloudflare Workers. Monito
 - **Zero tracking** — No open or click tracking; privacy by default
 - **Customizable templates** — Handlebars templates for emails and confirmation pages
 - **Admin API** — Subscriber stats and listing endpoints
-- **Bot protection** — Cloudflare Turnstile integration on the subscribe endpoint
+- **IP rate limiting** — Per-endpoint rolling window rate limiting via D1
+- **Bot protection** — Strict input validation with honeypot support, method enforcement with deliberate timeouts
 - **Feed bootstrapping** — First run seeds existing items without sending emails
 
 ## Architecture
@@ -22,26 +23,25 @@ An open-source RSS-to-email microservice that runs on Cloudflare Workers. Monito
 feedmail runs entirely on Cloudflare's edge platform:
 
 - **Cloudflare Workers** — Handles HTTP requests and cron triggers
-- **Cloudflare D1** — Stores subscribers, verification attempts, and sent item history
-- **SendGrid** — Sends transactional emails (verification and newsletter)
-- **Cloudflare Turnstile** — Bot protection for the subscribe form
+- **Cloudflare D1** — Stores subscribers, verification attempts, sent item history, and rate limits
+- **Resend** — Sends transactional emails (verification and newsletter)
 
 ## Quick Start
 
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) (v18+)
-- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) (`npm install -g wrangler`)
-- A [SendGrid](https://sendgrid.com/) account with an API key
+- [pnpm](https://pnpm.io/)
+- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) (`pnpm add -g wrangler`)
+- A [Resend](https://resend.com/) account with an API key
 - A [Cloudflare](https://cloudflare.com/) account
-- A [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/) site key and secret key
 
 ### 1. Clone and install
 
 ```bash
 git clone https://github.com/alexmensch/feedmail.git
 cd feedmail
-npm install
+pnpm install
 ```
 
 ### 2. Create the D1 database
@@ -55,8 +55,8 @@ Copy the `database_id` from the output into `wrangler.toml`.
 ### 3. Run migrations
 
 ```bash
-npm run db:migrate        # Remote (production)
-npm run db:migrate:local  # Local dev
+pnpm run db:migrate        # Remote (production)
+pnpm run db:migrate:local  # Local dev
 ```
 
 ### 4. Configure sites
@@ -87,28 +87,34 @@ Each site object requires:
 | `id` | Unique identifier (sent by the subscribe form) |
 | `url` | Site URL (used in templates) |
 | `name` | Display name (used in email subjects and templates) |
-| `fromEmail` | Sender email address (must be verified in SendGrid) |
+| `fromEmail` | Sender email address (must be verified in Resend) |
 | `fromName` | Sender display name |
+| `replyTo` | Reply-to email address (optional) |
 | `corsOrigins` | Allowed origins for the subscribe endpoint |
 | `feeds` | Array of RSS/Atom feed URLs to monitor |
 
 ### 5. Set secrets
 
 ```bash
-wrangler secret put SENDGRID_API_KEY
-wrangler secret put TURNSTILE_SECRET_KEY
+wrangler secret put RESEND_API_KEY
 wrangler secret put ADMIN_API_KEY
 ```
 
 ### 6. Deploy
 
 ```bash
-npm run deploy
+pnpm run deploy
 ```
 
-### 7. Set up your custom domain (optional)
+### 7. Set up your route pattern
 
-Update the `[[routes]]` section in `wrangler.toml` to use your domain, then redeploy.
+Update the `[[routes]]` section in `wrangler.toml` to use your domain:
+
+```toml
+[[routes]]
+pattern = "yourdomain.com/api/*"
+zone_name = "yourdomain.com"
+```
 
 ## Configuration
 
@@ -117,16 +123,30 @@ Update the `[[routes]]` section in `wrangler.toml` to use your domain, then rede
 | Variable | Default | Description |
 |---|---|---|
 | `SITES` | — | JSON array of site configurations (required) |
-| `VERIFY_MAX_ATTEMPTS` | `"5"` | Max verification emails per rolling window |
+| `BASE_URL` | — | Public base URL (e.g. `https://feedmail.cc`) (required) |
+| `VERIFY_MAX_ATTEMPTS` | `"3"` | Max verification emails per rolling window |
 | `VERIFY_WINDOW_HOURS` | `"24"` | Rolling window duration in hours |
 
 ### Secrets (`wrangler secret put`)
 
 | Secret | Description |
 |---|---|
-| `SENDGRID_API_KEY` | SendGrid API key for sending emails |
-| `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile secret key |
+| `RESEND_API_KEY` | Resend API key for sending emails |
 | `ADMIN_API_KEY` | Bearer token for admin and send endpoints |
+
+### IP Rate Limits
+
+Rate limits are configured per endpoint in `src/lib/rate-limit.js`:
+
+| Endpoint | Limit | Window |
+|---|---|---|
+| `/api/subscribe` | 10 requests | 1 hour |
+| `/api/verify` | 20 requests | 1 hour |
+| `/api/unsubscribe` | 20 requests | 1 hour |
+| `/api/send` | 5 requests | 1 hour |
+| `/api/admin/*` | 30 requests | 1 hour |
+
+When rate limited, the API returns `429 Too Many Requests` with a `Retry-After` header indicating when the next request will be accepted (with random jitter to prevent thundering herd retries).
 
 ## API Reference
 
@@ -141,10 +161,11 @@ Subscribe an email address to a site's newsletter.
 ```json
 {
   "email": "user@example.com",
-  "siteId": "my-site",
-  "turnstileToken": "<token from Turnstile widget>"
+  "siteId": "my-site"
 }
 ```
+
+Only `email` and `siteId` fields are accepted. Requests with any additional fields are rejected — this enables invisible honeypot fields in the subscribe form for bot protection.
 
 **Response:** `200 OK`
 
@@ -237,6 +258,16 @@ List subscribers for a site. Optional `status` filter (`pending`, `verified`, `u
 }
 ```
 
+## Security
+
+feedmail uses a layered security approach instead of CAPTCHA challenges:
+
+1. **IP rate limiting** — Per-endpoint limits via D1 rolling window counting (see [IP Rate Limits](#ip-rate-limits))
+2. **HTTP method enforcement** — Known routes with wrong methods receive a deliberate 10-second delay then 408 timeout, discouraging bot probing. Unknown paths get an immediate 404 with no body.
+3. **Strict input validation** — Subscribe endpoint rejects requests with unexpected fields, enabling invisible honeypot fields in the form
+4. **Verification email limits** — Per-subscriber rolling window limits on verification emails sent
+5. **No information leakage** — All subscribe responses are identical regardless of subscriber state
+
 ## Cron Behaviour
 
 feedmail runs on a configurable cron schedule (default: every 6 hours). On each trigger:
@@ -269,22 +300,28 @@ Customize these files before deploying to match your branding.
 
 ## Subscribe Form Example
 
-Add a subscribe form to your website that POSTs to the feedmail API:
+Add a subscribe form to your website that POSTs to the feedmail API. The form should only send `email` and `siteId` — any extra fields will be rejected (which is useful for adding an invisible honeypot field for bot detection).
 
 ```html
 <form id="subscribe-form">
   <input type="email" name="email" placeholder="Your email" required />
-  <div class="cf-turnstile" data-sitekey="YOUR_TURNSTILE_SITE_KEY"></div>
+  <!-- Honeypot field: hidden from real users, bots will fill it -->
+  <input type="text" name="website" style="display: none" tabindex="-1" autocomplete="off" />
   <button type="submit">Subscribe</button>
   <p id="subscribe-message" aria-live="polite"></p>
 </form>
 
-<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <script>
   document.getElementById('subscribe-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
     const msg = document.getElementById('subscribe-message');
+
+    // If honeypot field is filled, silently "succeed" without submitting
+    if (form.website.value) {
+      msg.textContent = 'Check your email to confirm your subscription.';
+      return;
+    }
 
     const response = await fetch('https://your-feedmail-domain/api/subscribe', {
       method: 'POST',
@@ -292,13 +329,11 @@ Add a subscribe form to your website that POSTs to the feedmail API:
       body: JSON.stringify({
         email: form.email.value,
         siteId: 'your-site-id',
-        turnstileToken: turnstile.getResponse(),
       }),
     });
 
     const data = await response.json();
     msg.textContent = data.message;
-    if (data.success) turnstile.reset();
   });
 </script>
 ```
@@ -338,11 +373,10 @@ SITES = '''
 ## Development
 
 ```bash
-# Start local dev server
-npm run dev
-
-# Apply migrations locally
-npm run db:migrate:local
+pnpm run dev              # Start local dev server
+pnpm run db:migrate:local # Apply migrations locally
+pnpm run test             # Run tests
+pnpm run test:coverage    # Run tests with coverage
 ```
 
 ## License
