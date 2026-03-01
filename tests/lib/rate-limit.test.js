@@ -94,10 +94,10 @@ describe("checkRateLimit", () => {
     expect(result.allowed).toBe(false);
   });
 
-  it("returns retryAfter based on oldest request expiry", async () => {
+  it("returns retryAfter based on oldest request expiry plus jitter", async () => {
     const now = new Date();
     // Oldest request was 45 minutes ago, window is 1 hour
-    // So retryAfter should be ~15 minutes = ~900 seconds
+    // So base retryAfter should be ~900 seconds, plus 0-30s jitter
     const oldest = new Date(now.getTime() - 45 * 60 * 1000);
     const oldestStr = oldest.toISOString().replace("T", " ").replace("Z", "");
 
@@ -106,9 +106,45 @@ describe("checkRateLimit", () => {
     const result = await checkRateLimit(db, "1.2.3.4", "subscribe", 10, 3600);
 
     expect(result.allowed).toBe(false);
-    // Should be approximately 900 seconds (15 min), give or take a few seconds
+    // ~900 base + 0-30 jitter = 895-935 (with timing tolerance)
     expect(result.retryAfter).toBeGreaterThanOrEqual(895);
-    expect(result.retryAfter).toBeLessThanOrEqual(905);
+    expect(result.retryAfter).toBeLessThanOrEqual(935);
+  });
+
+  it("adds random jitter between 0 and 30 seconds to retryAfter", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.5);
+
+    const now = new Date();
+    const oldest = new Date(now.getTime() - 45 * 60 * 1000);
+    const oldestStr = oldest.toISOString().replace("T", " ").replace("Z", "");
+
+    const db = mockDb({ count: 10, oldest: oldestStr });
+    const result = await checkRateLimit(db, "1.2.3.4", "subscribe", 10, 3600);
+
+    expect(result.allowed).toBe(false);
+    // Base ~900 + jitter floor(0.5 * 31) = 15 → ~915
+    expect(result.retryAfter).toBeGreaterThanOrEqual(910);
+    expect(result.retryAfter).toBeLessThanOrEqual(920);
+
+    randomSpy.mockRestore();
+  });
+
+  it("adds up to 30 seconds of jitter when Math.random is near 1", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.999);
+
+    const now = new Date();
+    const oldest = new Date(now.getTime() - 45 * 60 * 1000);
+    const oldestStr = oldest.toISOString().replace("T", " ").replace("Z", "");
+
+    const db = mockDb({ count: 10, oldest: oldestStr });
+    const result = await checkRateLimit(db, "1.2.3.4", "subscribe", 10, 3600);
+
+    expect(result.allowed).toBe(false);
+    // Base ~900 + jitter floor(0.999 * 31) = 30 → ~930
+    expect(result.retryAfter).toBeGreaterThanOrEqual(925);
+    expect(result.retryAfter).toBeLessThanOrEqual(935);
+
+    randomSpy.mockRestore();
   });
 
   it("returns retryAfter of at least 1 second", async () => {

@@ -21,7 +21,8 @@ export const RATE_LIMITS = {
  * If allowed, records the request. If denied, returns retryAfter in seconds.
  *
  * Uses the "oldest request expiry" strategy for Retry-After: the value tells
- * the client when the first slot in the rolling window will free up.
+ * the client when the first slot in the rolling window will free up, plus
+ * 0-30 seconds of random jitter to prevent thundering herd retries.
  *
  * @param {object} db - D1 database binding
  * @param {string} ip - Client IP address
@@ -53,9 +54,11 @@ export async function checkRateLimit(db, ip, endpoint, maxRequests, windowSecond
 
   if (count >= maxRequests) {
     // Calculate retryAfter: when the oldest request in the window expires
+    // Add 0-30s random jitter to prevent thundering herd retries
     const oldest = result?.oldest ? new Date(result.oldest + "Z") : new Date();
     const expiresAt = new Date(oldest.getTime() + windowSeconds * 1000);
-    const retryAfter = Math.max(1, Math.ceil((expiresAt - new Date()) / 1000));
+    const jitter = Math.floor(Math.random() * 31);
+    const retryAfter = Math.max(1, Math.ceil((expiresAt - new Date()) / 1000)) + jitter;
 
     return { allowed: false, retryAfter };
   }
