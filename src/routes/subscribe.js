@@ -24,7 +24,7 @@ const ALLOWED_FIELDS = new Set(["email", "siteId"]);
 
 const SUCCESS_RESPONSE = {
   success: true,
-  message: "Check your email to confirm your subscription.",
+  message: "Check your email to confirm your subscription",
 };
 
 /**
@@ -40,7 +40,7 @@ export async function handleSubscribe(request, env) {
   } catch {
     return jsonResponse(400, {
       success: false,
-      message: "Invalid request body.",
+      message: "Invalid request body",
     });
   }
 
@@ -52,7 +52,7 @@ export async function handleSubscribe(request, env) {
   if (hasUnexpectedFields) {
     return jsonResponse(400, {
       success: false,
-      message: "Invalid request body.",
+      message: "Invalid request body",
     });
   }
 
@@ -62,7 +62,7 @@ export async function handleSubscribe(request, env) {
   if (!siteId) {
     return jsonResponse(400, {
       success: false,
-      message: "Missing site identifier.",
+      message: "Missing site identifier",
     });
   }
 
@@ -70,7 +70,7 @@ export async function handleSubscribe(request, env) {
   if (!site) {
     return jsonResponse(400, {
       success: false,
-      message: "Unknown site.",
+      message: "Unknown site",
     });
   }
 
@@ -78,7 +78,7 @@ export async function handleSubscribe(request, env) {
   if (!email || !EMAIL_REGEX.test(email)) {
     return jsonResponse(400, {
       success: false,
-      message: "Please provide a valid email address.",
+      message: "Please provide a valid email address",
     });
   }
 
