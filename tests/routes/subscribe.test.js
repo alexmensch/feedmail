@@ -91,7 +91,7 @@ describe("handleSubscribe", () => {
 
       expect(response.status).toBe(400);
       expect(body.success).toBe(false);
-      expect(body.message).toBe("Invalid request body.");
+      expect(body.message).toBe("Invalid request body");
     });
 
     it("returns 400 for missing siteId", async () => {
@@ -102,7 +102,7 @@ describe("handleSubscribe", () => {
       const body = await response.json();
 
       expect(response.status).toBe(400);
-      expect(body.message).toBe("Missing site identifier.");
+      expect(body.message).toBe("Missing site identifier");
     });
 
     it("returns 400 for unknown siteId", async () => {
@@ -118,7 +118,7 @@ describe("handleSubscribe", () => {
       const body = await response.json();
 
       expect(response.status).toBe(400);
-      expect(body.message).toBe("Unknown site.");
+      expect(body.message).toBe("Unknown site");
     });
 
     it("returns 400 for missing email", async () => {
@@ -129,7 +129,7 @@ describe("handleSubscribe", () => {
       const body = await response.json();
 
       expect(response.status).toBe(400);
-      expect(body.message).toBe("Please provide a valid email address.");
+      expect(body.message).toBe("Please provide a valid email address");
     });
 
     it("returns 400 for invalid email format", async () => {
@@ -149,7 +149,7 @@ describe("handleSubscribe", () => {
         );
         const body = await response.json();
         expect(response.status).toBe(400);
-        expect(body.message).toBe("Please provide a valid email address.");
+        expect(body.message).toBe("Please provide a valid email address");
       }
     });
 
@@ -188,7 +188,7 @@ describe("handleSubscribe", () => {
 
       expect(response.status).toBe(400);
       expect(body.success).toBe(false);
-      expect(body.message).toBe("Invalid request body.");
+      expect(body.message).toBe("Invalid request body");
     });
 
     it("rejects request with multiple extra fields", async () => {
@@ -204,7 +204,7 @@ describe("handleSubscribe", () => {
       const body = await response.json();
 
       expect(response.status).toBe(400);
-      expect(body.message).toBe("Invalid request body.");
+      expect(body.message).toBe("Invalid request body");
     });
 
     it("accepts request with exactly the expected fields", async () => {
@@ -345,7 +345,7 @@ describe("handleSubscribe", () => {
         expect(r.status).toBe(200);
         expect(r.body.success).toBe(true);
         expect(r.body.message).toBe(
-          "Check your email to confirm your subscription.",
+          "Check your email to confirm your subscription",
         );
       }
     });
@@ -409,7 +409,7 @@ describe("handleSubscribe", () => {
       const body = await response.json();
 
       expect(response.status).toBe(400);
-      expect(body.message).toBe("Please provide a valid email address.");
+      expect(body.message).toBe("Please provide a valid email address");
     });
 
     it("falls back to re-querying subscriber when last_row_id is missing", async () => {
