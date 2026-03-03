@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   RATE_LIMITS,
+  STALE_ROW_MAX_AGE_SECONDS,
+  CLEANUP_PROBABILITY,
   checkRateLimit,
+  cleanupStaleRateLimits,
   getEndpointName,
 } from "../../src/lib/rate-limit.js";
 
@@ -28,6 +31,26 @@ function mockDb(countResult = { count: 0, oldest: null }) {
   return db;
 }
 
+/**
+ * Create a mock D1 database where the first prepare() call (stale cleanup)
+ * uses a custom run() promise, and all subsequent calls resolve normally.
+ * @param {Promise} cleanupRun - Promise returned by the stale cleanup's .run()
+ * @returns {{ prepare: Function }}
+ */
+function mockDbWithCleanupBehavior(cleanupRun) {
+  let callCount = 0;
+  return {
+    prepare: vi.fn().mockImplementation(() => {
+      const isStaleCleanup = callCount++ === 0;
+      return {
+        bind: vi.fn().mockReturnThis(),
+        run: vi.fn().mockReturnValue(isStaleCleanup ? cleanupRun : Promise.resolve({})),
+        first: vi.fn().mockResolvedValue({ count: 0, oldest: null }),
+      };
+    }),
+  };
+}
+
 describe("RATE_LIMITS config", () => {
   it("has entries for all five endpoints", () => {
     expect(RATE_LIMITS).toHaveProperty("subscribe");
@@ -44,6 +67,56 @@ describe("RATE_LIMITS config", () => {
       expect(Number.isInteger(config.maxRequests), `${name}.maxRequests is integer`).toBe(true);
       expect(Number.isInteger(config.windowSeconds), `${name}.windowSeconds is integer`).toBe(true);
     }
+  });
+});
+
+describe("STALE_ROW_MAX_AGE_SECONDS", () => {
+  it("is a positive integer", () => {
+    expect(typeof STALE_ROW_MAX_AGE_SECONDS).toBe("number");
+    expect(Number.isInteger(STALE_ROW_MAX_AGE_SECONDS)).toBe(true);
+    expect(STALE_ROW_MAX_AGE_SECONDS).toBeGreaterThan(0);
+  });
+});
+
+describe("CLEANUP_PROBABILITY", () => {
+  it("is in the open interval (0, 1)", () => {
+    expect(CLEANUP_PROBABILITY).toBeGreaterThan(0);
+    expect(CLEANUP_PROBABILITY).toBeLessThan(1);
+  });
+});
+
+describe("cleanupStaleRateLimits", () => {
+  it("calls db.prepare with the stale-row DELETE SQL", async () => {
+    const db = mockDb();
+    await cleanupStaleRateLimits(db);
+    expect(db.prepare).toHaveBeenCalledWith(
+      "DELETE FROM rate_limits WHERE requested_at < datetime('now', ? || ' seconds')",
+    );
+  });
+
+  it("binds with the negative STALE_ROW_MAX_AGE_SECONDS value", async () => {
+    const db = mockDb();
+    await cleanupStaleRateLimits(db);
+    expect(db._stmts[0].bind).toHaveBeenCalledWith(`-${STALE_ROW_MAX_AGE_SECONDS}`);
+  });
+
+  it("calls .run() and returns its result", async () => {
+    const db = mockDb();
+    const result = await cleanupStaleRateLimits(db);
+    expect(db._stmts[0].run).toHaveBeenCalled();
+    expect(result).toBeDefined();
+  });
+
+  it("propagates rejection from .run()", async () => {
+    const err = new Error("DB error");
+    const db = {
+      prepare: vi.fn().mockReturnValue({
+        bind: vi.fn().mockReturnThis(),
+        run: vi.fn().mockRejectedValue(err),
+        first: vi.fn(),
+      }),
+    };
+    await expect(cleanupStaleRateLimits(db)).rejects.toThrow("DB error");
   });
 });
 
@@ -163,6 +236,7 @@ describe("checkRateLimit", () => {
   });
 
   it("cleans up expired rows before checking count", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.5);
     const db = mockDb({ count: 0, oldest: null });
 
     await checkRateLimit(db, "1.2.3.4", "subscribe", 10, 3600);
@@ -172,9 +246,12 @@ describe("checkRateLimit", () => {
     const cleanupStmt = db._stmts[0];
     expect(cleanupStmt.bind).toHaveBeenCalledWith("1.2.3.4", "subscribe", "-3600");
     expect(cleanupStmt.run).toHaveBeenCalled();
+
+    randomSpy.mockRestore();
   });
 
   it("inserts new row when request is allowed", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.5);
     const db = mockDb({ count: 0, oldest: null });
 
     await checkRateLimit(db, "1.2.3.4", "subscribe", 10, 3600);
@@ -184,9 +261,12 @@ describe("checkRateLimit", () => {
     const insertStmt = db._stmts[2];
     expect(insertStmt.bind).toHaveBeenCalledWith("1.2.3.4", "subscribe");
     expect(insertStmt.run).toHaveBeenCalled();
+
+    randomSpy.mockRestore();
   });
 
   it("does NOT insert row when request is denied", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.5);
     const now = new Date();
     const oldest = new Date(now.getTime() - 30 * 60 * 1000);
     const oldestStr = oldest.toISOString().replace("T", " ").replace("Z", "");
@@ -197,6 +277,8 @@ describe("checkRateLimit", () => {
 
     // Only 2 prepare calls: cleanup + count (no insert)
     expect(db._stmts.length).toBe(2);
+
+    randomSpy.mockRestore();
   });
 
   it("handles null count result gracefully", async () => {
@@ -208,6 +290,7 @@ describe("checkRateLimit", () => {
   });
 
   it("passes correct bind parameters for count query", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.5);
     const db = mockDb({ count: 0, oldest: null });
 
     await checkRateLimit(db, "10.0.0.1", "admin", 30, 7200);
@@ -216,6 +299,92 @@ describe("checkRateLimit", () => {
     const countStmt = db._stmts[1];
     expect(countStmt.bind).toHaveBeenCalledWith("10.0.0.1", "admin", "-7200");
     expect(countStmt.first).toHaveBeenCalled();
+
+    randomSpy.mockRestore();
+  });
+
+  describe("probabilistic stale cleanup", () => {
+    it("triggers global stale cleanup when Math.random < CLEANUP_PROBABILITY", async () => {
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.009);
+      const db = mockDb({ count: 0, oldest: null });
+
+      await checkRateLimit(db, "1.2.3.4", "subscribe", 10, 3600);
+
+      // With global cleanup triggered: stale DELETE + per-IP DELETE + count + insert = 4 stmts
+      expect(db._stmts.length).toBe(4);
+      // stmt[0] is the stale cleanup — bound with the max age, not an IP
+      expect(db._stmts[0].bind).toHaveBeenCalledWith(`-${STALE_ROW_MAX_AGE_SECONDS}`);
+
+      randomSpy.mockRestore();
+    });
+
+    it("triggers when Math.random returns 0 (lower boundary)", async () => {
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+      const db = mockDb({ count: 0, oldest: null });
+
+      await checkRateLimit(db, "1.2.3.4", "subscribe", 10, 3600);
+
+      expect(db._stmts.length).toBe(4);
+
+      randomSpy.mockRestore();
+    });
+
+    it("does not trigger global cleanup when Math.random >= CLEANUP_PROBABILITY", async () => {
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.5);
+      const db = mockDb({ count: 0, oldest: null });
+
+      await checkRateLimit(db, "1.2.3.4", "subscribe", 10, 3600);
+
+      // Without global cleanup: per-IP DELETE + count + insert = 3 stmts
+      expect(db._stmts.length).toBe(3);
+
+      randomSpy.mockRestore();
+    });
+
+    it("does not trigger when Math.random equals CLEANUP_PROBABILITY (upper boundary)", async () => {
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(CLEANUP_PROBABILITY);
+      const db = mockDb({ count: 0, oldest: null });
+
+      await checkRateLimit(db, "1.2.3.4", "subscribe", 10, 3600);
+
+      expect(db._stmts.length).toBe(3);
+
+      randomSpy.mockRestore();
+    });
+
+    it("global cleanup is fire-and-forget and does not block request handling", async () => {
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+      // Stale cleanup run() never resolves — would hang checkRateLimit if awaited
+      const db = mockDbWithCleanupBehavior(new Promise(() => {}));
+
+      const result = await checkRateLimit(db, "1.2.3.4", "subscribe", 10, 3600);
+
+      // checkRateLimit returned successfully even though global cleanup never resolved
+      expect(result.allowed).toBe(true);
+      // 4 prepare calls: stale + per-IP + count + insert
+      expect(db.prepare).toHaveBeenCalledTimes(4);
+
+      randomSpy.mockRestore();
+    });
+
+    it("errors in global cleanup are caught and logged, not propagated", async () => {
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const cleanupError = new Error("DB cleanup error");
+      const db = mockDbWithCleanupBehavior(Promise.reject(cleanupError));
+
+      const result = await checkRateLimit(db, "1.2.3.4", "subscribe", 10, 3600);
+
+      // Allow the fire-and-forget rejection to settle through the .catch() handler
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(result.allowed).toBe(true);
+      expect(consoleSpy).toHaveBeenCalledWith("Stale rate limit cleanup failed:", cleanupError);
+
+      randomSpy.mockRestore();
+      consoleSpy.mockRestore();
+    });
   });
 });
 

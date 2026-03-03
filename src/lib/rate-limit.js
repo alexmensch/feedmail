@@ -16,6 +16,12 @@ export const RATE_LIMITS = {
   admin: { maxRequests: 30, windowSeconds: 3600 },
 };
 
+/** Maximum age for rate limit rows before they are eligible for cleanup (7 days). */
+export const STALE_ROW_MAX_AGE_SECONDS = 604800;
+
+/** Probability of triggering global stale row cleanup on each rate limit check. */
+export const CLEANUP_PROBABILITY = 0.01;
+
 /**
  * Check whether a request from the given IP to the given endpoint is allowed.
  * If allowed, records the request. If denied, returns retryAfter in seconds.
@@ -32,6 +38,13 @@ export const RATE_LIMITS = {
  * @returns {Promise<{ allowed: boolean, retryAfter?: number }>}
  */
 export async function checkRateLimit(db, ip, endpoint, maxRequests, windowSeconds) {
+  // Probabilistically clean up all stale rows across the entire table
+  if (Math.random() < CLEANUP_PROBABILITY) {
+    cleanupStaleRateLimits(db).catch((err) =>
+      console.error("Stale rate limit cleanup failed:", err),
+    );
+  }
+
   // Clean up expired rows for this IP+endpoint (keeps table small)
   await db
     .prepare(
@@ -70,6 +83,22 @@ export async function checkRateLimit(db, ip, endpoint, maxRequests, windowSecond
     .run();
 
   return { allowed: true };
+}
+
+/**
+ * Delete all rate_limits rows older than STALE_ROW_MAX_AGE_SECONDS.
+ * Designed to be called fire-and-forget from checkRateLimit.
+ *
+ * @param {object} db - D1 database binding
+ * @returns {Promise<object>} D1 run result
+ */
+export async function cleanupStaleRateLimits(db) {
+  return db
+    .prepare(
+      "DELETE FROM rate_limits WHERE requested_at < datetime('now', ? || ' seconds')",
+    )
+    .bind(`-${STALE_ROW_MAX_AGE_SECONDS}`)
+    .run();
 }
 
 /**
