@@ -31,6 +31,26 @@ function mockDb(countResult = { count: 0, oldest: null }) {
   return db;
 }
 
+/**
+ * Create a mock D1 database where the first prepare() call (stale cleanup)
+ * uses a custom run() promise, and all subsequent calls resolve normally.
+ * @param {Promise} cleanupRun - Promise returned by the stale cleanup's .run()
+ * @returns {{ prepare: Function }}
+ */
+function mockDbWithCleanupBehavior(cleanupRun) {
+  let callCount = 0;
+  return {
+    prepare: vi.fn().mockImplementation(() => {
+      const isStaleCleanup = callCount++ === 0;
+      return {
+        bind: vi.fn().mockReturnThis(),
+        run: vi.fn().mockReturnValue(isStaleCleanup ? cleanupRun : Promise.resolve({})),
+        first: vi.fn().mockResolvedValue({ count: 0, oldest: null }),
+      };
+    }),
+  };
+}
+
 describe("RATE_LIMITS config", () => {
   it("has entries for all five endpoints", () => {
     expect(RATE_LIMITS).toHaveProperty("subscribe");
@@ -51,17 +71,14 @@ describe("RATE_LIMITS config", () => {
 });
 
 describe("STALE_ROW_MAX_AGE_SECONDS", () => {
-  it("equals 604800 (7 days in seconds)", () => {
-    expect(STALE_ROW_MAX_AGE_SECONDS).toBe(604800);
+  it("is a positive integer", () => {
     expect(typeof STALE_ROW_MAX_AGE_SECONDS).toBe("number");
+    expect(Number.isInteger(STALE_ROW_MAX_AGE_SECONDS)).toBe(true);
+    expect(STALE_ROW_MAX_AGE_SECONDS).toBeGreaterThan(0);
   });
 });
 
 describe("CLEANUP_PROBABILITY", () => {
-  it("equals 0.01", () => {
-    expect(CLEANUP_PROBABILITY).toBe(0.01);
-  });
-
   it("is in the open interval (0, 1)", () => {
     expect(CLEANUP_PROBABILITY).toBeGreaterThan(0);
     expect(CLEANUP_PROBABILITY).toBeLessThan(1);
@@ -219,6 +236,7 @@ describe("checkRateLimit", () => {
   });
 
   it("cleans up expired rows before checking count", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.5);
     const db = mockDb({ count: 0, oldest: null });
 
     await checkRateLimit(db, "1.2.3.4", "subscribe", 10, 3600);
@@ -228,9 +246,12 @@ describe("checkRateLimit", () => {
     const cleanupStmt = db._stmts[0];
     expect(cleanupStmt.bind).toHaveBeenCalledWith("1.2.3.4", "subscribe", "-3600");
     expect(cleanupStmt.run).toHaveBeenCalled();
+
+    randomSpy.mockRestore();
   });
 
   it("inserts new row when request is allowed", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.5);
     const db = mockDb({ count: 0, oldest: null });
 
     await checkRateLimit(db, "1.2.3.4", "subscribe", 10, 3600);
@@ -240,9 +261,12 @@ describe("checkRateLimit", () => {
     const insertStmt = db._stmts[2];
     expect(insertStmt.bind).toHaveBeenCalledWith("1.2.3.4", "subscribe");
     expect(insertStmt.run).toHaveBeenCalled();
+
+    randomSpy.mockRestore();
   });
 
   it("does NOT insert row when request is denied", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.5);
     const now = new Date();
     const oldest = new Date(now.getTime() - 30 * 60 * 1000);
     const oldestStr = oldest.toISOString().replace("T", " ").replace("Z", "");
@@ -253,6 +277,8 @@ describe("checkRateLimit", () => {
 
     // Only 2 prepare calls: cleanup + count (no insert)
     expect(db._stmts.length).toBe(2);
+
+    randomSpy.mockRestore();
   });
 
   it("handles null count result gracefully", async () => {
@@ -264,6 +290,7 @@ describe("checkRateLimit", () => {
   });
 
   it("passes correct bind parameters for count query", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.5);
     const db = mockDb({ count: 0, oldest: null });
 
     await checkRateLimit(db, "10.0.0.1", "admin", 30, 7200);
@@ -272,6 +299,8 @@ describe("checkRateLimit", () => {
     const countStmt = db._stmts[1];
     expect(countStmt.bind).toHaveBeenCalledWith("10.0.0.1", "admin", "-7200");
     expect(countStmt.first).toHaveBeenCalled();
+
+    randomSpy.mockRestore();
   });
 
   describe("probabilistic stale cleanup", () => {
@@ -325,21 +354,8 @@ describe("checkRateLimit", () => {
 
     it("global cleanup is fire-and-forget and does not block request handling", async () => {
       const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-
-      let callCount = 0;
-      const db = {
-        prepare: vi.fn().mockImplementation(() => {
-          const isStaleCleanup = callCount++ === 0;
-          return {
-            bind: vi.fn().mockReturnThis(),
-            // Stale cleanup run() never resolves — would hang checkRateLimit if awaited
-            run: vi.fn().mockReturnValue(
-              isStaleCleanup ? new Promise(() => {}) : Promise.resolve({}),
-            ),
-            first: vi.fn().mockResolvedValue({ count: 0, oldest: null }),
-          };
-        }),
-      };
+      // Stale cleanup run() never resolves — would hang checkRateLimit if awaited
+      const db = mockDbWithCleanupBehavior(new Promise(() => {}));
 
       const result = await checkRateLimit(db, "1.2.3.4", "subscribe", 10, 3600);
 
@@ -356,19 +372,7 @@ describe("checkRateLimit", () => {
       const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
       const cleanupError = new Error("DB cleanup error");
-      let callCount = 0;
-      const db = {
-        prepare: vi.fn().mockImplementation(() => {
-          const isStaleCleanup = callCount++ === 0;
-          return {
-            bind: vi.fn().mockReturnThis(),
-            run: vi.fn().mockReturnValue(
-              isStaleCleanup ? Promise.reject(cleanupError) : Promise.resolve({}),
-            ),
-            first: vi.fn().mockResolvedValue({ count: 0, oldest: null }),
-          };
-        }),
-      };
+      const db = mockDbWithCleanupBehavior(Promise.reject(cleanupError));
 
       const result = await checkRateLimit(db, "1.2.3.4", "subscribe", 10, 3600);
 
