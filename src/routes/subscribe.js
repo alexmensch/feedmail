@@ -101,7 +101,7 @@ export async function handleSubscribe(request, env) {
       // Regenerate token and resend if under rate limit
       const newToken = crypto.randomUUID();
       await updateVerifyToken(env.DB, existing.id, newToken);
-      await trySendVerification(env, site, normalizedEmail, newToken, existing.id);
+      await trySendVerification(env, site, normalizedEmail, newToken, existing.id, existing.unsubscribe_token);
       return jsonResponse(200, SUCCESS_RESPONSE);
     }
 
@@ -109,7 +109,7 @@ export async function handleSubscribe(request, env) {
       // Re-subscribe: reset to pending
       const newToken = crypto.randomUUID();
       await resetSubscriberToPending(env.DB, existing.id, newToken);
-      await trySendVerification(env, site, normalizedEmail, newToken, existing.id);
+      await trySendVerification(env, site, normalizedEmail, newToken, existing.id, existing.unsubscribe_token);
       return jsonResponse(200, SUCCESS_RESPONSE);
     }
   }
@@ -129,7 +129,7 @@ export async function handleSubscribe(request, env) {
     result.meta?.last_row_id ||
     (await getSubscriberByEmail(env.DB, normalizedEmail, siteId))?.id;
 
-  await trySendVerification(env, site, normalizedEmail, verifyToken, subscriberId);
+  await trySendVerification(env, site, normalizedEmail, verifyToken, subscriberId, unsubscribeToken);
 
   return jsonResponse(200, SUCCESS_RESPONSE);
 }
@@ -137,7 +137,7 @@ export async function handleSubscribe(request, env) {
 /**
  * Check rate limit and send verification email if allowed.
  */
-async function trySendVerification(env, site, email, verifyToken, subscriberId) {
+async function trySendVerification(env, site, email, verifyToken, subscriberId, unsubscribeToken) {
   const limits = getVerifyLimits(env);
   const recentCount = await countRecentVerificationAttempts(
     env.DB,
@@ -153,14 +153,18 @@ async function trySendVerification(env, site, email, verifyToken, subscriberId) 
   }
 
   const verifyUrl = `${env.BASE_URL}/api/verify?token=${verifyToken}`;
+  const unsubscribeUrl = `${env.BASE_URL}/api/unsubscribe?token=${unsubscribeToken}`;
 
   const html = render("verificationEmail", {
     siteName: site.name,
     siteUrl: site.url,
     verifyUrl,
+    unsubscribeUrl,
+    companyName: site.companyName,
+    companyAddress: site.companyAddress,
   });
 
-  const text = [
+  const textLines = [
     `Confirm your subscription to ${site.name}`,
     "",
     "Click the link below to confirm your email address:",
@@ -169,7 +173,12 @@ async function trySendVerification(env, site, email, verifyToken, subscriberId) 
     "This link expires in 24 hours.",
     "",
     "If you didn't request this, you can safely ignore this email.",
-  ].join("\n");
+    "",
+    `Unsubscribe: ${unsubscribeUrl}`,
+  ];
+  if (site.companyName) textLines.push(site.companyName);
+  if (site.companyAddress) textLines.push(site.companyAddress);
+  const text = textLines.join("\n");
 
   const result = await sendEmail(env.RESEND_API_KEY, {
     from: site.fromEmail,
@@ -179,6 +188,10 @@ async function trySendVerification(env, site, email, verifyToken, subscriberId) 
     subject: `Confirm your subscription to ${site.name}`,
     html,
     text,
+    headers: {
+      "List-Unsubscribe": `<${unsubscribeUrl}>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    },
   });
 
   if (result.success) {
