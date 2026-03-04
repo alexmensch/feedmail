@@ -203,6 +203,8 @@ async function sendItemToSubscribers(env, site, item, subscribers) {
     summary: item.summary,
     siteName: site.name,
     siteUrl: site.url,
+    companyName: site.companyName,
+    companyAddress: site.companyAddress,
     // unsubscribeUrl is replaced per-subscriber below
     unsubscribeUrl: "%%UNSUBSCRIBE_URL%%",
   });
@@ -213,6 +215,8 @@ async function sendItemToSubscribers(env, site, item, subscribers) {
     link: item.link,
     textContent,
     siteName: site.name,
+    companyName: site.companyName,
+    companyAddress: site.companyAddress,
     // unsubscribeUrl is replaced per-subscriber below
     unsubscribeUrl: "%%UNSUBSCRIBE_URL%%",
   });
