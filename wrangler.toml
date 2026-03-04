@@ -3,6 +3,7 @@ main = "src/index.js"
 compatibility_date = "2025-07-01"
 compatibility_flags = ["nodejs_compat"]
 account_id = "ecd2a3d65ecc1018f93da07542223581"
+upload_source_maps = true
 
 [build]
 command = "node scripts/precompile-templates.mjs"
@@ -31,6 +32,16 @@ SITES = '''
     "replyTo": "hello@alxm.me",
     "corsOrigins": ["https://alxm.me"],
     "feeds": ["https://alxm.me/writing.atom"]
+  },
+  {
+    "id": "feedmail-waitlist",
+    "url": "https://feedmail.cc",
+    "name": "Feedmail",
+    "fromEmail": "hello@newsletter.alxm.me",
+    "fromName": "Alex Marshall from Feedmail",
+    "replyTo": "hello@alxm.me",
+    "corsOrigins": ["https://feedmail.cc"],
+    "feeds": []
   }
 ]
 '''
