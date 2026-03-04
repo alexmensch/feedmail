@@ -472,6 +472,7 @@ describe("checkFeedsAndSend", () => {
 
       await checkFeedsAndSend(env);
 
+      // Requirement 5(c): render calls pass companyName and companyAddress from site config
       expect(render).toHaveBeenCalledWith("newsletter", {
         title: "Test Post",
         date: "2025-01-15T10:00:00Z",
@@ -482,6 +483,8 @@ describe("checkFeedsAndSend", () => {
         siteName: "Test Site",
         siteUrl: "https://example.com",
         unsubscribeUrl: "%%UNSUBSCRIBE_URL%%",
+        companyName: undefined,
+        companyAddress: undefined,
       });
     });
 
@@ -606,6 +609,241 @@ describe("checkFeedsAndSend", () => {
         "https://example.com/feed.xml",
         expect.any(String),
       );
+    });
+  });
+
+  // Requirement 5: Company info in newsletter email footer
+  describe("Requirement 5: Company info in newsletter email footer", () => {
+    const subscriber1 = {
+      id: 1,
+      email: "user1@test.com",
+      unsubscribe_token: "unsub-1",
+    };
+
+    it("passes companyName and companyAddress to newsletter HTML template when configured", async () => {
+      const siteWithCompany = {
+        ...SITE,
+        companyName: "Acme Corp",
+        companyAddress: "123 Main St, Springfield, IL 62701",
+      };
+      getSites.mockReturnValue([siteWithCompany]);
+      isItemSent.mockResolvedValue(false);
+      getVerifiedSubscribers.mockResolvedValue([subscriber1]);
+
+      await checkFeedsAndSend(env);
+
+      expect(render).toHaveBeenCalledWith(
+        "newsletter",
+        expect.objectContaining({
+          companyName: "Acme Corp",
+          companyAddress: "123 Main St, Springfield, IL 62701",
+        }),
+      );
+    });
+
+    it("passes companyName and companyAddress to newsletter text template when configured", async () => {
+      const siteWithCompany = {
+        ...SITE,
+        companyName: "Acme Corp",
+        companyAddress: "123 Main St, Springfield, IL 62701",
+      };
+      getSites.mockReturnValue([siteWithCompany]);
+      isItemSent.mockResolvedValue(false);
+      getVerifiedSubscribers.mockResolvedValue([subscriber1]);
+
+      await checkFeedsAndSend(env);
+
+      expect(render).toHaveBeenCalledWith(
+        "newsletterText",
+        expect.objectContaining({
+          companyName: "Acme Corp",
+          companyAddress: "123 Main St, Springfield, IL 62701",
+        }),
+      );
+    });
+
+    it("passes undefined companyName and companyAddress when site has no company info", async () => {
+      // Default SITE has no companyName/companyAddress
+      isItemSent.mockResolvedValue(false);
+      getVerifiedSubscribers.mockResolvedValue([subscriber1]);
+
+      await checkFeedsAndSend(env);
+
+      expect(render).toHaveBeenCalledWith(
+        "newsletter",
+        expect.objectContaining({
+          companyName: undefined,
+          companyAddress: undefined,
+        }),
+      );
+
+      expect(render).toHaveBeenCalledWith(
+        "newsletterText",
+        expect.objectContaining({
+          companyName: undefined,
+          companyAddress: undefined,
+        }),
+      );
+    });
+
+    it("passes empty string companyName when site has empty string", async () => {
+      const siteWithEmpty = {
+        ...SITE,
+        companyName: "",
+        companyAddress: "123 Main St",
+      };
+      getSites.mockReturnValue([siteWithEmpty]);
+      isItemSent.mockResolvedValue(false);
+      getVerifiedSubscribers.mockResolvedValue([subscriber1]);
+
+      await checkFeedsAndSend(env);
+
+      expect(render).toHaveBeenCalledWith(
+        "newsletter",
+        expect.objectContaining({
+          companyName: "",
+          companyAddress: "123 Main St",
+        }),
+      );
+    });
+
+    it("passes only companyAddress when companyName is not configured", async () => {
+      const siteOnlyAddress = {
+        ...SITE,
+        companyAddress: "456 Oak Ave",
+      };
+      getSites.mockReturnValue([siteOnlyAddress]);
+      isItemSent.mockResolvedValue(false);
+      getVerifiedSubscribers.mockResolvedValue([subscriber1]);
+
+      await checkFeedsAndSend(env);
+
+      expect(render).toHaveBeenCalledWith(
+        "newsletter",
+        expect.objectContaining({
+          companyName: undefined,
+          companyAddress: "456 Oak Ave",
+        }),
+      );
+    });
+
+    it("passes only companyName when companyAddress is not configured", async () => {
+      const siteOnlyName = {
+        ...SITE,
+        companyName: "Acme Corp",
+      };
+      getSites.mockReturnValue([siteOnlyName]);
+      isItemSent.mockResolvedValue(false);
+      getVerifiedSubscribers.mockResolvedValue([subscriber1]);
+
+      await checkFeedsAndSend(env);
+
+      expect(render).toHaveBeenCalledWith(
+        "newsletter",
+        expect.objectContaining({
+          companyName: "Acme Corp",
+          companyAddress: undefined,
+        }),
+      );
+    });
+  });
+
+  // Requirement 6: Newsletter footer layout standardization
+  describe("Requirement 6: Newsletter footer layout standardization", () => {
+    const subscriber1 = {
+      id: 1,
+      email: "user1@test.com",
+      unsubscribe_token: "unsub-1",
+    };
+
+    it("%%UNSUBSCRIBE_URL%% placeholder replacement continues to work", async () => {
+      isItemSent.mockResolvedValue(false);
+      getVerifiedSubscribers.mockResolvedValue([subscriber1]);
+
+      await checkFeedsAndSend(env);
+
+      const emailCall = sendEmail.mock.calls[0];
+      // The rendered template mock returns "html with %%UNSUBSCRIBE_URL%%"
+      // which should be replaced with the actual per-subscriber URL
+      expect(emailCall[1].html).not.toContain("%%UNSUBSCRIBE_URL%%");
+      expect(emailCall[1].html).toContain(
+        "https://feedmail.cc/api/unsubscribe?token=unsub-1",
+      );
+      expect(emailCall[1].text).not.toContain("%%UNSUBSCRIBE_URL%%");
+      expect(emailCall[1].text).toContain(
+        "https://feedmail.cc/api/unsubscribe?token=unsub-1",
+      );
+    });
+
+    it("newsletter HTML template receives unsubscribeUrl as %%UNSUBSCRIBE_URL%% placeholder", async () => {
+      isItemSent.mockResolvedValue(false);
+      getVerifiedSubscribers.mockResolvedValue([subscriber1]);
+
+      await checkFeedsAndSend(env);
+
+      // The render call for the newsletter template must pass
+      // unsubscribeUrl: "%%UNSUBSCRIBE_URL%%" so it can be replaced per-subscriber
+      expect(render).toHaveBeenCalledWith(
+        "newsletter",
+        expect.objectContaining({
+          unsubscribeUrl: "%%UNSUBSCRIBE_URL%%",
+        }),
+      );
+    });
+
+    it("newsletter text template receives unsubscribeUrl as %%UNSUBSCRIBE_URL%% placeholder", async () => {
+      isItemSent.mockResolvedValue(false);
+      getVerifiedSubscribers.mockResolvedValue([subscriber1]);
+
+      await checkFeedsAndSend(env);
+
+      expect(render).toHaveBeenCalledWith(
+        "newsletterText",
+        expect.objectContaining({
+          unsubscribeUrl: "%%UNSUBSCRIBE_URL%%",
+        }),
+      );
+    });
+
+    it("newsletter template receives siteName for copyright line", async () => {
+      isItemSent.mockResolvedValue(false);
+      getVerifiedSubscribers.mockResolvedValue([subscriber1]);
+
+      await checkFeedsAndSend(env);
+
+      // Requirement 6(a): footer uses siteName for copyright
+      expect(render).toHaveBeenCalledWith(
+        "newsletter",
+        expect.objectContaining({
+          siteName: "Test Site",
+        }),
+      );
+    });
+
+    it("%%UNSUBSCRIBE_URL%% is replaced independently for each subscriber", async () => {
+      const subscriber2 = {
+        id: 2,
+        email: "user2@test.com",
+        unsubscribe_token: "unsub-2",
+      };
+      isItemSent.mockResolvedValue(false);
+      getVerifiedSubscribers.mockResolvedValue([subscriber1, subscriber2]);
+
+      await checkFeedsAndSend(env);
+
+      // First subscriber
+      const call1 = sendEmail.mock.calls[0];
+      expect(call1[1].html).toContain(
+        "https://feedmail.cc/api/unsubscribe?token=unsub-1",
+      );
+      expect(call1[1].html).not.toContain("unsub-2");
+
+      // Second subscriber
+      const call2 = sendEmail.mock.calls[1];
+      expect(call2[1].html).toContain(
+        "https://feedmail.cc/api/unsubscribe?token=unsub-2",
+      );
+      expect(call2[1].html).not.toContain("unsub-1");
     });
   });
 });
