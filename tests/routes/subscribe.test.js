@@ -514,7 +514,7 @@ describe("handleSubscribe", () => {
         env,
       );
 
-      // Requirement 2(d): render call passes unsubscribeUrl in template data
+      // render call passes unsubscribeUrl in template data
       expect(render).toHaveBeenCalledWith("verificationEmail", {
         siteName: "Test Site",
         siteUrl: "https://example.com",
@@ -534,7 +534,7 @@ describe("handleSubscribe", () => {
         env,
       );
 
-      // Requirement 1(c): sendEmail call includes headers with both List-Unsubscribe headers
+      // sendEmail call includes headers with both List-Unsubscribe headers
       expect(sendEmail).toHaveBeenCalledWith("re_test", {
         from: "hello@example.com",
         fromName: "Test",
@@ -551,8 +551,7 @@ describe("handleSubscribe", () => {
     });
   });
 
-  // Requirement 1: List-Unsubscribe headers on verification emails
-  describe("Requirement 1: List-Unsubscribe headers on verification emails", () => {
+  describe("List-Unsubscribe headers on verification emails", () => {
     it("includes List-Unsubscribe header with angle-bracket-wrapped URL for new subscriber", async () => {
       getSubscriberByEmail.mockResolvedValue(null);
 
@@ -644,8 +643,7 @@ describe("handleSubscribe", () => {
     });
   });
 
-  // Requirement 2: Unsubscribe link in verification email footer
-  describe("Requirement 2: Unsubscribe link in verification email footer", () => {
+  describe("Unsubscribe link in verification email footer", () => {
     it("passes unsubscribeUrl in template data for new subscriber", async () => {
       getSubscriberByEmail.mockResolvedValue(null);
 
@@ -716,14 +714,13 @@ describe("handleSubscribe", () => {
 
       const emailCall = sendEmail.mock.calls[0];
       const textBody = emailCall[1].text;
-      // Requirement 2(c): plain text includes "Unsubscribe: {url}"
+      // plain text includes "Unsubscribe: {url}"
       expect(textBody).toContain("Unsubscribe:");
       expect(textBody).toContain("https://feedmail.cc/api/unsubscribe?token=test-uuid");
     });
   });
 
-  // Requirement 3: Optional companyName and companyAddress in SITES config
-  describe("Requirement 3: Optional companyName and companyAddress in SITES config", () => {
+  describe("optional companyName and companyAddress in SITES config", () => {
     it("site config without companyName and companyAddress works normally", async () => {
       // SITE fixture has no companyName or companyAddress
       getSubscriberByEmail.mockResolvedValue(null);
@@ -779,8 +776,7 @@ describe("handleSubscribe", () => {
     });
   });
 
-  // Requirement 4: Company info in verification email footer
-  describe("Requirement 4: Company info in verification email footer", () => {
+  describe("company info in verification email footer", () => {
     it("passes companyName and companyAddress to template data when configured", async () => {
       const siteWithCompany = {
         ...SITE,

@@ -2,13 +2,14 @@
  * Template rendering integration tests for email deliverability improvements.
  *
  * These tests use actual precompiled Handlebars templates (not mocked) to verify
- * that the rendered output includes the expected content for Requirements 2, 4, 5, and 6.
+ * that the rendered output includes the expected content.
  *
  * Prerequisites: templates must be precompiled (pnpm pretest runs this automatically).
  */
 
 import { describe, it, expect } from "vitest";
 import Handlebars from "handlebars/runtime.js";
+import emailFooterSpec from "../../src/templates/compiled/partials/email-footer.js";
 import verificationEmailSpec from "../../src/templates/compiled/verification-email.js";
 import newsletterSpec from "../../src/templates/compiled/newsletter.js";
 import newsletterTextSpec from "../../src/templates/compiled/newsletter.txt.js";
@@ -26,6 +27,9 @@ Handlebars.registerHelper("formatDate", (dateStr) => {
 
 Handlebars.registerHelper("currentYear", () => new Date().getFullYear());
 
+// Register partials
+Handlebars.registerPartial("email-footer", Handlebars.template(emailFooterSpec));
+
 // Instantiate templates from precompiled specs
 const verificationEmailTemplate = Handlebars.template(verificationEmailSpec);
 const newsletterTemplate = Handlebars.template(newsletterSpec);
@@ -33,8 +37,7 @@ const newsletterTextTemplate = Handlebars.template(newsletterTextSpec);
 
 const currentYear = new Date().getFullYear();
 
-// Requirement 2: Unsubscribe link in verification email footer
-describe("Requirement 2: Verification email template unsubscribe link", () => {
+describe("verification email template unsubscribe link", () => {
   const baseData = {
     siteName: "Test Site",
     siteUrl: "https://example.com",
@@ -44,14 +47,14 @@ describe("Requirement 2: Verification email template unsubscribe link", () => {
 
   it("renders an Unsubscribe link in the HTML footer", () => {
     const html = verificationEmailTemplate(baseData);
-    // Requirement 2(a): The HTML footer shows an "Unsubscribe" link below the copyright line
+    // The HTML footer shows an "Unsubscribe" link below the copyright line
     expect(html).toContain("Unsubscribe");
     expect(html).toContain("https://feedmail.cc/api/unsubscribe?token=xyz789");
   });
 
   it("unsubscribe link points to the subscriber's unsubscribe URL", () => {
     const html = verificationEmailTemplate(baseData);
-    // Requirement 2(b): link href points to the unsubscribe URL
+    // link href points to the unsubscribe URL
     expect(html).toContain('href="https://feedmail.cc/api/unsubscribe?token=xyz789"');
   });
 
@@ -72,8 +75,7 @@ describe("Requirement 2: Verification email template unsubscribe link", () => {
   });
 });
 
-// Requirement 4: Company info in verification email footer
-describe("Requirement 4: Verification email template company info", () => {
+describe("verification email template company info", () => {
   const baseData = {
     siteName: "Test Site",
     siteUrl: "https://example.com",
@@ -137,7 +139,7 @@ describe("Requirement 4: Verification email template company info", () => {
 
     expect(unsubscribeLinkIndex).toBeGreaterThan(-1);
     expect(companyNameIndex).toBeGreaterThan(-1);
-    // Requirement 4(a): unsubscribe link before company block
+    // unsubscribe link before company block
     expect(unsubscribeLinkIndex).toBeLessThan(companyNameIndex);
   });
 
@@ -157,8 +159,7 @@ describe("Requirement 4: Verification email template company info", () => {
   });
 });
 
-// Requirement 5: Company info in newsletter email footer
-describe("Requirement 5: Newsletter template company info", () => {
+describe("newsletter template company info", () => {
   const baseData = {
     title: "Test Post",
     date: "2025-01-15T10:00:00Z",
@@ -241,8 +242,7 @@ describe("Requirement 5: Newsletter template company info", () => {
   });
 });
 
-// Requirement 6: Newsletter footer layout standardization
-describe("Requirement 6: Newsletter footer layout standardization", () => {
+describe("newsletter footer layout standardization", () => {
   const baseData = {
     title: "Test Post",
     date: "2025-01-15T10:00:00Z",
@@ -257,19 +257,19 @@ describe("Requirement 6: Newsletter footer layout standardization", () => {
 
   it("HTML footer contains copyright line with current year and site name", () => {
     const html = newsletterTemplate(baseData);
-    // Requirement 6(a): copyright line in footer
+    // copyright line in footer
     expect(html).toContain(`&copy; ${currentYear} Test Site`);
   });
 
   it("HTML footer does NOT contain 'You received this email because' text", () => {
     const html = newsletterTemplate(baseData);
-    // Requirement 6(b): subscription notice is removed
+    // subscription notice is removed
     expect(html).not.toContain("You received this email because");
   });
 
   it("HTML footer contains Unsubscribe link using unsubscribeUrl", () => {
     const html = newsletterTemplate(baseData);
-    // Requirement 6(c): unsubscribe link uses {{{unsubscribeUrl}}}
+    // unsubscribe link uses {{{unsubscribeUrl}}}
     expect(html).toContain("Unsubscribe");
     expect(html).toContain("%%UNSUBSCRIBE_URL%%");
   });
@@ -300,7 +300,7 @@ describe("Requirement 6: Newsletter footer layout standardization", () => {
 
   it("plain text footer does NOT contain 'You received this email because' text", () => {
     const text = newsletterTextTemplate(baseData);
-    // Requirement 6(d): text footer also removes subscription notice
+    // text footer also removes subscription notice
     expect(text).not.toContain("You received this email because");
   });
 

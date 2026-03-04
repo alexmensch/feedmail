@@ -9,6 +9,9 @@
 
 import Handlebars from "handlebars/runtime.js";
 
+// Import precompiled partial specs
+import emailFooterSpec from "../templates/compiled/partials/email-footer.js";
+
 // Import precompiled template specs
 import newsletterSpec from "../templates/compiled/newsletter.js";
 import newsletterTextSpec from "../templates/compiled/newsletter.txt.js";
@@ -29,6 +32,9 @@ Handlebars.registerHelper("formatDate", (dateStr) => {
 });
 
 Handlebars.registerHelper("currentYear", () => new Date().getFullYear());
+
+// Register precompiled partials
+Handlebars.registerPartial("email-footer", Handlebars.template(emailFooterSpec));
 
 // Instantiate templates from precompiled specs
 const templates = {

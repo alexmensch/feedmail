@@ -472,7 +472,7 @@ describe("checkFeedsAndSend", () => {
 
       await checkFeedsAndSend(env);
 
-      // Requirement 5(c): render calls pass companyName and companyAddress from site config
+      // render calls pass companyName and companyAddress from site config
       expect(render).toHaveBeenCalledWith("newsletter", {
         title: "Test Post",
         date: "2025-01-15T10:00:00Z",
@@ -612,8 +612,7 @@ describe("checkFeedsAndSend", () => {
     });
   });
 
-  // Requirement 5: Company info in newsletter email footer
-  describe("Requirement 5: Company info in newsletter email footer", () => {
+  describe("company info in newsletter email footer", () => {
     const subscriber1 = {
       id: 1,
       email: "user1@test.com",
@@ -748,8 +747,7 @@ describe("checkFeedsAndSend", () => {
     });
   });
 
-  // Requirement 6: Newsletter footer layout standardization
-  describe("Requirement 6: Newsletter footer layout standardization", () => {
+  describe("newsletter footer layout standardization", () => {
     const subscriber1 = {
       id: 1,
       email: "user1@test.com",
@@ -811,7 +809,7 @@ describe("checkFeedsAndSend", () => {
 
       await checkFeedsAndSend(env);
 
-      // Requirement 6(a): footer uses siteName for copyright
+      // footer uses siteName for copyright
       expect(render).toHaveBeenCalledWith(
         "newsletter",
         expect.objectContaining({

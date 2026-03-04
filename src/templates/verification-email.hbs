@@ -67,14 +67,7 @@
           <!-- Footer -->
           <tr>
             <td style="padding: 24px 0 0 0; border-top: 1px solid #d1cfc9;">
-              <p style="margin: 0; font-family: Inter, Helvetica, Arial, sans-serif; font-size: 13px; line-height: 1.5; color: #465270;">&copy; {{currentYear}} {{siteName}}</p>
-              <p style="margin: 8px 0 0 0; font-family: Inter, Helvetica, Arial, sans-serif; font-size: 13px; line-height: 1.5;"><a href="{{{unsubscribeUrl}}}" style="color: #0c6faa; text-decoration: underline;">Unsubscribe</a></p>
-              {{#if companyName}}
-              <p style="margin: 16px 0 0 0; font-family: Inter, Helvetica, Arial, sans-serif; font-size: 13px; line-height: 1.5; color: #465270;">{{companyName}}</p>
-              {{/if}}
-              {{#if companyAddress}}
-              <p style="margin: {{#if companyName}}4px{{else}}16px{{/if}} 0 0 0; font-family: Inter, Helvetica, Arial, sans-serif; font-size: 13px; line-height: 1.5; color: #465270;">{{companyAddress}}</p>
-              {{/if}}
+              {{> email-footer}}
             </td>
           </tr>
         </table>
