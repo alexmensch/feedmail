@@ -11,6 +11,7 @@ pnpm run db:migrate       # Apply D1 migrations (remote/production)
 pnpm run db:migrate:local # Apply D1 migrations (local dev)
 pnpm run test             # Run all tests (vitest)
 pnpm run test:coverage    # Run tests with coverage report
+pnpm run build:check      # Dry-run deploy to verify build (no actual deploy)
 ```
 
 ## Architecture
@@ -44,6 +45,8 @@ src/
     rate-limit.js       # IP-based rate limiting: config, rolling window check, endpoint name mapping
     templates.js        # Handlebars precompiled template rendering — render(name, data)
   templates/            # Handlebars (.hbs) source files, precompiled at build time
+    partials/
+      email-footer.hbs  # Shared email footer partial (copyright, unsubscribe, company info)
     newsletter.hbs      # HTML newsletter email (table-based, inline styles)
     newsletter.txt.hbs  # Plain text newsletter
     verification-email.hbs  # Verification CTA email
@@ -68,7 +71,7 @@ wrangler.toml           # Worker config, cron, D1 binding, SITES config, route p
 - **Feed bootstrapping:** First time a feed URL is seen, all existing items are inserted into `sent_items` with `recipient_count = 0` — prevents blasting historical content on first deployment.
 - **Per-subscriber sends:** Each subscriber gets an individual email with personalized `List-Unsubscribe` headers. Template uses `%%UNSUBSCRIBE_URL%%` placeholder replaced per-subscriber before sending. The `subscriber_sends` table tracks delivery per-subscriber so partial sends (from quota exhaustion) can resume on the next cron run without duplicates.
 - **Resend rate limit handling:** The email module retries 429 responses up to 3 times, respecting the `retry-after` header (capped at 60s). If quota is exhausted, the send loop halts and the item is left unmarked in `sent_items` so the next run retries remaining subscribers.
-- **Handlebars templates** are precompiled at build time (`scripts/precompile-templates.mjs`) because Cloudflare Workers disallow `new Function()`. The runtime uses `Handlebars.template()` with precompiled specs.
+- **Handlebars templates** are precompiled at build time (`scripts/precompile-templates.mjs`) because Cloudflare Workers disallow `new Function()`. The runtime uses `Handlebars.template()` with precompiled specs. Partials live in `src/templates/partials/` and are registered both at precompile time (so templates can reference them) and at runtime (via `Handlebars.registerPartial`).
 - **User-Agent** uses semver from `package.json` (imported with `{ type: "json" }`).
 - **Zero tracking:** No open pixels or click tracking.
 
@@ -107,7 +110,7 @@ Requests pass through these checks in order:
 
 **`wrangler.toml` vars:**
 - `BASE_URL` — Public base URL of the service (e.g. `https://feedmail.cc`), used to construct verify/unsubscribe links in emails
-- `SITES` — JSON array of site objects (id, url, name, fromEmail, fromName, replyTo (optional), corsOrigins, feeds)
+- `SITES` — JSON array of site objects (id, url, name, fromEmail, fromName, replyTo (optional), companyName (optional), companyAddress (optional), corsOrigins, feeds)
 - `VERIFY_MAX_ATTEMPTS` — Max verification emails per rolling window (default "3")
 - `VERIFY_WINDOW_HOURS` — Rolling window in hours (default "24")
 

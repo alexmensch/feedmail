@@ -90,6 +90,8 @@ Each site object requires:
 | `fromEmail` | Sender email address (must be verified in Resend) |
 | `fromName` | Sender display name |
 | `replyTo` | Reply-to email address (optional) |
+| `companyName` | Company name displayed in email footers (optional) |
+| `companyAddress` | Company address displayed in email footers (optional) |
 | `corsOrigins` | Allowed origins for the subscribe endpoint |
 | `feeds` | Array of RSS/Atom feed URLs to monitor |
 
@@ -290,6 +292,7 @@ Email and page templates use [Handlebars](https://handlebarsjs.com/) and are loc
 | `verify-page.hbs` | "You're subscribed" confirmation page |
 | `unsubscribe-page.hbs` | "You've been unsubscribed" confirmation page |
 | `error-page.hbs` | Error page (invalid/expired tokens) |
+| `partials/email-footer.hbs` | Shared email footer (copyright, unsubscribe, company info) |
 
 Customize these files before deploying to match your branding.
 
