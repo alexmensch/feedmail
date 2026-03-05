@@ -3,7 +3,7 @@
  * Handles email verification link clicks.
  */
 
-import { getSiteById } from "../lib/config.js";
+import { getChannelById } from "../lib/config.js";
 import { render } from "../lib/templates.js";
 import {
   getSubscriberByVerifyToken,
@@ -39,7 +39,7 @@ export async function handleVerify(request, env, url) {
   if (hoursSinceCreation > 24) {
     return errorPage(
       env,
-      subscriber.site_id,
+      subscriber.channel_id,
       "This link is invalid or has expired. Please try subscribing again.",
     );
   }
@@ -50,11 +50,11 @@ export async function handleVerify(request, env, url) {
   // Clear verification attempt history
   await clearVerificationAttempts(env.DB, subscriber.id);
 
-  const site = getSiteById(env, subscriber.site_id);
+  const channel = getChannelById(env, subscriber.channel_id);
 
   const html = render("verifyPage", {
-    siteName: site?.name || "the newsletter",
-    siteUrl: site?.url || "/",
+    siteName: channel?.siteName || "the newsletter",
+    siteUrl: channel?.siteUrl || "/",
   });
 
   return new Response(html, {
@@ -63,12 +63,12 @@ export async function handleVerify(request, env, url) {
   });
 }
 
-function errorPage(env, siteId, message) {
-  const site = siteId ? getSiteById(env, siteId) : null;
+function errorPage(env, channelId, message) {
+  const channel = channelId ? getChannelById(env, channelId) : null;
 
   const html = render("errorPage", {
-    siteName: site?.name || "feedmail",
-    siteUrl: site?.url || "/",
+    siteName: channel?.siteName || "feedmail",
+    siteUrl: channel?.siteUrl || "/",
     errorMessage: message,
   });
 

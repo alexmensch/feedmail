@@ -4,7 +4,7 @@
  */
 
 import pkg from "../../package.json" with { type: "json" };
-import { getSites, getSiteById } from "../lib/config.js";
+import { getChannels, getChannelById } from "../lib/config.js";
 import { fetchAndParseFeed } from "../lib/feed-parser.js";
 import { sendEmail } from "../lib/email.js";
 import { htmlToText, constrainImages } from "../lib/html-to-text.js";
@@ -28,16 +28,16 @@ const USER_AGENT = `feedmail/${pkg.version}`;
  * @returns {Promise<Response>}
  */
 export async function handleSend(request, env) {
-  let targetSiteId = null;
+  let targetChannelId = null;
 
   try {
     const body = await request.json();
-    targetSiteId = body.siteId || null;
+    targetChannelId = body.channelId || null;
   } catch {
-    // No body or invalid JSON — send for all sites
+    // No body or invalid JSON — send for all channels
   }
 
-  const result = await checkFeedsAndSend(env, targetSiteId);
+  const result = await checkFeedsAndSend(env, targetChannelId);
 
   return new Response(JSON.stringify(result), {
     status: 200,
@@ -49,20 +49,20 @@ export async function handleSend(request, env) {
  * Check all configured feeds for new items and send emails.
  * Called by both the cron handler and the manual send endpoint.
  * @param {object} env
- * @param {string|null} [targetSiteId] - Optional: only process this site
+ * @param {string|null} [targetChannelId] - Optional: only process this channel
  * @returns {Promise<object>} Summary of what was sent
  */
-export async function checkFeedsAndSend(env, targetSiteId = null) {
-  const sites = getSites(env);
+export async function checkFeedsAndSend(env, targetChannelId = null) {
+  const channels = getChannels(env);
   const summary = { sent: 0, items: [], seeded: false };
 
-  for (const site of sites) {
-    if (targetSiteId && site.id !== targetSiteId) continue;
+  for (const channel of channels) {
+    if (targetChannelId && channel.id !== targetChannelId) continue;
 
     try {
-      await processSiteFeeds(env, site, summary);
+      await processChannelFeeds(env, channel, summary);
     } catch (err) {
-      console.error(`Error processing site ${site.id}:`, err);
+      console.error(`Error processing channel ${channel.id}:`, err);
     }
   }
 
@@ -70,14 +70,15 @@ export async function checkFeedsAndSend(env, targetSiteId = null) {
 }
 
 /**
- * Process all feeds for a single site.
+ * Process all feeds for a single channel.
  */
-async function processSiteFeeds(env, site, summary) {
-  if (!site.feeds || site.feeds.length === 0) return;
+async function processChannelFeeds(env, channel, summary) {
+  if (!channel.feeds || channel.feeds.length === 0) return;
 
   const unseenItems = [];
 
-  for (const feedUrl of site.feeds) {
+  for (const feed of channel.feeds) {
+    const feedUrl = feed.url;
     try {
       const items = await fetchAndParseFeed(feedUrl, USER_AGENT);
 
@@ -113,8 +114,8 @@ async function processSiteFeeds(env, site, summary) {
 
   if (unseenItems.length === 0) return;
 
-  // Get verified subscribers for this site
-  const subscribers = await getVerifiedSubscribers(env.DB, site.id);
+  // Get verified subscribers for this channel
+  const subscribers = await getVerifiedSubscribers(env.DB, channel.id);
 
   if (subscribers.length === 0) {
     // No subscribers — mark items as sent with 0 recipients
@@ -127,7 +128,7 @@ async function processSiteFeeds(env, site, summary) {
       });
     }
     console.log(
-      `No subscribers for ${site.id}. Marked ${unseenItems.length} items as sent.`,
+      `No subscribers for ${channel.id}. Marked ${unseenItems.length} items as sent.`,
     );
     return;
   }
@@ -136,7 +137,7 @@ async function processSiteFeeds(env, site, summary) {
   for (const item of unseenItems) {
     const result = await sendItemToSubscribers(
       env,
-      site,
+      channel,
       item,
       subscribers,
     );
@@ -161,15 +162,15 @@ async function processSiteFeeds(env, site, summary) {
       title: item.title,
       recipients: result.sent,
       complete: result.complete,
-      siteId: site.id,
+      channelId: channel.id,
     });
 
     console.log(
-      `Sent "${item.title}" to ${result.sent} subscribers for ${site.id}` +
+      `Sent "${item.title}" to ${result.sent} subscribers for ${channel.id}` +
         (result.complete ? "" : " (incomplete — quota exhausted, will retry)"),
     );
 
-    // If quota was exhausted, stop processing further items for this site —
+    // If quota was exhausted, stop processing further items for this channel —
     // all subsequent sends would fail too.
     if (!result.complete) break;
   }
@@ -186,7 +187,7 @@ async function processSiteFeeds(env, site, summary) {
  *   sent — number of emails successfully delivered this run
  *   complete — true if all subscribers were reached (safe to mark item as done)
  */
-async function sendItemToSubscribers(env, site, item, subscribers) {
+async function sendItemToSubscribers(env, channel, item, subscribers) {
   // Determine email content
   const rawContent = item.content || item.summary || "";
   const emailContent = constrainImages(rawContent);
@@ -201,10 +202,10 @@ async function sendItemToSubscribers(env, site, item, subscribers) {
     content: emailContent,
     hasFullContent,
     summary: item.summary,
-    siteName: site.name,
-    siteUrl: site.url,
-    companyName: site.companyName,
-    companyAddress: site.companyAddress,
+    siteName: channel.siteName,
+    siteUrl: channel.siteUrl,
+    companyName: channel.companyName,
+    companyAddress: channel.companyAddress,
     // unsubscribeUrl is replaced per-subscriber below
     unsubscribeUrl: "%%UNSUBSCRIBE_URL%%",
   });
@@ -214,9 +215,9 @@ async function sendItemToSubscribers(env, site, item, subscribers) {
     date: item.date,
     link: item.link,
     textContent,
-    siteName: site.name,
-    companyName: site.companyName,
-    companyAddress: site.companyAddress,
+    siteName: channel.siteName,
+    companyName: channel.companyName,
+    companyAddress: channel.companyAddress,
     // unsubscribeUrl is replaced per-subscriber below
     unsubscribeUrl: "%%UNSUBSCRIBE_URL%%",
   });
@@ -234,7 +235,7 @@ async function sendItemToSubscribers(env, site, item, subscribers) {
     );
     if (alreadySent) continue;
 
-    const unsubscribeUrl = `${env.BASE_URL}/api/unsubscribe?token=${subscriber.unsubscribe_token}`;
+    const unsubscribeUrl = `https://${env.DOMAIN}/api/unsubscribe?token=${subscriber.unsubscribe_token}`;
 
     const personalizedHtml = emailHtml.replace(
       /%%UNSUBSCRIBE_URL%%/g,
@@ -246,9 +247,9 @@ async function sendItemToSubscribers(env, site, item, subscribers) {
     );
 
     const result = await sendEmail(env.RESEND_API_KEY, {
-      from: site.fromEmail,
-      fromName: site.fromName,
-      replyTo: site.replyTo,
+      from: `${channel.fromUser}@${env.DOMAIN}`,
+      fromName: channel.fromName,
+      replyTo: channel.replyTo,
       to: subscriber.email,
       subject: item.title,
       html: personalizedHtml,

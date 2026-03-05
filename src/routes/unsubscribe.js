@@ -3,7 +3,7 @@
  * Handles unsubscribe requests (link clicks and List-Unsubscribe-Post).
  */
 
-import { getSiteById } from "../lib/config.js";
+import { getChannelById } from "../lib/config.js";
 import { render } from "../lib/templates.js";
 import {
   getSubscriberByUnsubscribeToken,
@@ -35,7 +35,7 @@ export async function handleUnsubscribe(request, env, url) {
     await markSubscriberUnsubscribed(env.DB, subscriber.id);
   }
 
-  const site = getSiteById(env, subscriber.site_id);
+  const channel = getChannelById(env, subscriber.channel_id);
 
   // POST requests come from List-Unsubscribe-Post (RFC 8058) — return 200 OK
   if (request.method === "POST") {
@@ -44,8 +44,8 @@ export async function handleUnsubscribe(request, env, url) {
 
   // GET requests render the confirmation page
   const html = render("unsubscribePage", {
-    siteName: site?.name || "the newsletter",
-    siteUrl: site?.url || "/",
+    siteName: channel?.siteName || "the newsletter",
+    siteUrl: channel?.siteUrl || "/",
   });
 
   return new Response(html, {
@@ -54,12 +54,12 @@ export async function handleUnsubscribe(request, env, url) {
   });
 }
 
-function errorPage(env, siteId, message) {
-  const site = siteId ? getSiteById(env, siteId) : null;
+function errorPage(env, channelId, message) {
+  const channel = channelId ? getChannelById(env, channelId) : null;
 
   const html = render("errorPage", {
-    siteName: site?.name || "feedmail",
-    siteUrl: site?.url || "/",
+    siteName: channel?.siteName || "feedmail",
+    siteUrl: channel?.siteUrl || "/",
     errorMessage: message,
   });
 

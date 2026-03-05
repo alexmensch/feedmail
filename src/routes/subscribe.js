@@ -3,7 +3,7 @@
  * Handles new subscription requests with rate limiting.
  */
 
-import { getSiteById, getVerifyLimits } from "../lib/config.js";
+import { getChannelById, getVerifyLimits } from "../lib/config.js";
 import { sendEmail } from "../lib/email.js";
 import { render } from "../lib/templates.js";
 import {
@@ -20,7 +20,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@.]+\.[^\s@]+$/;
 
 // Only these fields are accepted in the request body.
 // Any additional field causes rejection (enables invisible honeypot fields).
-const ALLOWED_FIELDS = new Set(["email", "siteId"]);
+const ALLOWED_FIELDS = new Set(["email", "channelId"]);
 
 const SUCCESS_RESPONSE = {
   success: true,
@@ -56,21 +56,21 @@ export async function handleSubscribe(request, env) {
     });
   }
 
-  const { email, siteId } = body;
+  const { email, channelId } = body;
 
-  // Validate siteId
-  if (!siteId) {
+  // Validate channelId
+  if (!channelId) {
     return jsonResponse(400, {
       success: false,
-      message: "Missing site identifier",
+      message: "Missing channel identifier",
     });
   }
 
-  const site = getSiteById(env, siteId);
-  if (!site) {
+  const channel = getChannelById(env, channelId);
+  if (!channel) {
     return jsonResponse(400, {
       success: false,
-      message: "Unknown site",
+      message: "Unknown channel",
     });
   }
 
@@ -88,7 +88,7 @@ export async function handleSubscribe(request, env) {
   const existing = await getSubscriberByEmail(
     env.DB,
     normalizedEmail,
-    siteId,
+    channelId,
   );
 
   if (existing) {
@@ -101,7 +101,7 @@ export async function handleSubscribe(request, env) {
       // Regenerate token and resend if under rate limit
       const newToken = crypto.randomUUID();
       await updateVerifyToken(env.DB, existing.id, newToken);
-      await trySendVerification(env, site, normalizedEmail, newToken, existing.id, existing.unsubscribe_token);
+      await trySendVerification(env, channel, normalizedEmail, newToken, existing.id, existing.unsubscribe_token);
       return jsonResponse(200, SUCCESS_RESPONSE);
     }
 
@@ -109,7 +109,7 @@ export async function handleSubscribe(request, env) {
       // Re-subscribe: reset to pending
       const newToken = crypto.randomUUID();
       await resetSubscriberToPending(env.DB, existing.id, newToken);
-      await trySendVerification(env, site, normalizedEmail, newToken, existing.id, existing.unsubscribe_token);
+      await trySendVerification(env, channel, normalizedEmail, newToken, existing.id, existing.unsubscribe_token);
       return jsonResponse(200, SUCCESS_RESPONSE);
     }
   }
@@ -119,7 +119,7 @@ export async function handleSubscribe(request, env) {
   const unsubscribeToken = crypto.randomUUID();
 
   const result = await insertSubscriber(env.DB, {
-    siteId,
+    channelId,
     email: normalizedEmail,
     verifyToken,
     unsubscribeToken,
@@ -127,9 +127,9 @@ export async function handleSubscribe(request, env) {
 
   const subscriberId =
     result.meta?.last_row_id ||
-    (await getSubscriberByEmail(env.DB, normalizedEmail, siteId))?.id;
+    (await getSubscriberByEmail(env.DB, normalizedEmail, channelId))?.id;
 
-  await trySendVerification(env, site, normalizedEmail, verifyToken, subscriberId, unsubscribeToken);
+  await trySendVerification(env, channel, normalizedEmail, verifyToken, subscriberId, unsubscribeToken);
 
   return jsonResponse(200, SUCCESS_RESPONSE);
 }
@@ -137,7 +137,7 @@ export async function handleSubscribe(request, env) {
 /**
  * Check rate limit and send verification email if allowed.
  */
-async function trySendVerification(env, site, email, verifyToken, subscriberId, unsubscribeToken) {
+async function trySendVerification(env, channel, email, verifyToken, subscriberId, unsubscribeToken) {
   const limits = getVerifyLimits(env);
   const recentCount = await countRecentVerificationAttempts(
     env.DB,
@@ -152,20 +152,20 @@ async function trySendVerification(env, site, email, verifyToken, subscriberId, 
     return; // Silently skip — no info leak
   }
 
-  const verifyUrl = `${env.BASE_URL}/api/verify?token=${verifyToken}`;
-  const unsubscribeUrl = `${env.BASE_URL}/api/unsubscribe?token=${unsubscribeToken}`;
+  const verifyUrl = `https://${env.DOMAIN}/api/verify?token=${verifyToken}`;
+  const unsubscribeUrl = `https://${env.DOMAIN}/api/unsubscribe?token=${unsubscribeToken}`;
 
   const html = render("verificationEmail", {
-    siteName: site.name,
-    siteUrl: site.url,
+    siteName: channel.siteName,
+    siteUrl: channel.siteUrl,
     verifyUrl,
     unsubscribeUrl,
-    companyName: site.companyName,
-    companyAddress: site.companyAddress,
+    companyName: channel.companyName,
+    companyAddress: channel.companyAddress,
   });
 
   const textLines = [
-    `Confirm your subscription to ${site.name}`,
+    `Confirm your subscription to ${channel.siteName}`,
     "",
     "Click the link below to confirm your email address:",
     verifyUrl,
@@ -176,16 +176,16 @@ async function trySendVerification(env, site, email, verifyToken, subscriberId, 
     "",
     `Unsubscribe: ${unsubscribeUrl}`,
   ];
-  if (site.companyName) textLines.push(site.companyName);
-  if (site.companyAddress) textLines.push(site.companyAddress);
+  if (channel.companyName) textLines.push(channel.companyName);
+  if (channel.companyAddress) textLines.push(channel.companyAddress);
   const text = textLines.join("\n");
 
   const result = await sendEmail(env.RESEND_API_KEY, {
-    from: site.fromEmail,
-    fromName: site.fromName,
-    replyTo: site.replyTo,
+    from: `${channel.fromUser}@${env.DOMAIN}`,
+    fromName: channel.fromName,
+    replyTo: channel.replyTo,
     to: email,
-    subject: `Confirm your subscription to ${site.name}`,
+    subject: `Confirm your subscription to ${channel.siteName}`,
     html,
     text,
     headers: {
