@@ -4,12 +4,12 @@
 
 // ─── Subscribers ────────────────────────────────────────────────────────────
 
-export async function getSubscriberByEmail(db, email, siteId) {
+export async function getSubscriberByEmail(db, email, channelId) {
   return db
     .prepare(
-      "SELECT * FROM subscribers WHERE email = ? AND site_id = ? LIMIT 1",
+      "SELECT * FROM subscribers WHERE email = ? AND channel_id = ? LIMIT 1",
     )
-    .bind(email, siteId)
+    .bind(email, channelId)
     .first();
 }
 
@@ -29,26 +29,26 @@ export async function getSubscriberByUnsubscribeToken(db, token) {
     .first();
 }
 
-export async function getVerifiedSubscribers(db, siteId) {
+export async function getVerifiedSubscribers(db, channelId) {
   const { results } = await db
     .prepare(
-      "SELECT * FROM subscribers WHERE site_id = ? AND status = 'verified'",
+      "SELECT * FROM subscribers WHERE channel_id = ? AND status = 'verified'",
     )
-    .bind(siteId)
+    .bind(channelId)
     .all();
   return results;
 }
 
 export async function insertSubscriber(
   db,
-  { siteId, email, verifyToken, unsubscribeToken },
+  { channelId, email, verifyToken, unsubscribeToken },
 ) {
   return db
     .prepare(
-      `INSERT INTO subscribers (site_id, email, status, verify_token, unsubscribe_token)
+      `INSERT INTO subscribers (channel_id, email, status, verify_token, unsubscribe_token)
        VALUES (?, ?, 'pending', ?, ?)`,
     )
-    .bind(siteId, email, verifyToken, unsubscribeToken)
+    .bind(channelId, email, verifyToken, unsubscribeToken)
     .run();
 }
 
@@ -194,13 +194,13 @@ export async function deleteSubscriberSends(db, itemId, feedUrl) {
 
 // ─── Admin Queries ──────────────────────────────────────────────────────────
 
-export async function getSubscriberStats(db, siteId) {
+export async function getSubscriberStats(db, channelId) {
   const { results } = await db
     .prepare(
       `SELECT status, COUNT(*) as count FROM subscribers
-       WHERE site_id = ? GROUP BY status`,
+       WHERE channel_id = ? GROUP BY status`,
     )
-    .bind(siteId)
+    .bind(channelId)
     .all();
 
   const stats = { total: 0, verified: 0, pending: 0, unsubscribed: 0 };
@@ -226,9 +226,9 @@ export async function getSentItemStats(db, feedUrls) {
   };
 }
 
-export async function getSubscriberList(db, siteId, statusFilter) {
-  let query = "SELECT email, status, created_at, verified_at, unsubscribed_at FROM subscribers WHERE site_id = ?";
-  const binds = [siteId];
+export async function getSubscriberList(db, channelId, statusFilter) {
+  let query = "SELECT email, status, created_at, verified_at, unsubscribed_at FROM subscribers WHERE channel_id = ?";
+  const binds = [channelId];
 
   if (statusFilter) {
     query += " AND status = ?";
