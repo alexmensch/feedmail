@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>feedmail Test (RSS)</title>
+    <link>https://example.com</link>
+    <description>Test RSS feed for local development</description>
+    <language>en</language>
+    <lastBuildDate>Wed, 05 Mar 2025 12:00:00 GMT</lastBuildDate>
+
+    <item>
+      <title>RSS Test Post: Working with images and links</title>
+      <link>https://example.com/rss-post-1</link>
+      <guid>https://example.com/rss-post-1</guid>
+      <pubDate>Wed, 05 Mar 2025 12:00:00 GMT</pubDate>
+      <description><![CDATA[
+        <p>This is a test post from the RSS feed fixture. It contains various HTML elements to verify email rendering.</p>
+        <p>Here is a <a href="https://example.com">link to the site</a> and some <strong>bold text</strong> with <em>italics</em>.</p>
+        <img src="https://picsum.photos/800/400" alt="A random test image" />
+        <p>The image above should be constrained to the email width by the <code>constrainImages</code> function. This paragraph comes after the image to verify spacing.</p>
+      ]]></description>
+    </item>
+
+    <item>
+      <title>RSS Test Post: Plain text fallback</title>
+      <link>https://example.com/rss-post-2</link>
+      <guid>https://example.com/rss-post-2</guid>
+      <pubDate>Tue, 04 Mar 2025 09:00:00 GMT</pubDate>
+      <description><![CDATA[
+        <p>A shorter post to test the plain text conversion. It has a list:</p>
+        <ul>
+          <li>First item in the list</li>
+          <li>Second item with a <a href="https://example.com/link">link</a></li>
+          <li>Third item</li>
+        </ul>
+        <p>And a closing paragraph.</p>
+      ]]></description>
+    </item>
+
+  </channel>
+</rss>

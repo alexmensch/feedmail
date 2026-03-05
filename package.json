@@ -6,9 +6,12 @@
   "license": "AGPL-3.0",
   "scripts": {
     "dev": "wrangler dev",
+    "dev:test": "wrangler dev --config wrangler.test.toml",
+    "dev:feed": "npx serve test/fixtures -p 8888",
     "deploy": "wrangler d1 migrations apply feedmail --remote && wrangler deploy",
     "db:migrate": "wrangler d1 migrations apply feedmail --remote",
     "db:migrate:local": "wrangler d1 migrations apply feedmail --local",
+    "db:reset:local": "wrangler d1 execute feedmail --local --command \"DELETE FROM subscribers; DELETE FROM verification_attempts; DELETE FROM sent_items; DELETE FROM subscriber_sends; DELETE FROM rate_limits;\"",
     "build:check": "wrangler deploy --dry-run --outdir dist",
     "pretest": "node scripts/precompile-templates.mjs",
     "test": "vitest run",

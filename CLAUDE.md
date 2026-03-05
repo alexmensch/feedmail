@@ -6,11 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 pnpm run dev              # Local dev server (wrangler dev) on port 8787
+pnpm run dev:test         # Local dev with test site config (wrangler.test.toml)
+pnpm run dev:feed         # Serve test feed fixtures on port 8888
 pnpm run deploy           # Deploy to Cloudflare Workers
 pnpm run db:migrate       # Apply D1 migrations (remote/production)
 pnpm run db:migrate:local # Apply D1 migrations (local dev)
+pnpm run db:reset:local   # Clear all local D1 tables
 pnpm run test             # Run all tests (vitest)
 pnpm run test:coverage    # Run tests with coverage report
+pnpm run build:check      # Dry-run deploy to verify build (no actual deploy)
 ```
 
 ## Architecture
@@ -55,7 +59,24 @@ migrations/
   0002_subscriber_sends.sql  # Per-subscriber send tracking for partial send recovery
   0003_rate_limits.sql  # IP-based rate limiting table
 wrangler.toml           # Worker config, cron, D1 binding, SITES config, route pattern
+wrangler.test.toml      # Local testing config — test site with localhost feeds
+test/
+  fixtures/
+    feed.rss            # RSS 2.0 test feed fixture
+    feed.atom           # Atom test feed fixture
+scripts/
+  precompile-templates.mjs  # Build-time Handlebars template compiler
+  test-local.sh         # Interactive local testing helper (subscribe → verify → send)
 ```
+
+### Local Testing
+
+`wrangler.test.toml` provides a separate config for local testing with a test site that has all optional fields populated (companyName, companyAddress, replyTo) and feeds pointing to local fixtures. This avoids putting test config in production.
+
+To test the full email flow locally:
+1. `pnpm run dev:feed` — serves RSS and Atom fixtures on port 8888
+2. `pnpm run dev:test` — starts wrangler with the test config on port 8787
+3. `./scripts/test-local.sh <your-email>` — walks through subscribe → verify → send
 
 ### Key Design Decisions
 
