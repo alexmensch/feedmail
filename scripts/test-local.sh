@@ -43,6 +43,13 @@ if [ -z "$API_KEY" ]; then
   exit 1
 fi
 
+echo "=== Seeding feeds (bootstrapping existing items) ==="
+curl -s -X POST "$BASE/api/send" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"siteId\": \"$SITE\"}" | python3 -m json.tool
+echo ""
+
 echo "=== Subscribing $EMAIL to site '$SITE' ==="
 curl -s -X POST "$BASE/api/subscribe" \
   -H "Content-Type: application/json" \
@@ -53,8 +60,18 @@ echo "=== Check your email for the verification link and click it ==="
 read -rp "Press Enter when done..."
 echo ""
 
-echo "=== Resetting sent_items and subscriber_sends ==="
-wrangler d1 execute feedmail --local --command "DELETE FROM sent_items; DELETE FROM subscriber_sends;"
+# Mark feed items as unsent so the next send picks them up, but keep a
+# seed marker row per feed so isFeedSeeded() still returns true (prevents
+# re-bootstrapping instead of sending).
+echo "=== Resetting items for re-send ==="
+npx wrangler d1 execute feedmail --local --command "
+  DELETE FROM sent_items;
+  DELETE FROM subscriber_sends;
+  INSERT OR IGNORE INTO sent_items (item_id, feed_url, title, recipient_count)
+    VALUES ('__seed__', 'http://localhost:8888/feed.rss', 'seed marker', 0);
+  INSERT OR IGNORE INTO sent_items (item_id, feed_url, title, recipient_count)
+    VALUES ('__seed__', 'http://localhost:8888/feed.atom', 'seed marker', 0);
+"
 echo ""
 
 echo "=== Triggering send for site '$SITE' ==="
