@@ -43,6 +43,19 @@ if [ -z "$API_KEY" ]; then
   exit 1
 fi
 
+echo "=== Resetting local database ==="
+echo "This will DELETE all data from the local D1 database (subscribers,"
+echo "verification_attempts, sent_items, subscriber_sends, rate_limits)."
+echo ""
+read -rp "Continue? [y/N] " confirm
+if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+  echo "Aborted."
+  exit 0
+fi
+npx wrangler d1 execute feedmail --local --command \
+  "DELETE FROM subscribers; DELETE FROM verification_attempts; DELETE FROM sent_items; DELETE FROM subscriber_sends; DELETE FROM rate_limits;"
+echo ""
+
 echo "=== Seeding feeds (bootstrapping existing items) ==="
 curl -s -X POST "$BASE/api/send" \
   -H "Authorization: Bearer $API_KEY" \
