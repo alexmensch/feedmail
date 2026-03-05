@@ -241,6 +241,7 @@ describe("handleSubscribe", () => {
         id: 1,
         status: "verified",
         email: "a@b.com",
+        unsubscribe_token: "existing-unsub-token",
       });
 
       const response = await handleSubscribe(
@@ -263,6 +264,7 @@ describe("handleSubscribe", () => {
         id: 1,
         status: "pending",
         email: "a@b.com",
+        unsubscribe_token: "existing-unsub-token",
       });
 
       const response = await handleSubscribe(
@@ -289,6 +291,7 @@ describe("handleSubscribe", () => {
         id: 1,
         status: "unsubscribed",
         email: "a@b.com",
+        unsubscribe_token: "existing-unsub-token",
       });
 
       const response = await handleSubscribe(
@@ -312,9 +315,9 @@ describe("handleSubscribe", () => {
 
     it("all status responses are identical (no info leak)", async () => {
       const statuses = [
-        { id: 1, status: "verified", email: "a@b.com" },
-        { id: 1, status: "pending", email: "a@b.com" },
-        { id: 1, status: "unsubscribed", email: "a@b.com" },
+        { id: 1, status: "verified", email: "a@b.com", unsubscribe_token: "unsub-tok" },
+        { id: 1, status: "pending", email: "a@b.com", unsubscribe_token: "unsub-tok" },
+        { id: 1, status: "unsubscribed", email: "a@b.com", unsubscribe_token: "unsub-tok" },
         null, // new subscriber
       ];
 
@@ -511,10 +514,12 @@ describe("handleSubscribe", () => {
         env,
       );
 
+      // render call passes unsubscribeUrl in template data
       expect(render).toHaveBeenCalledWith("verificationEmail", {
         siteName: "Test Site",
         siteUrl: "https://example.com",
         verifyUrl: "https://feedmail.cc/api/verify?token=test-uuid",
+        unsubscribeUrl: "https://feedmail.cc/api/unsubscribe?token=test-uuid",
       });
     });
 
@@ -529,6 +534,7 @@ describe("handleSubscribe", () => {
         env,
       );
 
+      // sendEmail call includes headers with both List-Unsubscribe headers
       expect(sendEmail).toHaveBeenCalledWith("re_test", {
         from: "hello@example.com",
         fromName: "Test",
@@ -537,7 +543,366 @@ describe("handleSubscribe", () => {
         subject: "Confirm your subscription to Test Site",
         html: expect.any(String),
         text: expect.stringContaining("Confirm your subscription"),
+        headers: {
+          "List-Unsubscribe": "<https://feedmail.cc/api/unsubscribe?token=test-uuid>",
+          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        },
       });
+    });
+  });
+
+  describe("List-Unsubscribe headers on verification emails", () => {
+    it("includes List-Unsubscribe header with angle-bracket-wrapped URL for new subscriber", async () => {
+      getSubscriberByEmail.mockResolvedValue(null);
+
+      await handleSubscribe(
+        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        env,
+      );
+
+      const emailCall = sendEmail.mock.calls[0];
+      expect(emailCall[1].headers).toBeDefined();
+      expect(emailCall[1].headers["List-Unsubscribe"]).toBe(
+        "<https://feedmail.cc/api/unsubscribe?token=test-uuid>",
+      );
+    });
+
+    it("includes List-Unsubscribe-Post header with One-Click value for new subscriber", async () => {
+      getSubscriberByEmail.mockResolvedValue(null);
+
+      await handleSubscribe(
+        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        env,
+      );
+
+      const emailCall = sendEmail.mock.calls[0];
+      expect(emailCall[1].headers["List-Unsubscribe-Post"]).toBe(
+        "List-Unsubscribe=One-Click",
+      );
+    });
+
+    it("uses existing unsubscribe_token for pending subscriber", async () => {
+      getSubscriberByEmail.mockResolvedValue({
+        id: 1,
+        status: "pending",
+        email: "a@b.com",
+        unsubscribe_token: "existing-pending-token",
+      });
+
+      await handleSubscribe(
+        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        env,
+      );
+
+      const emailCall = sendEmail.mock.calls[0];
+      expect(emailCall[1].headers["List-Unsubscribe"]).toBe(
+        "<https://feedmail.cc/api/unsubscribe?token=existing-pending-token>",
+      );
+      expect(emailCall[1].headers["List-Unsubscribe-Post"]).toBe(
+        "List-Unsubscribe=One-Click",
+      );
+    });
+
+    it("uses existing unsubscribe_token for unsubscribed subscriber re-subscribing", async () => {
+      getSubscriberByEmail.mockResolvedValue({
+        id: 1,
+        status: "unsubscribed",
+        email: "a@b.com",
+        unsubscribe_token: "existing-unsub-token",
+      });
+
+      await handleSubscribe(
+        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        env,
+      );
+
+      const emailCall = sendEmail.mock.calls[0];
+      expect(emailCall[1].headers["List-Unsubscribe"]).toBe(
+        "<https://feedmail.cc/api/unsubscribe?token=existing-unsub-token>",
+      );
+      expect(emailCall[1].headers["List-Unsubscribe-Post"]).toBe(
+        "List-Unsubscribe=One-Click",
+      );
+    });
+
+    it("uses the same header format as newsletter emails in send.js", async () => {
+      // The format must match: <{BASE_URL}/api/unsubscribe?token={token}>
+      getSubscriberByEmail.mockResolvedValue(null);
+
+      await handleSubscribe(
+        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        env,
+      );
+
+      const emailCall = sendEmail.mock.calls[0];
+      const header = emailCall[1].headers["List-Unsubscribe"];
+      // Must start with < and end with >
+      expect(header).toMatch(/^<.+>$/);
+      // Must contain the full unsubscribe URL
+      expect(header).toContain("https://feedmail.cc/api/unsubscribe?token=");
+    });
+  });
+
+  describe("Unsubscribe link in verification email footer", () => {
+    it("passes unsubscribeUrl in template data for new subscriber", async () => {
+      getSubscriberByEmail.mockResolvedValue(null);
+
+      await handleSubscribe(
+        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        env,
+      );
+
+      // crypto.randomUUID returns "test-uuid" for all calls
+      // New subscribers: unsubscribeToken is also "test-uuid"
+      expect(render).toHaveBeenCalledWith(
+        "verificationEmail",
+        expect.objectContaining({
+          unsubscribeUrl: "https://feedmail.cc/api/unsubscribe?token=test-uuid",
+        }),
+      );
+    });
+
+    it("passes unsubscribeUrl for pending subscriber using existing token", async () => {
+      getSubscriberByEmail.mockResolvedValue({
+        id: 1,
+        status: "pending",
+        email: "a@b.com",
+        unsubscribe_token: "pending-unsub-tok",
+      });
+
+      await handleSubscribe(
+        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        env,
+      );
+
+      expect(render).toHaveBeenCalledWith(
+        "verificationEmail",
+        expect.objectContaining({
+          unsubscribeUrl: "https://feedmail.cc/api/unsubscribe?token=pending-unsub-tok",
+        }),
+      );
+    });
+
+    it("passes unsubscribeUrl for unsubscribed subscriber using existing token", async () => {
+      getSubscriberByEmail.mockResolvedValue({
+        id: 1,
+        status: "unsubscribed",
+        email: "a@b.com",
+        unsubscribe_token: "resub-unsub-tok",
+      });
+
+      await handleSubscribe(
+        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        env,
+      );
+
+      expect(render).toHaveBeenCalledWith(
+        "verificationEmail",
+        expect.objectContaining({
+          unsubscribeUrl: "https://feedmail.cc/api/unsubscribe?token=resub-unsub-tok",
+        }),
+      );
+    });
+
+    it("includes unsubscribe URL in plain text email body", async () => {
+      getSubscriberByEmail.mockResolvedValue(null);
+
+      await handleSubscribe(
+        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        env,
+      );
+
+      const emailCall = sendEmail.mock.calls[0];
+      const textBody = emailCall[1].text;
+      // plain text includes "Unsubscribe: {url}"
+      expect(textBody).toContain("Unsubscribe:");
+      expect(textBody).toContain("https://feedmail.cc/api/unsubscribe?token=test-uuid");
+    });
+  });
+
+  describe("optional companyName and companyAddress in SITES config", () => {
+    it("site config without companyName and companyAddress works normally", async () => {
+      // SITE fixture has no companyName or companyAddress
+      getSubscriberByEmail.mockResolvedValue(null);
+
+      const response = await handleSubscribe(
+        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        env,
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.success).toBe(true);
+      expect(sendEmail).toHaveBeenCalled();
+    });
+
+    it("site config with companyName and companyAddress works normally", async () => {
+      const siteWithCompany = {
+        ...SITE,
+        companyName: "Acme Corp",
+        companyAddress: "123 Main St, Springfield, IL 62701",
+      };
+      getSiteById.mockReturnValue(siteWithCompany);
+      getSubscriberByEmail.mockResolvedValue(null);
+
+      const response = await handleSubscribe(
+        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        env,
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.success).toBe(true);
+      expect(sendEmail).toHaveBeenCalled();
+    });
+
+    it("site config with empty string companyName and companyAddress works normally", async () => {
+      const siteWithEmpty = {
+        ...SITE,
+        companyName: "",
+        companyAddress: "",
+      };
+      getSiteById.mockReturnValue(siteWithEmpty);
+      getSubscriberByEmail.mockResolvedValue(null);
+
+      const response = await handleSubscribe(
+        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        env,
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.success).toBe(true);
+    });
+  });
+
+  describe("company info in verification email footer", () => {
+    it("passes companyName and companyAddress to template data when configured", async () => {
+      const siteWithCompany = {
+        ...SITE,
+        companyName: "Acme Corp",
+        companyAddress: "123 Main St, Springfield, IL 62701",
+      };
+      getSiteById.mockReturnValue(siteWithCompany);
+      getSubscriberByEmail.mockResolvedValue(null);
+
+      await handleSubscribe(
+        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        env,
+      );
+
+      expect(render).toHaveBeenCalledWith(
+        "verificationEmail",
+        expect.objectContaining({
+          companyName: "Acme Corp",
+          companyAddress: "123 Main St, Springfield, IL 62701",
+        }),
+      );
+    });
+
+    it("does not pass companyName or companyAddress when not configured", async () => {
+      // Default SITE has no companyName/companyAddress
+      getSubscriberByEmail.mockResolvedValue(null);
+
+      await handleSubscribe(
+        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        env,
+      );
+
+      const renderCall = render.mock.calls[0];
+      const templateData = renderCall[1];
+      // When site config does not have these fields, they should still be
+      // passed through (as undefined) or not present -- the important thing
+      // is that the template handles it gracefully via {{#if}} blocks.
+      // The implementation should pass site.companyName and site.companyAddress
+      // which will be undefined when not configured.
+      expect(render).toHaveBeenCalledWith(
+        "verificationEmail",
+        expect.objectContaining({
+          companyName: undefined,
+          companyAddress: undefined,
+        }),
+      );
+    });
+
+    it("passes empty string companyName when site has empty string", async () => {
+      const siteWithEmpty = {
+        ...SITE,
+        companyName: "",
+        companyAddress: "123 Main St",
+      };
+      getSiteById.mockReturnValue(siteWithEmpty);
+      getSubscriberByEmail.mockResolvedValue(null);
+
+      await handleSubscribe(
+        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        env,
+      );
+
+      // Empty string companyName should be passed through (treated as falsy in Handlebars)
+      expect(render).toHaveBeenCalledWith(
+        "verificationEmail",
+        expect.objectContaining({
+          companyName: "",
+          companyAddress: "123 Main St",
+        }),
+      );
+    });
+
+    it("includes company info in plain text email when configured", async () => {
+      const siteWithCompany = {
+        ...SITE,
+        companyName: "Acme Corp",
+        companyAddress: "123 Main St, Springfield, IL 62701",
+      };
+      getSiteById.mockReturnValue(siteWithCompany);
+      getSubscriberByEmail.mockResolvedValue(null);
+
+      await handleSubscribe(
+        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        env,
+      );
+
+      const emailCall = sendEmail.mock.calls[0];
+      const textBody = emailCall[1].text;
+      expect(textBody).toContain("Acme Corp");
+      expect(textBody).toContain("123 Main St, Springfield, IL 62701");
+    });
+
+    it("does not include company info in plain text email when not configured", async () => {
+      // Default SITE has no companyName/companyAddress
+      getSubscriberByEmail.mockResolvedValue(null);
+
+      await handleSubscribe(
+        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        env,
+      );
+
+      const emailCall = sendEmail.mock.calls[0];
+      const textBody = emailCall[1].text;
+      // Should not contain any company-related text
+      // (but should still contain the standard verification content)
+      expect(textBody).toContain("Confirm your subscription");
+      expect(textBody).not.toContain("Acme Corp");
+    });
+
+    it("includes only companyAddress when companyName is empty string", async () => {
+      const sitePartial = {
+        ...SITE,
+        companyName: "",
+        companyAddress: "123 Main St",
+      };
+      getSiteById.mockReturnValue(sitePartial);
+      getSubscriberByEmail.mockResolvedValue(null);
+
+      await handleSubscribe(
+        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        env,
+      );
+
+      const emailCall = sendEmail.mock.calls[0];
+      const textBody = emailCall[1].text;
+      expect(textBody).toContain("123 Main St");
     });
   });
 });

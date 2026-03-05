@@ -19,6 +19,9 @@ vi.mock("../../src/templates/compiled/unsubscribe-page.js", () => ({
 vi.mock("../../src/templates/compiled/error-page.js", () => ({
   default: { compiler: [8, ">= 4.3.0"], main: () => "error page html" },
 }));
+vi.mock("../../src/templates/compiled/partials/email-footer.js", () => ({
+  default: { compiler: [8, ">= 4.3.0"], main: () => "email footer" },
+}));
 
 // Mock Handlebars runtime to capture template instantiation
 vi.mock("handlebars/runtime.js", () => {
@@ -37,6 +40,7 @@ vi.mock("handlebars/runtime.js", () => {
       registerHelper: (name, fn) => {
         helpers[name] = fn;
       },
+      registerPartial: () => {},
       _helpers: helpers,
     },
   };
