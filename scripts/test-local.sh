@@ -52,8 +52,7 @@ if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
   echo "Aborted."
   exit 0
 fi
-npx wrangler d1 execute feedmail --local --command \
-  "DELETE FROM subscribers; DELETE FROM verification_attempts; DELETE FROM sent_items; DELETE FROM subscriber_sends; DELETE FROM rate_limits;"
+pnpm run db:reset:local
 echo ""
 
 echo "=== Seeding feeds (bootstrapping existing items) ==="

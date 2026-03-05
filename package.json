@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "dev:test": "wrangler dev --config wrangler.test.toml",
-    "dev:feed": "npx serve test/fixtures -p 8888",
+    "dev:feed": "npx serve tests/fixtures -p 8888",
     "deploy": "wrangler d1 migrations apply feedmail --remote && wrangler deploy",
     "db:migrate": "wrangler d1 migrations apply feedmail --remote",
     "db:migrate:local": "wrangler d1 migrations apply feedmail --local",

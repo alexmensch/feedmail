@@ -60,10 +60,10 @@ migrations/
   0003_rate_limits.sql  # IP-based rate limiting table
 wrangler.toml           # Worker config, cron, D1 binding, SITES config, route pattern
 wrangler.test.toml      # Local testing config — test site with localhost feeds
-test/
+tests/
   fixtures/
-    feed.rss            # RSS 2.0 test feed fixture
-    feed.atom           # Atom test feed fixture
+    feed.rss            # RSS 2.0 test feed fixture (served by dev:feed)
+    feed.atom           # Atom test feed fixture (served by dev:feed)
 scripts/
   precompile-templates.mjs  # Build-time Handlebars template compiler
   test-local.sh         # Interactive local testing helper (subscribe → verify → send)
