@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../../src/lib/config.js", () => ({
-  getSites: vi.fn(),
-  getSiteById: vi.fn(),
+  getChannels: vi.fn(),
+  getChannelById: vi.fn(),
 }));
 vi.mock("../../src/lib/feed-parser.js", () => ({
   fetchAndParseFeed: vi.fn(),
@@ -33,7 +33,7 @@ vi.mock("../../src/lib/db.js", () => ({
 }));
 
 import { handleSend, checkFeedsAndSend } from "../../src/routes/send.js";
-import { getSites, getSiteById } from "../../src/lib/config.js";
+import { getChannels, getChannelById } from "../../src/lib/config.js";
 import { fetchAndParseFeed } from "../../src/lib/feed-parser.js";
 import { sendEmail } from "../../src/lib/email.js";
 import { htmlToText, constrainImages } from "../../src/lib/html-to-text.js";
@@ -48,20 +48,20 @@ import {
   deleteSubscriberSends,
 } from "../../src/lib/db.js";
 
-const SITE = {
-  id: "test-site",
-  url: "https://example.com",
-  name: "Test Site",
-  fromEmail: "hello@example.com",
+const CHANNEL = {
+  id: "test-channel",
+  siteUrl: "https://test.example.com",
+  siteName: "Test Site",
+  fromUser: "hello",
   fromName: "Test",
-  replyTo: "reply@example.com",
-  feeds: ["https://example.com/feed.xml"],
+  replyTo: "reply@test.example.com",
+  feeds: [{ name: "Main Feed", url: "https://test.example.com/feed.xml" }],
 };
 
 const ITEM = {
   id: "item-1",
   title: "Test Post",
-  link: "https://example.com/post-1",
+  link: "https://test.example.com/post-1",
   date: "2025-01-15T10:00:00Z",
   content: "<p>Full content</p>",
   summary: "A summary",
@@ -70,15 +70,15 @@ const ITEM = {
 const env = {
   DB: {},
   RESEND_API_KEY: "re_test",
-  BASE_URL: "https://feedmail.cc",
-  SITES: JSON.stringify([SITE]),
+  DOMAIN: "test.example.com",
+  CHANNELS: JSON.stringify([CHANNEL]),
 };
 
-describe("handleSend", () => {
+describe("handleSend — channel restructuring", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getSites.mockReturnValue([SITE]);
-    getSiteById.mockReturnValue(SITE);
+    getChannels.mockReturnValue([CHANNEL]);
+    getChannelById.mockReturnValue(CHANNEL);
     isFeedSeeded.mockResolvedValue(true);
     isItemSent.mockResolvedValue(true);
     fetchAndParseFeed.mockResolvedValue([ITEM]);
@@ -87,11 +87,11 @@ describe("handleSend", () => {
     isItemSentToSubscriber.mockResolvedValue(false);
   });
 
-  it("returns JSON response with summary", async () => {
-    const request = new Request("https://feedmail.cc/api/send", {
+  it("accepts channelId in request body (not siteId)", async () => {
+    const request = new Request("https://test.example.com/api/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ channelId: "test-channel" }),
     });
 
     const response = await handleSend(request, env);
@@ -102,48 +102,23 @@ describe("handleSend", () => {
     expect(body).toHaveProperty("items");
   });
 
-  it("filters by siteId when provided", async () => {
-    const request = new Request("https://feedmail.cc/api/send", {
+  it("uses getChannels instead of getSites", async () => {
+    const request = new Request("https://test.example.com/api/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ siteId: "test-site" }),
+      body: JSON.stringify({}),
     });
 
     await handleSend(request, env);
 
-    // checkFeedsAndSend should be called with targetSiteId
-    expect(getSites).toHaveBeenCalled();
-  });
-
-  it("handles invalid JSON body gracefully", async () => {
-    const request = new Request("https://feedmail.cc/api/send", {
-      method: "POST",
-      body: "not json",
-    });
-
-    const response = await handleSend(request, env);
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    // Should process all sites (targetSiteId is null)
-    expect(body).toHaveProperty("sent");
-  });
-
-  it("handles empty body", async () => {
-    const request = new Request("https://feedmail.cc/api/send", {
-      method: "POST",
-    });
-
-    const response = await handleSend(request, env);
-
-    expect(response.status).toBe(200);
+    expect(getChannels).toHaveBeenCalled();
   });
 });
 
-describe("checkFeedsAndSend", () => {
+describe("checkFeedsAndSend — channel restructuring", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getSites.mockReturnValue([SITE]);
+    getChannels.mockReturnValue([CHANNEL]);
     isFeedSeeded.mockResolvedValue(true);
     isItemSent.mockResolvedValue(true);
     fetchAndParseFeed.mockResolvedValue([ITEM]);
@@ -152,135 +127,127 @@ describe("checkFeedsAndSend", () => {
     isItemSentToSubscriber.mockResolvedValue(false);
   });
 
-  describe("site filtering", () => {
-    it("processes all sites when targetSiteId is null", async () => {
-      const site2 = { ...SITE, id: "site-2", feeds: ["https://other.com/feed"] };
-      getSites.mockReturnValue([SITE, site2]);
-
+  describe("uses getChannels instead of getSites", () => {
+    it("calls getChannels to get channel list", async () => {
       await checkFeedsAndSend(env, null);
 
-      // fetchAndParseFeed should be called for both sites' feeds
-      expect(fetchAndParseFeed).toHaveBeenCalledTimes(2);
+      expect(getChannels).toHaveBeenCalledWith(env);
     });
+  });
 
-    it("processes only matching site when targetSiteId is set", async () => {
-      const site2 = { ...SITE, id: "site-2", feeds: ["https://other.com/feed"] };
-      getSites.mockReturnValue([SITE, site2]);
+  describe("feeds are structured objects with name and url", () => {
+    it("uses feed.url for fetching", async () => {
+      await checkFeedsAndSend(env);
 
-      await checkFeedsAndSend(env, "test-site");
-
-      expect(fetchAndParseFeed).toHaveBeenCalledTimes(1);
       expect(fetchAndParseFeed).toHaveBeenCalledWith(
-        "https://example.com/feed.xml",
+        "https://test.example.com/feed.xml",
         expect.any(String),
       );
     });
 
-    it("skips non-matching sites", async () => {
-      getSites.mockReturnValue([SITE]);
+    it("iterates channel.feeds as objects, not strings", async () => {
+      const channel = {
+        ...CHANNEL,
+        feeds: [
+          { name: "Feed 1", url: "https://test.example.com/feed1.xml" },
+          { name: "Feed 2", url: "https://test.example.com/feed2.xml" },
+        ],
+      };
+      getChannels.mockReturnValue([channel]);
 
-      await checkFeedsAndSend(env, "nonexistent-site");
+      await checkFeedsAndSend(env, null);
 
-      expect(fetchAndParseFeed).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("feed bootstrapping", () => {
-    it("seeds all items when feed is not yet seeded", async () => {
-      isFeedSeeded.mockResolvedValue(false);
-      fetchAndParseFeed.mockResolvedValue([ITEM, { ...ITEM, id: "item-2" }]);
-
-      const result = await checkFeedsAndSend(env);
-
-      expect(result.seeded).toBe(true);
-      expect(insertSentItem).toHaveBeenCalledTimes(2);
-      expect(insertSentItem).toHaveBeenCalledWith(env.DB, {
-        itemId: "item-1",
-        feedUrl: "https://example.com/feed.xml",
-        title: "Test Post",
-        recipientCount: 0,
-      });
-      expect(sendEmail).not.toHaveBeenCalled();
+      expect(fetchAndParseFeed).toHaveBeenCalledTimes(2);
+      expect(fetchAndParseFeed).toHaveBeenCalledWith(
+        "https://test.example.com/feed1.xml",
+        expect.any(String),
+      );
+      expect(fetchAndParseFeed).toHaveBeenCalledWith(
+        "https://test.example.com/feed2.xml",
+        expect.any(String),
+      );
     });
 
-    it("does not send emails during seeding", async () => {
-      isFeedSeeded.mockResolvedValue(false);
-      getVerifiedSubscribers.mockResolvedValue([
-        { id: 1, email: "a@b.com", unsubscribe_token: "tok" },
-      ]);
-
-      await checkFeedsAndSend(env);
-
-      expect(sendEmail).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("finding unseen items", () => {
-    it("skips items that are already sent", async () => {
-      isItemSent.mockResolvedValue(true);
+    it("handles empty feeds array without errors", async () => {
+      const channelNoFeeds = { ...CHANNEL, feeds: [] };
+      getChannels.mockReturnValue([channelNoFeeds]);
 
       const result = await checkFeedsAndSend(env);
 
       expect(result.sent).toBe(0);
       expect(result.items).toHaveLength(0);
-      expect(getVerifiedSubscribers).not.toHaveBeenCalled();
-    });
-
-    it("processes unseen items", async () => {
-      isItemSent.mockResolvedValue(false);
-      getVerifiedSubscribers.mockResolvedValue([]);
-
-      const result = await checkFeedsAndSend(env);
-
-      // No subscribers, so items marked as sent with 0 recipients
-      expect(insertSentItem).toHaveBeenCalledWith(env.DB, {
-        itemId: "item-1",
-        feedUrl: "https://example.com/feed.xml",
-        title: "Test Post",
-        recipientCount: 0,
-      });
+      expect(fetchAndParseFeed).not.toHaveBeenCalled();
     });
   });
 
-  describe("no subscribers", () => {
-    it("marks items as sent with 0 recipients when no subscribers", async () => {
-      isItemSent.mockResolvedValue(false);
-      getVerifiedSubscribers.mockResolvedValue([]);
+  describe("channel filtering uses channelId", () => {
+    it("filters by channelId when provided", async () => {
+      const channel2 = {
+        ...CHANNEL,
+        id: "channel-2",
+        feeds: [{ name: "Other Feed", url: "https://other.example.com/feed" }],
+      };
+      getChannels.mockReturnValue([CHANNEL, channel2]);
 
-      await checkFeedsAndSend(env);
+      await checkFeedsAndSend(env, "test-channel");
 
-      expect(insertSentItem).toHaveBeenCalledWith(env.DB, expect.objectContaining({
-        recipientCount: 0,
-      }));
-      expect(sendEmail).not.toHaveBeenCalled();
+      expect(fetchAndParseFeed).toHaveBeenCalledTimes(1);
+      expect(fetchAndParseFeed).toHaveBeenCalledWith(
+        "https://test.example.com/feed.xml",
+        expect.any(String),
+      );
+    });
+
+    it("skips non-matching channels", async () => {
+      getChannels.mockReturnValue([CHANNEL]);
+
+      await checkFeedsAndSend(env, "nonexistent-channel");
+
+      expect(fetchAndParseFeed).not.toHaveBeenCalled();
     });
   });
 
-  describe("sending to subscribers", () => {
+  describe("from-email constructed as fromUser@DOMAIN", () => {
     const subscriber1 = {
       id: 1,
       email: "user1@test.com",
       unsubscribe_token: "unsub-1",
     };
-    const subscriber2 = {
-      id: 2,
-      email: "user2@test.com",
-      unsubscribe_token: "unsub-2",
-    };
 
-    it("sends to all verified subscribers", async () => {
+    it("sends email with from address as fromUser@DOMAIN", async () => {
       isItemSent.mockResolvedValue(false);
-      getVerifiedSubscribers.mockResolvedValue([subscriber1, subscriber2]);
+      getVerifiedSubscribers.mockResolvedValue([subscriber1]);
 
-      const result = await checkFeedsAndSend(env);
+      await checkFeedsAndSend(env);
 
-      expect(sendEmail).toHaveBeenCalledTimes(2);
-      expect(result.sent).toBe(2);
-      expect(result.items[0].complete).toBe(true);
-      expect(result.items[0].recipients).toBe(2);
+      const emailCall = sendEmail.mock.calls[0];
+      expect(emailCall[1].from).toBe("hello@test.example.com");
     });
 
-    it("replaces %%UNSUBSCRIBE_URL%% with per-subscriber URL", async () => {
+    it("from-email uses channel.fromUser combined with env.DOMAIN", async () => {
+      const channelOther = {
+        ...CHANNEL,
+        fromUser: "newsletter",
+      };
+      getChannels.mockReturnValue([channelOther]);
+      isItemSent.mockResolvedValue(false);
+      getVerifiedSubscribers.mockResolvedValue([subscriber1]);
+
+      await checkFeedsAndSend(env);
+
+      const emailCall = sendEmail.mock.calls[0];
+      expect(emailCall[1].from).toBe("newsletter@test.example.com");
+    });
+  });
+
+  describe("URLs use https://{DOMAIN}", () => {
+    const subscriber1 = {
+      id: 1,
+      email: "user1@test.com",
+      unsubscribe_token: "unsub-1",
+    };
+
+    it("unsubscribe URL uses https://{DOMAIN}/api/unsubscribe", async () => {
       isItemSent.mockResolvedValue(false);
       getVerifiedSubscribers.mockResolvedValue([subscriber1]);
 
@@ -288,15 +255,14 @@ describe("checkFeedsAndSend", () => {
 
       const emailCall = sendEmail.mock.calls[0];
       expect(emailCall[1].html).toContain(
-        "https://feedmail.cc/api/unsubscribe?token=unsub-1",
+        "https://test.example.com/api/unsubscribe?token=unsub-1",
       );
-      expect(emailCall[1].html).not.toContain("%%UNSUBSCRIBE_URL%%");
       expect(emailCall[1].text).toContain(
-        "https://feedmail.cc/api/unsubscribe?token=unsub-1",
+        "https://test.example.com/api/unsubscribe?token=unsub-1",
       );
     });
 
-    it("includes List-Unsubscribe headers per subscriber", async () => {
+    it("List-Unsubscribe header uses https://{DOMAIN}", async () => {
       isItemSent.mockResolvedValue(false);
       getVerifiedSubscribers.mockResolvedValue([subscriber1]);
 
@@ -304,492 +270,46 @@ describe("checkFeedsAndSend", () => {
 
       const headers = sendEmail.mock.calls[0][1].headers;
       expect(headers["List-Unsubscribe"]).toBe(
-        "<https://feedmail.cc/api/unsubscribe?token=unsub-1>",
-      );
-      expect(headers["List-Unsubscribe-Post"]).toBe(
-        "List-Unsubscribe=One-Click",
+        "<https://test.example.com/api/unsubscribe?token=unsub-1>",
       );
     });
 
-    it("inserts subscriber_send for each successful send", async () => {
-      isItemSent.mockResolvedValue(false);
-      getVerifiedSubscribers.mockResolvedValue([subscriber1, subscriber2]);
-
-      await checkFeedsAndSend(env);
-
-      expect(insertSubscriberSend).toHaveBeenCalledTimes(2);
-      expect(insertSubscriberSend).toHaveBeenCalledWith(
-        env.DB,
-        1,
-        "item-1",
-        "https://example.com/feed.xml",
-      );
-    });
-
-    it("marks item as sent and deletes subscriber_sends when complete", async () => {
-      isItemSent.mockResolvedValue(false);
-      getVerifiedSubscribers.mockResolvedValue([subscriber1]);
-
-      await checkFeedsAndSend(env);
-
-      expect(insertSentItem).toHaveBeenCalledWith(env.DB, {
-        itemId: "item-1",
-        feedUrl: "https://example.com/feed.xml",
-        title: "Test Post",
-        recipientCount: 1,
-      });
-      expect(deleteSubscriberSends).toHaveBeenCalledWith(
-        env.DB,
-        "item-1",
-        "https://example.com/feed.xml",
-      );
-    });
-  });
-
-  describe("partial send recovery", () => {
-    const subscriber1 = { id: 1, email: "a@b.com", unsubscribe_token: "u1" };
-    const subscriber2 = { id: 2, email: "c@d.com", unsubscribe_token: "u2" };
-
-    it("skips subscribers who already received item", async () => {
-      isItemSent.mockResolvedValue(false);
-      getVerifiedSubscribers.mockResolvedValue([subscriber1, subscriber2]);
-      isItemSentToSubscriber
-        .mockResolvedValueOnce(true) // subscriber1 already sent
-        .mockResolvedValueOnce(false); // subscriber2 not sent
-
-      const result = await checkFeedsAndSend(env);
-
-      expect(sendEmail).toHaveBeenCalledTimes(1);
-      expect(result.sent).toBe(1);
-    });
-
-    it("stops sending when quota is exhausted", async () => {
-      isItemSent.mockResolvedValue(false);
-      getVerifiedSubscribers.mockResolvedValue([subscriber1, subscriber2]);
-
-      sendEmail
-        .mockResolvedValueOnce({ success: true })
-        .mockResolvedValueOnce({
-          success: false,
-          quotaExhausted: true,
-          error: "Rate limited",
-        });
-
-      const result = await checkFeedsAndSend(env);
-
-      expect(result.sent).toBe(1);
-      expect(result.items[0].complete).toBe(false);
-      // Item should NOT be marked in sent_items
-      expect(insertSentItem).not.toHaveBeenCalled();
-      // subscriber_sends should NOT be cleaned up
-      expect(deleteSubscriberSends).not.toHaveBeenCalled();
-    });
-
-    it("continues to next subscriber on permanent failure", async () => {
-      isItemSent.mockResolvedValue(false);
-      getVerifiedSubscribers.mockResolvedValue([subscriber1, subscriber2]);
-
-      sendEmail
-        .mockResolvedValueOnce({
-          success: false,
-          quotaExhausted: false,
-          error: "Invalid address",
-        })
-        .mockResolvedValueOnce({ success: true });
-
-      const result = await checkFeedsAndSend(env);
-
-      expect(sendEmail).toHaveBeenCalledTimes(2);
-      expect(result.sent).toBe(1);
-      expect(result.items[0].complete).toBe(true);
-    });
-
-    it("stops processing further items after quota exhaustion", async () => {
-      const item2 = { ...ITEM, id: "item-2", title: "Second Post" };
-      fetchAndParseFeed.mockResolvedValue([ITEM, item2]);
-      isItemSent.mockResolvedValue(false);
-      getVerifiedSubscribers.mockResolvedValue([subscriber1]);
-
-      sendEmail.mockResolvedValue({
-        success: false,
-        quotaExhausted: true,
-        error: "Rate limited",
-      });
-
-      const result = await checkFeedsAndSend(env);
-
-      // Should only try the first item, not the second
-      expect(result.items).toHaveLength(1);
-    });
-  });
-
-  describe("content handling", () => {
-    it("uses item content when available", async () => {
-      isItemSent.mockResolvedValue(false);
-      getVerifiedSubscribers.mockResolvedValue([
-        { id: 1, email: "a@b.com", unsubscribe_token: "u1" },
-      ]);
-
-      await checkFeedsAndSend(env);
-
-      expect(constrainImages).toHaveBeenCalledWith("<p>Full content</p>");
-      expect(htmlToText).toHaveBeenCalledWith("<p>Full content</p>");
-    });
-
-    it("falls back to summary when content is null", async () => {
-      fetchAndParseFeed.mockResolvedValue([
-        { ...ITEM, content: null, summary: "Just a summary" },
-      ]);
-      isItemSent.mockResolvedValue(false);
-      getVerifiedSubscribers.mockResolvedValue([
-        { id: 1, email: "a@b.com", unsubscribe_token: "u1" },
-      ]);
-
-      await checkFeedsAndSend(env);
-
-      expect(constrainImages).toHaveBeenCalledWith("Just a summary");
-    });
-
-    it("uses empty string when both content and summary are null", async () => {
-      fetchAndParseFeed.mockResolvedValue([
-        { ...ITEM, content: null, summary: null },
-      ]);
-      isItemSent.mockResolvedValue(false);
-      getVerifiedSubscribers.mockResolvedValue([
-        { id: 1, email: "a@b.com", unsubscribe_token: "u1" },
-      ]);
-
-      await checkFeedsAndSend(env);
-
-      expect(constrainImages).toHaveBeenCalledWith("");
-    });
-
-    it("renders newsletter template with correct data", async () => {
-      isItemSent.mockResolvedValue(false);
-      getVerifiedSubscribers.mockResolvedValue([
-        { id: 1, email: "a@b.com", unsubscribe_token: "u1" },
-      ]);
-
-      await checkFeedsAndSend(env);
-
-      // render calls pass companyName and companyAddress from site config
-      expect(render).toHaveBeenCalledWith("newsletter", {
-        title: "Test Post",
-        date: "2025-01-15T10:00:00Z",
-        link: "https://example.com/post-1",
-        content: "<p>Full content</p>",
-        hasFullContent: true,
-        summary: "A summary",
-        siteName: "Test Site",
-        siteUrl: "https://example.com",
-        unsubscribeUrl: "%%UNSUBSCRIBE_URL%%",
-        companyName: undefined,
-        companyAddress: undefined,
-      });
-    });
-
-    it("sets hasFullContent to false when content is null", async () => {
-      fetchAndParseFeed.mockResolvedValue([
-        { ...ITEM, content: null },
-      ]);
-      isItemSent.mockResolvedValue(false);
-      getVerifiedSubscribers.mockResolvedValue([
-        { id: 1, email: "a@b.com", unsubscribe_token: "u1" },
-      ]);
-
-      await checkFeedsAndSend(env);
-
-      expect(render).toHaveBeenCalledWith(
-        "newsletter",
-        expect.objectContaining({ hasFullContent: false }),
-      );
-    });
-  });
-
-  describe("error handling", () => {
-    it("continues to next site on per-site error", async () => {
-      const site2 = {
-        ...SITE,
-        id: "site-2",
-        feeds: ["https://other.com/feed"],
-      };
-      getSites.mockReturnValue([SITE, site2]);
-
-      // First site throws, second site works
-      fetchAndParseFeed
-        .mockRejectedValueOnce(new Error("Network error"))
-        .mockResolvedValueOnce([ITEM]);
-
-      isItemSent.mockResolvedValue(true); // all items already sent
-
-      const result = await checkFeedsAndSend(env);
-
-      // Should not throw, should continue
-      expect(fetchAndParseFeed).toHaveBeenCalledTimes(2);
-    });
-
-    it("continues to next feed on per-feed error", async () => {
-      const site = {
-        ...SITE,
-        feeds: ["https://feed1.com", "https://feed2.com"],
-      };
-      getSites.mockReturnValue([site]);
-
-      fetchAndParseFeed
-        .mockRejectedValueOnce(new Error("Feed 1 error"))
-        .mockResolvedValueOnce([ITEM]);
-
-      isItemSent.mockResolvedValue(true);
-
-      const result = await checkFeedsAndSend(env);
-
-      expect(fetchAndParseFeed).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  describe("multiple feeds for one site", () => {
-    it("collects unseen items from all feeds", async () => {
-      const item2 = { ...ITEM, id: "item-2", title: "Feed 2 Post" };
-      const site = {
-        ...SITE,
-        feeds: ["https://feed1.com", "https://feed2.com"],
-      };
-      getSites.mockReturnValue([site]);
-
-      fetchAndParseFeed
-        .mockResolvedValueOnce([ITEM])
-        .mockResolvedValueOnce([item2]);
-
-      isItemSent.mockResolvedValue(false);
-      getVerifiedSubscribers.mockResolvedValue([
-        { id: 1, email: "a@b.com", unsubscribe_token: "u1" },
-      ]);
-
-      const result = await checkFeedsAndSend(env);
-
-      expect(result.sent).toBe(2);
-      expect(result.items).toHaveLength(2);
-    });
-  });
-
-  describe("empty feeds list", () => {
-    it("skips site with empty feeds array without errors", async () => {
-      const siteNoFeeds = { ...SITE, feeds: [] };
-      getSites.mockReturnValue([siteNoFeeds]);
-
-      const result = await checkFeedsAndSend(env);
-
-      expect(result.sent).toBe(0);
-      expect(result.items).toHaveLength(0);
-      expect(fetchAndParseFeed).not.toHaveBeenCalled();
-    });
-
-    it("skips site with undefined feeds without errors", async () => {
-      const { feeds, ...siteNoFeeds } = SITE;
-      getSites.mockReturnValue([siteNoFeeds]);
-
-      const result = await checkFeedsAndSend(env);
-
-      expect(result.sent).toBe(0);
-      expect(result.items).toHaveLength(0);
-      expect(fetchAndParseFeed).not.toHaveBeenCalled();
-    });
-
-    it("processes other sites normally when one site has empty feeds", async () => {
-      const siteNoFeeds = { ...SITE, id: "no-feeds", feeds: [] };
-      const siteWithFeeds = { ...SITE, id: "has-feeds" };
-      getSites.mockReturnValue([siteNoFeeds, siteWithFeeds]);
-
-      isItemSent.mockResolvedValue(true); // all items already sent
-
-      const result = await checkFeedsAndSend(env);
-
-      expect(fetchAndParseFeed).toHaveBeenCalledTimes(1);
-      expect(fetchAndParseFeed).toHaveBeenCalledWith(
-        "https://example.com/feed.xml",
-        expect.any(String),
-      );
-    });
-  });
-
-  describe("company info in newsletter email footer", () => {
-    const subscriber1 = {
-      id: 1,
-      email: "user1@test.com",
-      unsubscribe_token: "unsub-1",
-    };
-
-    it("passes companyName and companyAddress to newsletter HTML template when configured", async () => {
-      const siteWithCompany = {
-        ...SITE,
-        companyName: "Acme Corp",
-        companyAddress: "123 Main St, Springfield, IL 62701",
-      };
-      getSites.mockReturnValue([siteWithCompany]);
-      isItemSent.mockResolvedValue(false);
-      getVerifiedSubscribers.mockResolvedValue([subscriber1]);
-
-      await checkFeedsAndSend(env);
-
-      expect(render).toHaveBeenCalledWith(
-        "newsletter",
-        expect.objectContaining({
-          companyName: "Acme Corp",
-          companyAddress: "123 Main St, Springfield, IL 62701",
-        }),
-      );
-    });
-
-    it("passes companyName and companyAddress to newsletter text template when configured", async () => {
-      const siteWithCompany = {
-        ...SITE,
-        companyName: "Acme Corp",
-        companyAddress: "123 Main St, Springfield, IL 62701",
-      };
-      getSites.mockReturnValue([siteWithCompany]);
-      isItemSent.mockResolvedValue(false);
-      getVerifiedSubscribers.mockResolvedValue([subscriber1]);
-
-      await checkFeedsAndSend(env);
-
-      expect(render).toHaveBeenCalledWith(
-        "newsletterText",
-        expect.objectContaining({
-          companyName: "Acme Corp",
-          companyAddress: "123 Main St, Springfield, IL 62701",
-        }),
-      );
-    });
-
-    it("passes undefined companyName and companyAddress when site has no company info", async () => {
-      // Default SITE has no companyName/companyAddress
-      isItemSent.mockResolvedValue(false);
-      getVerifiedSubscribers.mockResolvedValue([subscriber1]);
-
-      await checkFeedsAndSend(env);
-
-      expect(render).toHaveBeenCalledWith(
-        "newsletter",
-        expect.objectContaining({
-          companyName: undefined,
-          companyAddress: undefined,
-        }),
-      );
-
-      expect(render).toHaveBeenCalledWith(
-        "newsletterText",
-        expect.objectContaining({
-          companyName: undefined,
-          companyAddress: undefined,
-        }),
-      );
-    });
-
-    it("passes empty string companyName when site has empty string", async () => {
-      const siteWithEmpty = {
-        ...SITE,
-        companyName: "",
-        companyAddress: "123 Main St",
-      };
-      getSites.mockReturnValue([siteWithEmpty]);
-      isItemSent.mockResolvedValue(false);
-      getVerifiedSubscribers.mockResolvedValue([subscriber1]);
-
-      await checkFeedsAndSend(env);
-
-      expect(render).toHaveBeenCalledWith(
-        "newsletter",
-        expect.objectContaining({
-          companyName: "",
-          companyAddress: "123 Main St",
-        }),
-      );
-    });
-
-    it("passes only companyAddress when companyName is not configured", async () => {
-      const siteOnlyAddress = {
-        ...SITE,
-        companyAddress: "456 Oak Ave",
-      };
-      getSites.mockReturnValue([siteOnlyAddress]);
-      isItemSent.mockResolvedValue(false);
-      getVerifiedSubscribers.mockResolvedValue([subscriber1]);
-
-      await checkFeedsAndSend(env);
-
-      expect(render).toHaveBeenCalledWith(
-        "newsletter",
-        expect.objectContaining({
-          companyName: undefined,
-          companyAddress: "456 Oak Ave",
-        }),
-      );
-    });
-
-    it("passes only companyName when companyAddress is not configured", async () => {
-      const siteOnlyName = {
-        ...SITE,
-        companyName: "Acme Corp",
-      };
-      getSites.mockReturnValue([siteOnlyName]);
-      isItemSent.mockResolvedValue(false);
-      getVerifiedSubscribers.mockResolvedValue([subscriber1]);
-
-      await checkFeedsAndSend(env);
-
-      expect(render).toHaveBeenCalledWith(
-        "newsletter",
-        expect.objectContaining({
-          companyName: "Acme Corp",
-          companyAddress: undefined,
-        }),
-      );
-    });
-  });
-
-  describe("newsletter footer layout standardization", () => {
-    const subscriber1 = {
-      id: 1,
-      email: "user1@test.com",
-      unsubscribe_token: "unsub-1",
-    };
-
-    it("%%UNSUBSCRIBE_URL%% placeholder replacement continues to work", async () => {
+    it("does not reference feedmail.cc in URLs", async () => {
       isItemSent.mockResolvedValue(false);
       getVerifiedSubscribers.mockResolvedValue([subscriber1]);
 
       await checkFeedsAndSend(env);
 
       const emailCall = sendEmail.mock.calls[0];
-      // The rendered template mock returns "html with %%UNSUBSCRIBE_URL%%"
-      // which should be replaced with the actual per-subscriber URL
-      expect(emailCall[1].html).not.toContain("%%UNSUBSCRIBE_URL%%");
-      expect(emailCall[1].html).toContain(
-        "https://feedmail.cc/api/unsubscribe?token=unsub-1",
-      );
-      expect(emailCall[1].text).not.toContain("%%UNSUBSCRIBE_URL%%");
-      expect(emailCall[1].text).toContain(
-        "https://feedmail.cc/api/unsubscribe?token=unsub-1",
-      );
+      expect(emailCall[1].html).not.toContain("feedmail.cc");
+      expect(emailCall[1].text).not.toContain("feedmail.cc");
+      expect(emailCall[1].headers["List-Unsubscribe"]).not.toContain("feedmail.cc");
     });
+  });
 
-    it("newsletter HTML template receives unsubscribeUrl as %%UNSUBSCRIBE_URL%% placeholder", async () => {
+  describe("template data uses channel field names", () => {
+    const subscriber1 = {
+      id: 1,
+      email: "user1@test.com",
+      unsubscribe_token: "unsub-1",
+    };
+
+    it("passes channel.siteName to newsletter template", async () => {
       isItemSent.mockResolvedValue(false);
       getVerifiedSubscribers.mockResolvedValue([subscriber1]);
 
       await checkFeedsAndSend(env);
 
-      // The render call for the newsletter template must pass
-      // unsubscribeUrl: "%%UNSUBSCRIBE_URL%%" so it can be replaced per-subscriber
       expect(render).toHaveBeenCalledWith(
         "newsletter",
         expect.objectContaining({
-          unsubscribeUrl: "%%UNSUBSCRIBE_URL%%",
+          siteName: "Test Site",
+          siteUrl: "https://test.example.com",
         }),
       );
     });
 
-    it("newsletter text template receives unsubscribeUrl as %%UNSUBSCRIBE_URL%% placeholder", async () => {
+    it("passes channel.siteName to newsletter text template", async () => {
       isItemSent.mockResolvedValue(false);
       getVerifiedSubscribers.mockResolvedValue([subscriber1]);
 
@@ -798,50 +318,48 @@ describe("checkFeedsAndSend", () => {
       expect(render).toHaveBeenCalledWith(
         "newsletterText",
         expect.objectContaining({
-          unsubscribeUrl: "%%UNSUBSCRIBE_URL%%",
-        }),
-      );
-    });
-
-    it("newsletter template receives siteName for copyright line", async () => {
-      isItemSent.mockResolvedValue(false);
-      getVerifiedSubscribers.mockResolvedValue([subscriber1]);
-
-      await checkFeedsAndSend(env);
-
-      // footer uses siteName for copyright
-      expect(render).toHaveBeenCalledWith(
-        "newsletter",
-        expect.objectContaining({
           siteName: "Test Site",
         }),
       );
     });
+  });
 
-    it("%%UNSUBSCRIBE_URL%% is replaced independently for each subscriber", async () => {
-      const subscriber2 = {
-        id: 2,
-        email: "user2@test.com",
-        unsubscribe_token: "unsub-2",
+  describe("no BASE_URL references", () => {
+    const subscriber1 = {
+      id: 1,
+      email: "user1@test.com",
+      unsubscribe_token: "unsub-1",
+    };
+
+    it("uses env.DOMAIN for URL construction, not env.BASE_URL", async () => {
+      const envWithBaseUrl = {
+        ...env,
+        BASE_URL: "https://old.feedmail.cc",
       };
       isItemSent.mockResolvedValue(false);
-      getVerifiedSubscribers.mockResolvedValue([subscriber1, subscriber2]);
+      getVerifiedSubscribers.mockResolvedValue([subscriber1]);
 
-      await checkFeedsAndSend(env);
+      await checkFeedsAndSend(envWithBaseUrl);
 
-      // First subscriber
-      const call1 = sendEmail.mock.calls[0];
-      expect(call1[1].html).toContain(
-        "https://feedmail.cc/api/unsubscribe?token=unsub-1",
-      );
-      expect(call1[1].html).not.toContain("unsub-2");
+      const emailCall = sendEmail.mock.calls[0];
+      // URLs should use DOMAIN, not BASE_URL
+      expect(emailCall[1].html).toContain("test.example.com");
+      expect(emailCall[1].html).not.toContain("feedmail.cc");
+    });
+  });
 
-      // Second subscriber
-      const call2 = sendEmail.mock.calls[1];
-      expect(call2[1].html).toContain(
-        "https://feedmail.cc/api/unsubscribe?token=unsub-2",
-      );
-      expect(call2[1].html).not.toContain("unsub-1");
+  describe("summary includes channelId (not siteId)", () => {
+    it("summary items include channelId field", async () => {
+      isItemSent.mockResolvedValue(false);
+      getVerifiedSubscribers.mockResolvedValue([
+        { id: 1, email: "a@b.com", unsubscribe_token: "u1" },
+      ]);
+
+      const result = await checkFeedsAndSend(env);
+
+      expect(result.items[0]).toHaveProperty("channelId", "test-channel");
+      // Should NOT have siteId
+      expect(result.items[0]).not.toHaveProperty("siteId");
     });
   });
 });

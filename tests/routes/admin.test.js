@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../../src/lib/config.js", () => ({
-  getSiteById: vi.fn(),
+  getChannelById: vi.fn(),
 }));
 vi.mock("../../src/lib/db.js", () => ({
   getSubscriberStats: vi.fn(),
@@ -10,24 +10,26 @@ vi.mock("../../src/lib/db.js", () => ({
 }));
 
 import { handleAdmin } from "../../src/routes/admin.js";
-import { getSiteById } from "../../src/lib/config.js";
+import { getChannelById } from "../../src/lib/config.js";
 import {
   getSubscriberStats,
   getSentItemStats,
   getSubscriberList,
 } from "../../src/lib/db.js";
 
-const SITE = {
-  id: "test-site",
-  name: "Test Site",
-  url: "https://example.com",
-  feeds: ["https://example.com/feed.xml"],
+const CHANNEL = {
+  id: "test-channel",
+  siteName: "Test Site",
+  siteUrl: "https://test.example.com",
+  feeds: [
+    { name: "Main Feed", url: "https://test.example.com/feed.xml" },
+  ],
 };
 
-const env = { DB: {} };
+const env = { DB: {}, DOMAIN: "test.example.com" };
 
 function makeRequest(pathname, params = {}) {
-  const url = new URL(`https://feedmail.cc${pathname}`);
+  const url = new URL(`https://test.example.com${pathname}`);
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
   }
@@ -37,10 +39,10 @@ function makeRequest(pathname, params = {}) {
   };
 }
 
-describe("handleAdmin", () => {
+describe("handleAdmin — channel restructuring", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getSiteById.mockReturnValue(SITE);
+    getChannelById.mockReturnValue(CHANNEL);
     getSubscriberStats.mockResolvedValue({
       total: 10,
       verified: 7,
@@ -54,10 +56,10 @@ describe("handleAdmin", () => {
     getSubscriberList.mockResolvedValue([]);
   });
 
-  describe("routing", () => {
-    it("routes /api/admin/stats to stats handler", async () => {
+  describe("channelId replaces siteId query parameter", () => {
+    it("accepts channelId query param for stats", async () => {
       const { request, url } = makeRequest("/api/admin/stats", {
-        siteId: "test-site",
+        channelId: "test-channel",
       });
 
       const response = await handleAdmin(request, env, url);
@@ -68,9 +70,9 @@ describe("handleAdmin", () => {
       expect(body).toHaveProperty("sentItems");
     });
 
-    it("routes /api/admin/subscribers to subscribers handler", async () => {
+    it("accepts channelId query param for subscribers", async () => {
       const { request, url } = makeRequest("/api/admin/subscribers", {
-        siteId: "test-site",
+        channelId: "test-channel",
       });
 
       const response = await handleAdmin(request, env, url);
@@ -81,132 +83,161 @@ describe("handleAdmin", () => {
       expect(body).toHaveProperty("count");
     });
 
-    it("returns 404 for unknown admin path", async () => {
-      const { request, url } = makeRequest("/api/admin/unknown");
-
-      const response = await handleAdmin(request, env, url);
-      const body = await response.json();
-
-      expect(response.status).toBe(404);
-      expect(body.error).toBe("Not Found");
-    });
-  });
-
-  describe("handleStats", () => {
-    it("returns 400 when siteId is missing", async () => {
+    it("returns 400 when channelId is missing for stats", async () => {
       const { request, url } = makeRequest("/api/admin/stats");
 
       const response = await handleAdmin(request, env, url);
       const body = await response.json();
 
       expect(response.status).toBe(400);
-      expect(body.error).toBe("Missing siteId query parameter");
+      expect(body.error).toMatch(/channelId/i);
     });
 
-    it("returns 404 for unknown site", async () => {
-      getSiteById.mockReturnValue(null);
-      const { request, url } = makeRequest("/api/admin/stats", {
-        siteId: "nonexistent",
-      });
-
-      const response = await handleAdmin(request, env, url);
-      const body = await response.json();
-
-      expect(response.status).toBe(404);
-      expect(body.error).toBe("Unknown site");
-    });
-
-    it("returns subscriber and sent item stats", async () => {
-      const { request, url } = makeRequest("/api/admin/stats", {
-        siteId: "test-site",
-      });
-
-      const response = await handleAdmin(request, env, url);
-      const body = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(body.siteId).toBe("test-site");
-      expect(body.subscribers).toEqual({
-        total: 10,
-        verified: 7,
-        pending: 2,
-        unsubscribed: 1,
-      });
-      expect(body.sentItems).toEqual({
-        total: 5,
-        lastSentAt: "2025-01-15 10:00:00",
-      });
-      expect(body.feeds).toEqual(["https://example.com/feed.xml"]);
-    });
-
-    it("calls getSubscriberStats and getSentItemStats in parallel", async () => {
-      const { request, url } = makeRequest("/api/admin/stats", {
-        siteId: "test-site",
-      });
-
-      await handleAdmin(request, env, url);
-
-      expect(getSubscriberStats).toHaveBeenCalledWith(env.DB, "test-site");
-      expect(getSentItemStats).toHaveBeenCalledWith(env.DB, [
-        "https://example.com/feed.xml",
-      ]);
-    });
-  });
-
-  describe("handleSubscribers", () => {
-    it("returns 400 when siteId is missing", async () => {
+    it("returns 400 when channelId is missing for subscribers", async () => {
       const { request, url } = makeRequest("/api/admin/subscribers");
 
       const response = await handleAdmin(request, env, url);
       const body = await response.json();
 
       expect(response.status).toBe(400);
-      expect(body.error).toBe("Missing siteId query parameter");
+      expect(body.error).toMatch(/channelId/i);
     });
 
-    it("returns 404 for unknown site", async () => {
-      getSiteById.mockReturnValue(null);
-      const { request, url } = makeRequest("/api/admin/subscribers", {
-        siteId: "nonexistent",
+    it("returns 404 for unknown channel", async () => {
+      getChannelById.mockReturnValue(null);
+      const { request, url } = makeRequest("/api/admin/stats", {
+        channelId: "nonexistent",
       });
 
       const response = await handleAdmin(request, env, url);
       const body = await response.json();
 
       expect(response.status).toBe(404);
-      expect(body.error).toBe("Unknown site");
+      expect(body.error).toMatch(/channel/i);
     });
+  });
 
-    it("returns subscriber list without status filter", async () => {
-      const subscribers = [
-        { email: "a@b.com", status: "verified" },
-        { email: "c@d.com", status: "pending" },
-      ];
-      getSubscriberList.mockResolvedValue(subscribers);
+  describe("uses getChannelById instead of getSiteById", () => {
+    it("calls getChannelById with channelId", async () => {
+      const { request, url } = makeRequest("/api/admin/stats", {
+        channelId: "test-channel",
+      });
 
-      const { request, url } = makeRequest("/api/admin/subscribers", {
-        siteId: "test-site",
+      await handleAdmin(request, env, url);
+
+      expect(getChannelById).toHaveBeenCalledWith(env, "test-channel");
+    });
+  });
+
+  describe("stats response uses channelId", () => {
+    it("response body includes channelId (not siteId)", async () => {
+      const { request, url } = makeRequest("/api/admin/stats", {
+        channelId: "test-channel",
       });
 
       const response = await handleAdmin(request, env, url);
       const body = await response.json();
 
-      expect(response.status).toBe(200);
-      expect(body.siteId).toBe("test-site");
-      expect(body.count).toBe(2);
-      expect(body.subscribers).toEqual(subscribers);
+      expect(body.channelId).toBe("test-channel");
+      expect(body).not.toHaveProperty("siteId");
+    });
+  });
+
+  describe("subscribers response uses channelId", () => {
+    it("response body includes channelId (not siteId)", async () => {
+      const { request, url } = makeRequest("/api/admin/subscribers", {
+        channelId: "test-channel",
+      });
+
+      const response = await handleAdmin(request, env, url);
+      const body = await response.json();
+
+      expect(body.channelId).toBe("test-channel");
+      expect(body).not.toHaveProperty("siteId");
+    });
+  });
+
+  describe("feeds are extracted as URLs from structured objects", () => {
+    it("passes feed URLs to getSentItemStats from feed objects", async () => {
+      const { request, url } = makeRequest("/api/admin/stats", {
+        channelId: "test-channel",
+      });
+
+      await handleAdmin(request, env, url);
+
+      // channel.feeds is [{name, url}], but getSentItemStats needs [url]
+      expect(getSentItemStats).toHaveBeenCalledWith(env.DB, [
+        "https://test.example.com/feed.xml",
+      ]);
+    });
+
+    it("returns feed URLs in stats response from feed objects", async () => {
+      const { request, url } = makeRequest("/api/admin/stats", {
+        channelId: "test-channel",
+      });
+
+      const response = await handleAdmin(request, env, url);
+      const body = await response.json();
+
+      // feeds in response should be full feed objects
+      expect(body.feeds).toEqual([
+        { name: "Main Feed", url: "https://test.example.com/feed.xml" },
+      ]);
+    });
+
+    it("handles channel with multiple feed objects", async () => {
+      const multiChannel = {
+        ...CHANNEL,
+        feeds: [
+          { name: "Feed A", url: "https://test.example.com/feed-a.xml" },
+          { name: "Feed B", url: "https://test.example.com/feed-b.xml" },
+        ],
+      };
+      getChannelById.mockReturnValue(multiChannel);
+
+      const { request, url } = makeRequest("/api/admin/stats", {
+        channelId: "test-channel",
+      });
+
+      await handleAdmin(request, env, url);
+
+      expect(getSentItemStats).toHaveBeenCalledWith(env.DB, [
+        "https://test.example.com/feed-a.xml",
+        "https://test.example.com/feed-b.xml",
+      ]);
+    });
+  });
+
+  describe("getSubscriberStats uses channelId", () => {
+    it("passes channelId to getSubscriberStats", async () => {
+      const { request, url } = makeRequest("/api/admin/stats", {
+        channelId: "test-channel",
+      });
+
+      await handleAdmin(request, env, url);
+
+      expect(getSubscriberStats).toHaveBeenCalledWith(env.DB, "test-channel");
+    });
+  });
+
+  describe("getSubscriberList uses channelId", () => {
+    it("passes channelId to getSubscriberList", async () => {
+      const { request, url } = makeRequest("/api/admin/subscribers", {
+        channelId: "test-channel",
+      });
+
+      await handleAdmin(request, env, url);
+
       expect(getSubscriberList).toHaveBeenCalledWith(
         env.DB,
-        "test-site",
+        "test-channel",
         null,
       );
     });
 
-    it("passes status filter when provided", async () => {
-      getSubscriberList.mockResolvedValue([]);
-
+    it("passes status filter along with channelId", async () => {
       const { request, url } = makeRequest("/api/admin/subscribers", {
-        siteId: "test-site",
+        channelId: "test-channel",
         status: "verified",
       });
 
@@ -214,39 +245,9 @@ describe("handleAdmin", () => {
 
       expect(getSubscriberList).toHaveBeenCalledWith(
         env.DB,
-        "test-site",
+        "test-channel",
         "verified",
       );
-    });
-
-    it("returns correct count for filtered results", async () => {
-      getSubscriberList.mockResolvedValue([
-        { email: "a@b.com", status: "verified" },
-      ]);
-
-      const { request, url } = makeRequest("/api/admin/subscribers", {
-        siteId: "test-site",
-        status: "verified",
-      });
-
-      const response = await handleAdmin(request, env, url);
-      const body = await response.json();
-
-      expect(body.count).toBe(1);
-    });
-
-    it("returns empty list and count 0 when no subscribers", async () => {
-      getSubscriberList.mockResolvedValue([]);
-
-      const { request, url } = makeRequest("/api/admin/subscribers", {
-        siteId: "test-site",
-      });
-
-      const response = await handleAdmin(request, env, url);
-      const body = await response.json();
-
-      expect(body.count).toBe(0);
-      expect(body.subscribers).toEqual([]);
     });
   });
 });

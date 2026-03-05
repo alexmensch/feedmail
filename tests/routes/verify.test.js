@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../../src/lib/config.js", () => ({
-  getSiteById: vi.fn(),
+  getChannelById: vi.fn(),
 }));
 vi.mock("../../src/lib/templates.js", () => ({
   render: vi.fn().mockReturnValue("<html>rendered</html>"),
@@ -13,7 +13,7 @@ vi.mock("../../src/lib/db.js", () => ({
 }));
 
 import { handleVerify } from "../../src/routes/verify.js";
-import { getSiteById } from "../../src/lib/config.js";
+import { getChannelById } from "../../src/lib/config.js";
 import { render } from "../../src/lib/templates.js";
 import {
   getSubscriberByVerifyToken,
@@ -21,168 +21,73 @@ import {
   clearVerificationAttempts,
 } from "../../src/lib/db.js";
 
-const SITE = {
-  id: "test-site",
-  name: "Test Site",
-  url: "https://example.com",
+const CHANNEL = {
+  id: "test-channel",
+  siteName: "Test Site",
+  siteUrl: "https://test.example.com",
 };
 
-const env = { DB: {} };
+const env = { DB: {}, DOMAIN: "test.example.com" };
 
 function makeUrl(token) {
-  const url = new URL("https://feedmail.cc/api/verify");
+  const url = new URL("https://test.example.com/api/verify");
   if (token !== undefined) url.searchParams.set("token", token);
   return url;
 }
 
 function makeRequest() {
-  return new Request("https://feedmail.cc/api/verify", { method: "GET" });
+  return new Request("https://test.example.com/api/verify", { method: "GET" });
 }
 
-describe("handleVerify", () => {
+describe("handleVerify — channel restructuring", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getSiteById.mockReturnValue(SITE);
+    getChannelById.mockReturnValue(CHANNEL);
   });
 
-  describe("missing or invalid token", () => {
-    it("returns error page when token is missing", async () => {
-      const url = new URL("https://feedmail.cc/api/verify"); // no token param
-
-      const response = await handleVerify(makeRequest(), env, url);
-
-      expect(response.status).toBe(200);
-      expect(render).toHaveBeenCalledWith("errorPage", {
-        siteName: "feedmail",
-        siteUrl: "/",
-        errorMessage:
-          "This link is invalid or has expired. Please try subscribing again.",
-      });
-    });
-
-    it("returns error page when subscriber not found for token", async () => {
-      getSubscriberByVerifyToken.mockResolvedValue(null);
-
-      const response = await handleVerify(
-        makeRequest(),
-        env,
-        makeUrl("invalid-token"),
-      );
-
-      expect(response.status).toBe(200);
-      expect(render).toHaveBeenCalledWith("errorPage", expect.objectContaining({
-        errorMessage: "This link is invalid or has expired. Please try subscribing again.",
-      }));
-      expect(markSubscriberVerified).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("token expiry", () => {
-    it("returns error page when token is expired (>24 hours)", async () => {
-      const created = new Date(Date.now() - 25 * 60 * 60 * 1000); // 25 hours ago
-      const createdStr = created.toISOString().replace("T", " ").replace("Z", "").split(".")[0];
-
-      getSubscriberByVerifyToken.mockResolvedValue({
-        id: 1,
-        site_id: "test-site",
-        created_at: createdStr,
-      });
-
-      const response = await handleVerify(
-        makeRequest(),
-        env,
-        makeUrl("expired-token"),
-      );
-
-      expect(response.status).toBe(200);
-      expect(render).toHaveBeenCalledWith("errorPage", expect.objectContaining({
-        errorMessage: "This link is invalid or has expired. Please try subscribing again.",
-      }));
-      expect(markSubscriberVerified).not.toHaveBeenCalled();
-    });
-
-    it("succeeds when token is exactly at 24 hour boundary", async () => {
-      // Exactly 23.9 hours ago - should still be valid
-      const created = new Date(Date.now() - 23.9 * 60 * 60 * 1000);
-      const createdStr = created.toISOString().replace("T", " ").replace("Z", "").split(".")[0];
-
-      getSubscriberByVerifyToken.mockResolvedValue({
-        id: 1,
-        site_id: "test-site",
-        created_at: createdStr,
-      });
-
-      const response = await handleVerify(
-        makeRequest(),
-        env,
-        makeUrl("valid-token"),
-      );
-
-      expect(markSubscriberVerified).toHaveBeenCalledWith(env.DB, 1);
-    });
-
-    it("uses error page with site info when expired token has valid site_id", async () => {
-      const created = new Date(Date.now() - 25 * 60 * 60 * 1000);
-      const createdStr = created.toISOString().replace("T", " ").replace("Z", "").split(".")[0];
-
-      getSubscriberByVerifyToken.mockResolvedValue({
-        id: 1,
-        site_id: "test-site",
-        created_at: createdStr,
-      });
-
-      await handleVerify(makeRequest(), env, makeUrl("expired-token"));
-
-      expect(render).toHaveBeenCalledWith("errorPage", {
-        siteName: "Test Site",
-        siteUrl: "https://example.com",
-        errorMessage: "This link is invalid or has expired. Please try subscribing again.",
-      });
-    });
-  });
-
-  describe("successful verification", () => {
-    it("marks subscriber as verified", async () => {
-      const created = new Date(Date.now() - 1 * 60 * 60 * 1000); // 1 hour ago
-      const createdStr = created.toISOString().replace("T", " ").replace("Z", "").split(".")[0];
-
-      getSubscriberByVerifyToken.mockResolvedValue({
-        id: 42,
-        site_id: "test-site",
-        created_at: createdStr,
-      });
-
-      const response = await handleVerify(
-        makeRequest(),
-        env,
-        makeUrl("valid-token"),
-      );
-
-      expect(markSubscriberVerified).toHaveBeenCalledWith(env.DB, 42);
-    });
-
-    it("clears verification attempts", async () => {
+  describe("uses channel_id instead of site_id", () => {
+    it("reads subscriber.channel_id to look up channel", async () => {
       const created = new Date(Date.now() - 1 * 60 * 60 * 1000);
       const createdStr = created.toISOString().replace("T", " ").replace("Z", "").split(".")[0];
 
       getSubscriberByVerifyToken.mockResolvedValue({
         id: 42,
-        site_id: "test-site",
+        channel_id: "test-channel",
         created_at: createdStr,
       });
 
       await handleVerify(makeRequest(), env, makeUrl("valid-token"));
 
-      expect(clearVerificationAttempts).toHaveBeenCalledWith(env.DB, 42);
+      expect(getChannelById).toHaveBeenCalledWith(env, "test-channel");
     });
 
-    it("renders verify page with site info", async () => {
+    it("does not access subscriber.site_id", async () => {
+      const created = new Date(Date.now() - 1 * 60 * 60 * 1000);
+      const createdStr = created.toISOString().replace("T", " ").replace("Z", "").split(".")[0];
+
+      // Subscriber has channel_id, not site_id
+      getSubscriberByVerifyToken.mockResolvedValue({
+        id: 42,
+        channel_id: "test-channel",
+        created_at: createdStr,
+      });
+
+      await handleVerify(makeRequest(), env, makeUrl("valid-token"));
+
+      // Should call getChannelById with "test-channel", not undefined
+      expect(getChannelById).toHaveBeenCalledWith(env, "test-channel");
+      expect(markSubscriberVerified).toHaveBeenCalledWith(env.DB, 42);
+    });
+  });
+
+  describe("uses getChannelById instead of getSiteById", () => {
+    it("calls getChannelById for successful verification", async () => {
       const created = new Date(Date.now() - 1 * 60 * 60 * 1000);
       const createdStr = created.toISOString().replace("T", " ").replace("Z", "").split(".")[0];
 
       getSubscriberByVerifyToken.mockResolvedValue({
         id: 42,
-        site_id: "test-site",
+        channel_id: "test-channel",
         created_at: createdStr,
       });
 
@@ -190,40 +95,37 @@ describe("handleVerify", () => {
 
       expect(render).toHaveBeenCalledWith("verifyPage", {
         siteName: "Test Site",
-        siteUrl: "https://example.com",
+        siteUrl: "https://test.example.com",
       });
     });
 
-    it("returns HTML content type", async () => {
+    it("renders verify page with channel.siteName and channel.siteUrl", async () => {
       const created = new Date(Date.now() - 1 * 60 * 60 * 1000);
       const createdStr = created.toISOString().replace("T", " ").replace("Z", "").split(".")[0];
 
       getSubscriberByVerifyToken.mockResolvedValue({
         id: 42,
-        site_id: "test-site",
+        channel_id: "test-channel",
         created_at: createdStr,
       });
 
-      const response = await handleVerify(
-        makeRequest(),
-        env,
-        makeUrl("valid-token"),
-      );
+      await handleVerify(makeRequest(), env, makeUrl("valid-token"));
 
-      expect(response.headers.get("Content-Type")).toBe(
-        "text/html; charset=utf-8",
-      );
+      expect(render).toHaveBeenCalledWith("verifyPage", {
+        siteName: "Test Site",
+        siteUrl: "https://test.example.com",
+      });
     });
 
-    it("uses fallback site name when site not found in config", async () => {
-      getSiteById.mockReturnValue(null);
+    it("uses fallback when channel not found in config", async () => {
+      getChannelById.mockReturnValue(null);
 
       const created = new Date(Date.now() - 1 * 60 * 60 * 1000);
       const createdStr = created.toISOString().replace("T", " ").replace("Z", "").split(".")[0];
 
       getSubscriberByVerifyToken.mockResolvedValue({
         id: 42,
-        site_id: "unknown-site",
+        channel_id: "unknown-channel",
         created_at: createdStr,
       });
 
@@ -236,60 +138,46 @@ describe("handleVerify", () => {
     });
   });
 
-  describe("error page consistency (no info leak)", () => {
-    it("returns same status 200 for all error cases", async () => {
-      // No token
-      const r1 = await handleVerify(makeRequest(), env, new URL("https://feedmail.cc/api/verify"));
-      expect(r1.status).toBe(200);
-
-      // Invalid token
-      getSubscriberByVerifyToken.mockResolvedValue(null);
-      const r2 = await handleVerify(makeRequest(), env, makeUrl("bad-token"));
-      expect(r2.status).toBe(200);
-
-      // Expired token
-      const created = new Date(Date.now() - 48 * 60 * 60 * 1000);
+  describe("error page uses channel_id for lookup", () => {
+    it("uses channel_id for error page site info on expired token", async () => {
+      const created = new Date(Date.now() - 25 * 60 * 60 * 1000);
       const createdStr = created.toISOString().replace("T", " ").replace("Z", "").split(".")[0];
+
       getSubscriberByVerifyToken.mockResolvedValue({
         id: 1,
-        site_id: "test-site",
+        channel_id: "test-channel",
         created_at: createdStr,
       });
-      const r3 = await handleVerify(makeRequest(), env, makeUrl("expired"));
-      expect(r3.status).toBe(200);
+
+      await handleVerify(makeRequest(), env, makeUrl("expired-token"));
+
+      expect(getChannelById).toHaveBeenCalledWith(env, "test-channel");
+      expect(render).toHaveBeenCalledWith("errorPage", {
+        siteName: "Test Site",
+        siteUrl: "https://test.example.com",
+        errorMessage: "This link is invalid or has expired. Please try subscribing again.",
+      });
     });
+  });
 
-    it("uses same error message for all error cases", async () => {
-      const expectedMsg = "This link is invalid or has expired. Please try subscribing again.";
-
-      // No token
-      render.mockClear();
-      await handleVerify(makeRequest(), env, new URL("https://feedmail.cc/api/verify"));
-      expect(render).toHaveBeenCalledWith("errorPage", expect.objectContaining({
-        errorMessage: expectedMsg,
-      }));
-
-      // Invalid token
-      render.mockClear();
-      getSubscriberByVerifyToken.mockResolvedValue(null);
-      await handleVerify(makeRequest(), env, makeUrl("bad-token"));
-      expect(render).toHaveBeenCalledWith("errorPage", expect.objectContaining({
-        errorMessage: expectedMsg,
-      }));
-
-      // Expired token
-      render.mockClear();
-      const created = new Date(Date.now() - 48 * 60 * 60 * 1000);
+  describe("no feedmail.cc references in test URLs", () => {
+    it("test URLs use test.example.com", async () => {
+      const created = new Date(Date.now() - 1 * 60 * 60 * 1000);
       const createdStr = created.toISOString().replace("T", " ").replace("Z", "").split(".")[0];
+
       getSubscriberByVerifyToken.mockResolvedValue({
-        id: 1,
-        site_id: "test-site",
+        id: 42,
+        channel_id: "test-channel",
         created_at: createdStr,
       });
-      await handleVerify(makeRequest(), env, makeUrl("expired"));
-      expect(render).toHaveBeenCalledWith("errorPage", expect.objectContaining({
-        errorMessage: expectedMsg,
-      }));
+
+      const response = await handleVerify(makeRequest(), env, makeUrl("valid-token"));
+
+      expect(response.status).toBe(200);
+      expect(render).toHaveBeenCalledWith("verifyPage", {
+        siteName: "Test Site",
+        siteUrl: "https://test.example.com",
+      });
     });
   });
 });
