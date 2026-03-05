@@ -1,0 +1,41 @@
+# Local testing config — use with: pnpm run dev:test
+# Mirrors production wrangler.toml but with a test site, localhost URLs,
+# and feed fixtures served by: pnpm run dev:feed
+
+name = "feedmail"
+main = "src/index.js"
+compatibility_date = "2025-07-01"
+compatibility_flags = ["nodejs_compat"]
+
+[build]
+command = "node scripts/precompile-templates.mjs"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "feedmail"
+database_id = "5a427f97-0e66-499c-85e3-687980dab09c"
+
+[vars]
+SITES = '''
+[
+  {
+    "id": "test",
+    "url": "https://example.com",
+    "name": "feedmail Test",
+    "fromEmail": "hello@newsletter.alxm.me",
+    "fromName": "feedmail Test",
+    "replyTo": "hello@alxm.me",
+    "companyName": "Test Company Inc.",
+    "companyAddress": "123 Test Lane, Testville, TS 00000",
+    "corsOrigins": ["http://localhost:3000"],
+    "feeds": ["http://localhost:8888/feed.rss", "http://localhost:8888/feed.atom"]
+  }
+]
+'''
+
+BASE_URL = "http://localhost:8787"
+VERIFY_MAX_ATTEMPTS = "3"
+VERIFY_WINDOW_HOURS = "24"
+
+[observability.logs]
+enabled = true

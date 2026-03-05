@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>feedmail Test (Atom)</title>
+  <link href="https://example.com" rel="alternate" />
+  <link href="https://example.com/feed.atom" rel="self" />
+  <id>https://example.com/</id>
+  <updated>2025-03-05T14:00:00Z</updated>
+
+  <entry>
+    <title>Atom Test Entry: Rich HTML content</title>
+    <link href="https://example.com/atom-entry-1" rel="alternate" />
+    <id>https://example.com/atom-entry-1</id>
+    <updated>2025-03-05T14:00:00Z</updated>
+    <content type="html"><![CDATA[
+      <p>This is a test entry from the Atom feed fixture. It exercises different HTML content than the RSS feed.</p>
+      <h2>A subheading</h2>
+      <p>Some text under the subheading, with a <a href="https://example.com/page">link</a> and an image below.</p>
+      <img src="https://picsum.photos/600/300" alt="Another test image" />
+      <blockquote><p>A blockquote to test how quoted text renders in the email template.</p></blockquote>
+      <p>Final paragraph after the blockquote.</p>
+    ]]></content>
+    <summary>A test entry with rich HTML content including headings, images, and blockquotes.</summary>
+  </entry>
+
+  <entry>
+    <title>Atom Test Entry: Code and preformatted text</title>
+    <link href="https://example.com/atom-entry-2" rel="alternate" />
+    <id>https://example.com/atom-entry-2</id>
+    <updated>2025-03-04T10:00:00Z</updated>
+    <content type="html"><![CDATA[
+      <p>This entry tests code formatting in emails:</p>
+      <pre><code>const greeting = "Hello from feedmail";
+console.log(greeting);</code></pre>
+      <p>Inline code also works: <code>npm run dev</code> starts the local server.</p>
+    ]]></content>
+    <summary>A test entry with code blocks and preformatted text.</summary>
+  </entry>
+
+</feed>
