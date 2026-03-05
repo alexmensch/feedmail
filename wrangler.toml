@@ -30,6 +30,8 @@ SITES = '''
     "fromEmail": "hello@newsletter.alxm.me",
     "fromName": "Alex Marshall",
     "replyTo": "hello@alxm.me",
+    "companyName": "Thoughtful Design Ltd (№15642102)",
+    "companyAddress": "82A James Carter Road, Mildenhall IP28 7DE, England, United Kingdom",
     "corsOrigins": ["https://alxm.me"],
     "feeds": ["https://alxm.me/writing.atom"]
   },
