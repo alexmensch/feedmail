@@ -37,7 +37,7 @@ function makeEnv(overrides = {}) {
   };
 }
 
-describe("config — channel restructuring", () => {
+describe("config", () => {
   let getChannels, getChannelById, getVerifyLimits, getAllCorsOrigins;
 
   beforeEach(async () => {
@@ -116,6 +116,33 @@ describe("config — channel restructuring", () => {
     });
   });
 
+  describe("getVerifyLimits", () => {
+    it("parses configured limits", () => {
+      const limits = getVerifyLimits(makeEnv());
+      expect(limits).toEqual({ maxAttempts: 5, windowHours: 24 });
+    });
+
+    it("uses defaults when env vars are missing", () => {
+      const limits = getVerifyLimits({});
+      expect(limits).toEqual({ maxAttempts: 3, windowHours: 24 });
+    });
+
+    it("parses custom values", () => {
+      const limits = getVerifyLimits(
+        makeEnv({ VERIFY_MAX_ATTEMPTS: "10", VERIFY_WINDOW_HOURS: "48" }),
+      );
+      expect(limits).toEqual({ maxAttempts: 10, windowHours: 48 });
+    });
+
+    it("returns NaN for non-numeric strings", () => {
+      const limits = getVerifyLimits(
+        makeEnv({ VERIFY_MAX_ATTEMPTS: "abc", VERIFY_WINDOW_HOURS: "xyz" }),
+      );
+      expect(limits.maxAttempts).toBeNaN();
+      expect(limits.windowHours).toBeNaN();
+    });
+  });
+
   describe("getAllCorsOrigins", () => {
     it("collects all origins from all channels", () => {
       const origins = getAllCorsOrigins(makeEnv());
@@ -140,11 +167,6 @@ describe("config — channel restructuring", () => {
     });
 
     it("handles channels without corsOrigins", () => {
-      const channelA = makeChannel({ id: "a", corsOrigins: ["https://a.com"] });
-      const channelB = makeChannel({ id: "b" });
-      delete channelB.corsOrigins;
-      // channelB without corsOrigins should fail validation,
-      // so we need to test within a channel that has it but empty
       const env = {
         DOMAIN: "test.example.com",
         CHANNELS: JSON.stringify([
@@ -158,18 +180,6 @@ describe("config — channel restructuring", () => {
     it("returns empty array for empty channels", () => {
       const origins = getAllCorsOrigins({ CHANNELS: "[]", DOMAIN: "test.example.com" });
       expect(origins).toEqual([]);
-    });
-  });
-
-  describe("getVerifyLimits", () => {
-    it("parses configured limits", () => {
-      const limits = getVerifyLimits(makeEnv());
-      expect(limits).toEqual({ maxAttempts: 5, windowHours: 24 });
-    });
-
-    it("uses defaults when env vars are missing", () => {
-      const limits = getVerifyLimits({});
-      expect(limits).toEqual({ maxAttempts: 3, windowHours: 24 });
     });
   });
 

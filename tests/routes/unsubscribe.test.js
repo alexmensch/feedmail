@@ -20,12 +20,12 @@ import {
 } from "../../src/lib/db.js";
 
 const CHANNEL = {
-  id: "test-channel",
+  id: "test-site",
   siteName: "Test Site",
-  siteUrl: "https://test.example.com",
+  siteUrl: "https://example.com",
 };
 
-const env = { DB: {}, DOMAIN: "test.example.com" };
+const env = { DB: {} };
 
 function makeUrl(token) {
   const url = new URL("https://test.example.com/api/unsubscribe");
@@ -37,78 +37,125 @@ function makeRequest(method = "GET") {
   return new Request("https://test.example.com/api/unsubscribe", { method });
 }
 
-describe("handleUnsubscribe — channel restructuring", () => {
+describe("handleUnsubscribe", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getChannelById.mockReturnValue(CHANNEL);
   });
 
-  describe("uses channel_id instead of site_id", () => {
-    it("reads subscriber.channel_id to look up channel", async () => {
-      getSubscriberByUnsubscribeToken.mockResolvedValue({
-        id: 42,
-        status: "verified",
-        channel_id: "test-channel",
+  describe("missing or invalid token", () => {
+    it("returns error page when token is missing", async () => {
+      const url = new URL("https://test.example.com/api/unsubscribe");
+
+      const response = await handleUnsubscribe(makeRequest(), env, url);
+
+      expect(response.status).toBe(200);
+      expect(render).toHaveBeenCalledWith("errorPage", {
+        siteName: "feedmail",
+        siteUrl: "/",
+        errorMessage: "Invalid unsubscribe link.",
       });
-
-      await handleUnsubscribe(makeRequest(), env, makeUrl("valid-token"));
-
-      expect(getChannelById).toHaveBeenCalledWith(env, "test-channel");
     });
 
-    it("does not access subscriber.site_id", async () => {
-      getSubscriberByUnsubscribeToken.mockResolvedValue({
-        id: 42,
-        status: "verified",
-        channel_id: "test-channel",
+    it("returns error page when subscriber not found", async () => {
+      getSubscriberByUnsubscribeToken.mockResolvedValue(null);
+
+      const response = await handleUnsubscribe(
+        makeRequest(),
+        env,
+        makeUrl("invalid-token"),
+      );
+
+      expect(response.status).toBe(200);
+      expect(render).toHaveBeenCalledWith("errorPage", expect.objectContaining({
+        errorMessage: "Invalid unsubscribe link.",
+      }));
+    });
+
+    it("error page uses fallback site info", async () => {
+      await handleUnsubscribe(
+        makeRequest(),
+        env,
+        new URL("https://test.example.com/api/unsubscribe"),
+      );
+
+      expect(render).toHaveBeenCalledWith("errorPage", {
+        siteName: "feedmail",
+        siteUrl: "/",
+        errorMessage: "Invalid unsubscribe link.",
       });
-
-      await handleUnsubscribe(makeRequest(), env, makeUrl("valid-token"));
-
-      // getChannelById should be called with "test-channel", not undefined
-      expect(getChannelById).toHaveBeenCalledWith(env, "test-channel");
     });
   });
 
-  describe("uses getChannelById instead of getSiteById", () => {
-    it("renders unsubscribe page with channel.siteName and channel.siteUrl", async () => {
+  describe("successful unsubscribe", () => {
+    const subscriber = {
+      id: 42,
+      status: "verified",
+      channel_id: "test-site",
+    };
+
+    it("marks verified subscriber as unsubscribed", async () => {
+      getSubscriberByUnsubscribeToken.mockResolvedValue(subscriber);
+
+      await handleUnsubscribe(makeRequest(), env, makeUrl("valid-token"));
+
+      expect(markSubscriberUnsubscribed).toHaveBeenCalledWith(env.DB, 42);
+    });
+
+    it("marks pending subscriber as unsubscribed", async () => {
+      getSubscriberByUnsubscribeToken.mockResolvedValue({
+        ...subscriber,
+        status: "pending",
+      });
+
+      await handleUnsubscribe(makeRequest(), env, makeUrl("valid-token"));
+
+      expect(markSubscriberUnsubscribed).toHaveBeenCalledWith(env.DB, 42);
+    });
+
+    it("is idempotent — does not call DB for already-unsubscribed", async () => {
+      getSubscriberByUnsubscribeToken.mockResolvedValue({
+        ...subscriber,
+        status: "unsubscribed",
+      });
+
+      await handleUnsubscribe(makeRequest(), env, makeUrl("valid-token"));
+
+      expect(markSubscriberUnsubscribed).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("GET response", () => {
+    it("returns HTML page for GET requests", async () => {
       getSubscriberByUnsubscribeToken.mockResolvedValue({
         id: 42,
         status: "verified",
-        channel_id: "test-channel",
+        channel_id: "test-site",
       });
 
-      await handleUnsubscribe(makeRequest("GET"), env, makeUrl("valid-token"));
+      const response = await handleUnsubscribe(
+        makeRequest("GET"),
+        env,
+        makeUrl("valid-token"),
+      );
 
+      expect(response.status).toBe(200);
+      expect(response.headers.get("Content-Type")).toBe(
+        "text/html; charset=utf-8",
+      );
       expect(render).toHaveBeenCalledWith("unsubscribePage", {
         siteName: "Test Site",
-        siteUrl: "https://test.example.com",
-      });
-    });
-
-    it("uses fallback when channel not found in config", async () => {
-      getChannelById.mockReturnValue(null);
-      getSubscriberByUnsubscribeToken.mockResolvedValue({
-        id: 42,
-        status: "verified",
-        channel_id: "unknown-channel",
-      });
-
-      await handleUnsubscribe(makeRequest("GET"), env, makeUrl("valid-token"));
-
-      expect(render).toHaveBeenCalledWith("unsubscribePage", {
-        siteName: "the newsletter",
-        siteUrl: "/",
+        siteUrl: "https://example.com",
       });
     });
   });
 
-  describe("POST response (RFC 8058) with channel_id", () => {
-    it("marks subscriber as unsubscribed using channel_id subscriber", async () => {
+  describe("POST response (RFC 8058)", () => {
+    it("returns plain text OK for POST requests", async () => {
       getSubscriberByUnsubscribeToken.mockResolvedValue({
         id: 42,
         status: "verified",
-        channel_id: "test-channel",
+        channel_id: "test-site",
       });
 
       const response = await handleUnsubscribe(
@@ -120,25 +167,65 @@ describe("handleUnsubscribe — channel restructuring", () => {
 
       expect(response.status).toBe(200);
       expect(text).toBe("OK");
+    });
+
+    it("marks as unsubscribed before returning OK", async () => {
+      getSubscriberByUnsubscribeToken.mockResolvedValue({
+        id: 42,
+        status: "verified",
+        channel_id: "test-site",
+      });
+
+      await handleUnsubscribe(
+        makeRequest("POST"),
+        env,
+        makeUrl("valid-token"),
+      );
+
       expect(markSubscriberUnsubscribed).toHaveBeenCalledWith(env.DB, 42);
     });
   });
 
-  describe("no feedmail.cc references in test URLs", () => {
-    it("test URLs use test.example.com", async () => {
+  describe("site fallbacks", () => {
+    it("uses fallback when site not found in config", async () => {
+      getChannelById.mockReturnValue(null);
       getSubscriberByUnsubscribeToken.mockResolvedValue({
         id: 42,
         status: "verified",
-        channel_id: "test-channel",
+        channel_id: "unknown-site",
       });
 
-      const response = await handleUnsubscribe(
+      await handleUnsubscribe(
         makeRequest("GET"),
         env,
         makeUrl("valid-token"),
       );
 
+      expect(render).toHaveBeenCalledWith("unsubscribePage", {
+        siteName: "the newsletter",
+        siteUrl: "/",
+      });
+    });
+  });
+
+  describe("other HTTP methods", () => {
+    it("accepts PUT method (any non-POST returns HTML page)", async () => {
+      getSubscriberByUnsubscribeToken.mockResolvedValue({
+        id: 42,
+        status: "verified",
+        channel_id: "test-site",
+      });
+
+      const response = await handleUnsubscribe(
+        new Request("https://test.example.com/api/unsubscribe", { method: "PUT" }),
+        env,
+        makeUrl("valid-token"),
+      );
+
       expect(response.status).toBe(200);
+      expect(response.headers.get("Content-Type")).toBe(
+        "text/html; charset=utf-8",
+      );
     });
   });
 });
