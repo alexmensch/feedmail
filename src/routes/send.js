@@ -53,7 +53,7 @@ export async function handleSend(request, env) {
  * @returns {Promise<object>} Summary of what was sent
  */
 export async function checkFeedsAndSend(env, targetChannelId = null) {
-  const channels = getChannels(env);
+  const channels = await getChannels(env.DB);
   const summary = { sent: 0, items: [], seeded: false };
 
   for (const channel of channels) {
