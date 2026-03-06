@@ -1,7 +1,23 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-// config.js has module-level cache that persists across calls.
-// We need to re-import it fresh for each test to avoid stale cache.
+// The config module will be refactored to read from D1 instead of env vars.
+// All config functions become async. We mock the DB helpers.
+
+vi.mock("../../src/lib/db.js", () => ({
+  getAllChannels: vi.fn(),
+  getChannelById: vi.fn(),
+  getFeedsByChannelId: vi.fn(),
+  getSiteConfig: vi.fn(),
+  getRateLimitConfigs: vi.fn(),
+}));
+
+import {
+  getAllChannels,
+  getChannelById as dbGetChannelById,
+  getFeedsByChannelId,
+  getSiteConfig,
+  getRateLimitConfigs,
+} from "../../src/lib/db.js";
 
 function makeChannel(overrides = {}) {
   return {
@@ -11,7 +27,15 @@ function makeChannel(overrides = {}) {
     fromUser: "hello",
     fromName: "Test Sender",
     corsOrigins: ["https://test.example.com"],
-    feeds: [{ name: "Main Feed", url: "https://test.example.com/feed.xml" }],
+    ...overrides,
+  };
+}
+
+function makeFeed(overrides = {}) {
+  return {
+    id: 1,
+    name: "Main Feed",
+    url: "https://test.example.com/feed.xml",
     ...overrides,
   };
 }
@@ -19,411 +43,435 @@ function makeChannel(overrides = {}) {
 function makeEnv(overrides = {}) {
   return {
     DOMAIN: "test.example.com",
-    CHANNELS: JSON.stringify([
-      makeChannel(),
-      makeChannel({
-        id: "channel-2",
-        siteName: "Other Site",
-        siteUrl: "https://other.example.com",
-        fromUser: "news",
-        fromName: "Other",
-        corsOrigins: ["https://other.example.com"],
-        feeds: [{ name: "Other Feed", url: "https://other.example.com/rss" }],
-      }),
-    ]),
-    VERIFY_MAX_ATTEMPTS: "5",
-    VERIFY_WINDOW_HOURS: "24",
+    DB: {},
     ...overrides,
   };
 }
 
-describe("config", () => {
-  let getChannels, getChannelById, getVerifyLimits, getAllCorsOrigins;
+describe("config (async DB-backed)", () => {
+  let getChannels, getChannelById, getVerifyLimits, getAllCorsOrigins, getRateLimitConfig;
 
   beforeEach(async () => {
+    vi.clearAllMocks();
     vi.resetModules();
     const mod = await import("../../src/lib/config.js");
     getChannels = mod.getChannels;
     getChannelById = mod.getChannelById;
     getVerifyLimits = mod.getVerifyLimits;
     getAllCorsOrigins = mod.getAllCorsOrigins;
+    getRateLimitConfig = mod.getRateLimitConfig;
   });
 
   describe("getChannels", () => {
-    it("parses CHANNELS JSON from env", () => {
-      const channels = getChannels(makeEnv());
-      expect(channels).toHaveLength(2);
-      expect(channels[0].id).toBe("test-channel");
-      expect(channels[1].id).toBe("channel-2");
+    it("reads channels from the database", async () => {
+      const channels = [makeChannel(), makeChannel({ id: "channel-2" })];
+      getAllChannels.mockResolvedValue(channels);
+
+      const result = await getChannels(makeEnv());
+
+      expect(getAllChannels).toHaveBeenCalledWith(makeEnv().DB);
+      expect(result).toHaveLength(2);
+      expect(result[0].id).toBe("test-channel");
+      expect(result[1].id).toBe("channel-2");
     });
 
-    it("caches parsed result across calls", () => {
-      const env = makeEnv();
-      const first = getChannels(env);
-      const second = getChannels(env);
-      expect(first).toBe(second); // same reference
+    it("returns empty array when no channels exist in DB", async () => {
+      getAllChannels.mockResolvedValue([]);
+
+      const result = await getChannels(makeEnv());
+
+      expect(result).toEqual([]);
     });
 
-    it("throws on invalid JSON", () => {
-      expect(() => getChannels({ CHANNELS: "not json", DOMAIN: "test.example.com" })).toThrow();
-    });
+    it("does not read from CHANNELS env var", async () => {
+      getAllChannels.mockResolvedValue([makeChannel()]);
 
-    it("returns empty array for empty JSON array", () => {
-      const channels = getChannels({ CHANNELS: "[]", DOMAIN: "test.example.com" });
-      expect(channels).toEqual([]);
-    });
+      const env = makeEnv({
+        CHANNELS: JSON.stringify([{ id: "old-env-channel" }]),
+      });
+      const result = await getChannels(env);
 
-    it("reads from CHANNELS env var, not SITES", () => {
-      // SITES should not be read
-      const env = {
-        DOMAIN: "test.example.com",
-        CHANNELS: JSON.stringify([makeChannel()]),
-        SITES: JSON.stringify([{ id: "old-site" }]),
-      };
-      const channels = getChannels(env);
-      expect(channels[0].id).toBe("test-channel");
+      // Should read from DB, not env
+      expect(getAllChannels).toHaveBeenCalled();
+      expect(result[0].id).toBe("test-channel");
     });
   });
 
   describe("getChannelById", () => {
-    it("returns matching channel", () => {
-      const channel = getChannelById(makeEnv(), "test-channel");
+    it("returns matching channel from the database", async () => {
+      dbGetChannelById.mockResolvedValue(makeChannel());
+
+      const channel = await getChannelById(makeEnv(), "test-channel");
+
+      expect(dbGetChannelById).toHaveBeenCalledWith(
+        makeEnv().DB,
+        "test-channel",
+      );
       expect(channel).toBeTruthy();
       expect(channel.id).toBe("test-channel");
       expect(channel.siteName).toBe("Test Site");
     });
 
-    it("returns null for unknown channel ID", () => {
-      const channel = getChannelById(makeEnv(), "nonexistent");
+    it("returns null for unknown channel ID", async () => {
+      dbGetChannelById.mockResolvedValue(null);
+
+      const channel = await getChannelById(makeEnv(), "nonexistent");
+
       expect(channel).toBeNull();
     });
 
-    it("returns null when channels list is empty", () => {
-      const channel = getChannelById(
-        { CHANNELS: "[]", DOMAIN: "test.example.com" },
-        "test-channel",
-      );
-      expect(channel).toBeNull();
+    it("returns channel with feeds included", async () => {
+      const channel = makeChannel();
+      const feeds = [makeFeed()];
+      dbGetChannelById.mockResolvedValue(channel);
+      getFeedsByChannelId.mockResolvedValue(feeds);
+
+      const result = await getChannelById(makeEnv(), "test-channel");
+
+      expect(result).toBeTruthy();
+      // Channel should include feeds
+      expect(result.feeds).toBeDefined();
+      expect(result.feeds).toHaveLength(1);
+      expect(result.feeds[0].name).toBe("Main Feed");
     });
 
-    it("returns channel with structured feed objects", () => {
-      const channel = getChannelById(makeEnv(), "test-channel");
-      expect(channel.feeds).toHaveLength(1);
-      expect(channel.feeds[0]).toEqual({
-        name: "Main Feed",
-        url: "https://test.example.com/feed.xml",
-      });
+    it("returns channel with empty feeds array when no feeds exist", async () => {
+      dbGetChannelById.mockResolvedValue(makeChannel());
+      getFeedsByChannelId.mockResolvedValue([]);
+
+      const result = await getChannelById(makeEnv(), "test-channel");
+
+      expect(result.feeds).toEqual([]);
     });
   });
 
   describe("getVerifyLimits", () => {
-    it("parses configured limits", () => {
-      const limits = getVerifyLimits(makeEnv());
-      expect(limits).toEqual({ maxAttempts: 5, windowHours: 24 });
+    it("reads verify limits from the database", async () => {
+      getSiteConfig.mockResolvedValue({
+        verifyMaxAttempts: 5,
+        verifyWindowHours: 48,
+      });
+
+      const limits = await getVerifyLimits(makeEnv());
+
+      expect(getSiteConfig).toHaveBeenCalledWith(makeEnv().DB);
+      expect(limits).toEqual({ maxAttempts: 5, windowHours: 48 });
     });
 
-    it("uses defaults when env vars are missing", () => {
-      const limits = getVerifyLimits({});
+    it("uses hardcoded defaults when site_config table is empty", async () => {
+      getSiteConfig.mockResolvedValue(null);
+
+      const limits = await getVerifyLimits(makeEnv());
+
       expect(limits).toEqual({ maxAttempts: 3, windowHours: 24 });
     });
 
-    it("parses custom values", () => {
-      const limits = getVerifyLimits(
-        makeEnv({ VERIFY_MAX_ATTEMPTS: "10", VERIFY_WINDOW_HOURS: "48" }),
-      );
-      expect(limits).toEqual({ maxAttempts: 10, windowHours: 48 });
+    it("does not read from VERIFY_MAX_ATTEMPTS env var", async () => {
+      getSiteConfig.mockResolvedValue(null);
+
+      const env = makeEnv({
+        VERIFY_MAX_ATTEMPTS: "10",
+        VERIFY_WINDOW_HOURS: "72",
+      });
+      const limits = await getVerifyLimits(env);
+
+      // Should use DB defaults, not env vars
+      expect(limits).toEqual({ maxAttempts: 3, windowHours: 24 });
     });
 
-    it("returns NaN for non-numeric strings", () => {
-      const limits = getVerifyLimits(
-        makeEnv({ VERIFY_MAX_ATTEMPTS: "abc", VERIFY_WINDOW_HOURS: "xyz" }),
-      );
-      expect(limits.maxAttempts).toBeNaN();
-      expect(limits.windowHours).toBeNaN();
+    it("returns partial defaults when only some settings exist in DB", async () => {
+      getSiteConfig.mockResolvedValue({
+        verifyMaxAttempts: 10,
+        verifyWindowHours: null,
+      });
+
+      const limits = await getVerifyLimits(makeEnv());
+
+      expect(limits.maxAttempts).toBe(10);
+      // windowHours should fall back to default
+      expect(limits.windowHours).toBe(24);
     });
   });
 
   describe("getAllCorsOrigins", () => {
-    it("collects all origins from all channels", () => {
-      const origins = getAllCorsOrigins(makeEnv());
+    it("collects all origins from all channels in the database", async () => {
+      getAllChannels.mockResolvedValue([
+        makeChannel({ corsOrigins: ["https://test.example.com"] }),
+        makeChannel({
+          id: "channel-2",
+          corsOrigins: ["https://other.example.com"],
+        }),
+      ]);
+
+      const origins = await getAllCorsOrigins(makeEnv());
+
       expect(origins).toContain("https://test.example.com");
       expect(origins).toContain("https://other.example.com");
       expect(origins).toHaveLength(2);
     });
 
-    it("deduplicates overlapping origins", () => {
-      const env = {
-        DOMAIN: "test.example.com",
-        CHANNELS: JSON.stringify([
-          makeChannel({ id: "a", corsOrigins: ["https://shared.com", "https://a.com"] }),
-          makeChannel({ id: "b", corsOrigins: ["https://shared.com", "https://b.com"] }),
-        ]),
-      };
-      const origins = getAllCorsOrigins(env);
+    it("deduplicates overlapping origins", async () => {
+      getAllChannels.mockResolvedValue([
+        makeChannel({
+          id: "a",
+          corsOrigins: ["https://shared.com", "https://a.com"],
+        }),
+        makeChannel({
+          id: "b",
+          corsOrigins: ["https://shared.com", "https://b.com"],
+        }),
+      ]);
+
+      const origins = await getAllCorsOrigins(makeEnv());
+
       expect(origins).toHaveLength(3);
       expect(
         origins.filter((o) => o === "https://shared.com"),
       ).toHaveLength(1);
     });
 
-    it("handles channels without corsOrigins", () => {
-      const env = {
-        DOMAIN: "test.example.com",
-        CHANNELS: JSON.stringify([
-          makeChannel({ id: "a", corsOrigins: ["https://a.com"] }),
-        ]),
-      };
-      const origins = getAllCorsOrigins(env);
-      expect(origins).toEqual(["https://a.com"]);
+    it("returns empty array when no channels exist", async () => {
+      getAllChannels.mockResolvedValue([]);
+
+      const origins = await getAllCorsOrigins(makeEnv());
+
+      expect(origins).toEqual([]);
     });
 
-    it("returns empty array for empty channels", () => {
-      const origins = getAllCorsOrigins({ CHANNELS: "[]", DOMAIN: "test.example.com" });
-      expect(origins).toEqual([]);
+    it("handles channels without corsOrigins gracefully", async () => {
+      getAllChannels.mockResolvedValue([
+        makeChannel({ corsOrigins: ["https://a.com"] }),
+        makeChannel({ id: "b", corsOrigins: undefined }),
+      ]);
+
+      const origins = await getAllCorsOrigins(makeEnv());
+
+      expect(origins).toEqual(["https://a.com"]);
     });
   });
 
-  describe("config validation (via getChannels)", () => {
-    // validateConfig is called internally by getChannels.
-    // We test it by calling getChannels with invalid config and expecting throws.
+  describe("getRateLimitConfig", () => {
+    it("reads rate limit config from the database", async () => {
+      getRateLimitConfigs.mockResolvedValue({
+        subscribe: { windowHours: 1, maxRequests: 10 },
+        verify: { windowHours: 1, maxRequests: 20 },
+        unsubscribe: { windowHours: 1, maxRequests: 20 },
+        send: { windowHours: 1, maxRequests: 5 },
+        admin: { windowHours: 1, maxRequests: 30 },
+      });
 
-    it("accepts valid config without errors", () => {
-      expect(() => getChannels(makeEnv())).not.toThrow();
+      const config = await getRateLimitConfig(makeEnv());
+
+      expect(getRateLimitConfigs).toHaveBeenCalledWith(makeEnv().DB);
+      expect(config).toHaveProperty("subscribe");
+      expect(config).toHaveProperty("verify");
+      expect(config).toHaveProperty("unsubscribe");
+      expect(config).toHaveProperty("send");
+      expect(config).toHaveProperty("admin");
     });
 
-    describe("DOMAIN validation", () => {
-      it("rejects missing DOMAIN", () => {
-        const env = makeEnv();
-        delete env.DOMAIN;
-        expect(() => getChannels(env)).toThrow();
-      });
+    it("returns hardcoded defaults when rate_limit_config table is empty", async () => {
+      getRateLimitConfigs.mockResolvedValue({});
 
-      it("rejects empty DOMAIN", () => {
-        expect(() => getChannels(makeEnv({ DOMAIN: "" }))).toThrow();
-      });
+      const config = await getRateLimitConfig(makeEnv());
 
-      it("rejects DOMAIN with protocol (https://)", () => {
-        expect(() =>
-          getChannels(makeEnv({ DOMAIN: "https://test.example.com" })),
-        ).toThrow();
-      });
-
-      it("rejects DOMAIN with protocol (http://)", () => {
-        expect(() =>
-          getChannels(makeEnv({ DOMAIN: "http://test.example.com" })),
-        ).toThrow();
-      });
-
-      it("rejects DOMAIN with trailing slash", () => {
-        expect(() =>
-          getChannels(makeEnv({ DOMAIN: "test.example.com/" })),
-        ).toThrow();
-      });
-
-      it("rejects DOMAIN with path segments", () => {
-        expect(() =>
-          getChannels(makeEnv({ DOMAIN: "test.example.com/api" })),
-        ).toThrow();
-      });
+      // All five endpoints should have defaults
+      expect(config.subscribe).toBeDefined();
+      expect(config.verify).toBeDefined();
+      expect(config.unsubscribe).toBeDefined();
+      expect(config.send).toBeDefined();
+      expect(config.admin).toBeDefined();
+      expect(config.subscribe.maxRequests).toBeGreaterThan(0);
+      expect(config.subscribe.windowHours).toBeGreaterThan(0);
     });
 
-    describe("channel required fields", () => {
+    it("falls back to hardcoded default for missing endpoint row", async () => {
+      // Only subscribe exists in DB, rest should default
+      getRateLimitConfigs.mockResolvedValue({
+        subscribe: { windowHours: 2, maxRequests: 50 },
+      });
+
+      const config = await getRateLimitConfig(makeEnv());
+
+      expect(config.subscribe.maxRequests).toBe(50);
+      expect(config.subscribe.windowHours).toBe(2);
+      // Other endpoints should fall back to defaults
+      expect(config.verify.maxRequests).toBeGreaterThan(0);
+      expect(config.admin.maxRequests).toBeGreaterThan(0);
+    });
+
+    it("converts windowHours to windowSeconds for rate-limit.js compatibility", async () => {
+      getRateLimitConfigs.mockResolvedValue({
+        subscribe: { windowHours: 2, maxRequests: 10 },
+      });
+
+      const config = await getRateLimitConfig(makeEnv());
+
+      // The rate-limit.js module expects windowSeconds
+      expect(config.subscribe).toHaveProperty("windowSeconds");
+      expect(config.subscribe.windowSeconds).toBe(7200); // 2 hours * 3600
+    });
+  });
+
+  describe("DOMAIN validation", () => {
+    // DOMAIN remains in env vars. Validation should still work.
+    it("rejects missing DOMAIN", async () => {
+      getAllChannels.mockResolvedValue([makeChannel()]);
+      const env = makeEnv();
+      delete env.DOMAIN;
+
+      await expect(getChannels(env)).rejects.toThrow();
+    });
+
+    it("rejects empty DOMAIN", async () => {
+      getAllChannels.mockResolvedValue([makeChannel()]);
+
+      await expect(getChannels(makeEnv({ DOMAIN: "" }))).rejects.toThrow();
+    });
+
+    it("rejects DOMAIN with protocol (https://)", async () => {
+      getAllChannels.mockResolvedValue([makeChannel()]);
+
+      await expect(
+        getChannels(makeEnv({ DOMAIN: "https://test.example.com" })),
+      ).rejects.toThrow();
+    });
+
+    it("rejects DOMAIN with protocol (http://)", async () => {
+      getAllChannels.mockResolvedValue([makeChannel()]);
+
+      await expect(
+        getChannels(makeEnv({ DOMAIN: "http://test.example.com" })),
+      ).rejects.toThrow();
+    });
+
+    it("rejects DOMAIN with trailing slash", async () => {
+      getAllChannels.mockResolvedValue([makeChannel()]);
+
+      await expect(
+        getChannels(makeEnv({ DOMAIN: "test.example.com/" })),
+      ).rejects.toThrow();
+    });
+
+    it("rejects DOMAIN with path segments", async () => {
+      getAllChannels.mockResolvedValue([makeChannel()]);
+
+      await expect(
+        getChannels(makeEnv({ DOMAIN: "test.example.com/api" })),
+      ).rejects.toThrow();
+    });
+  });
+
+  describe("config validation at write time (write-time validation functions)", () => {
+    // These test the validation functions that will be used by the management API
+    // to validate config before persisting. Import them from config.js.
+
+    let validateChannelFields, validateFeedFields;
+
+    beforeEach(async () => {
+      vi.resetModules();
+      const mod = await import("../../src/lib/config.js");
+      validateChannelFields = mod.validateChannelFields;
+      validateFeedFields = mod.validateFeedFields;
+    });
+
+    describe("validateChannelFields", () => {
+      it("accepts valid channel fields", () => {
+        expect(() =>
+          validateChannelFields(makeChannel()),
+        ).not.toThrow();
+      });
+
       it("rejects channel missing id", () => {
-        const channel = makeChannel();
-        delete channel.id;
-        expect(() =>
-          getChannels(makeEnv({ CHANNELS: JSON.stringify([channel]) })),
-        ).toThrow();
+        const ch = makeChannel();
+        delete ch.id;
+        expect(() => validateChannelFields(ch)).toThrow();
       });
 
       it("rejects channel missing siteName", () => {
-        const channel = makeChannel();
-        delete channel.siteName;
-        expect(() =>
-          getChannels(makeEnv({ CHANNELS: JSON.stringify([channel]) })),
-        ).toThrow();
+        const ch = makeChannel();
+        delete ch.siteName;
+        expect(() => validateChannelFields(ch)).toThrow();
       });
 
       it("rejects channel missing siteUrl", () => {
-        const channel = makeChannel();
-        delete channel.siteUrl;
-        expect(() =>
-          getChannels(makeEnv({ CHANNELS: JSON.stringify([channel]) })),
-        ).toThrow();
+        const ch = makeChannel();
+        delete ch.siteUrl;
+        expect(() => validateChannelFields(ch)).toThrow();
       });
 
       it("rejects channel missing fromUser", () => {
-        const channel = makeChannel();
-        delete channel.fromUser;
-        expect(() =>
-          getChannels(makeEnv({ CHANNELS: JSON.stringify([channel]) })),
-        ).toThrow();
+        const ch = makeChannel();
+        delete ch.fromUser;
+        expect(() => validateChannelFields(ch)).toThrow();
       });
 
       it("rejects channel missing fromName", () => {
-        const channel = makeChannel();
-        delete channel.fromName;
-        expect(() =>
-          getChannels(makeEnv({ CHANNELS: JSON.stringify([channel]) })),
-        ).toThrow();
+        const ch = makeChannel();
+        delete ch.fromName;
+        expect(() => validateChannelFields(ch)).toThrow();
       });
 
       it("rejects channel missing corsOrigins", () => {
-        const channel = makeChannel();
-        delete channel.corsOrigins;
-        expect(() =>
-          getChannels(makeEnv({ CHANNELS: JSON.stringify([channel]) })),
-        ).toThrow();
+        const ch = makeChannel();
+        delete ch.corsOrigins;
+        expect(() => validateChannelFields(ch)).toThrow();
       });
-    });
 
-    describe("fromUser validation", () => {
       it("rejects fromUser containing @", () => {
-        const channel = makeChannel({ fromUser: "hello@example.com" });
         expect(() =>
-          getChannels(makeEnv({ CHANNELS: JSON.stringify([channel]) })),
+          validateChannelFields(
+            makeChannel({ fromUser: "hello@example.com" }),
+          ),
         ).toThrow();
       });
 
       it("rejects fromUser containing whitespace", () => {
-        const channel = makeChannel({ fromUser: "hello world" });
         expect(() =>
-          getChannels(makeEnv({ CHANNELS: JSON.stringify([channel]) })),
+          validateChannelFields(makeChannel({ fromUser: "hello world" })),
         ).toThrow();
       });
 
       it("rejects empty fromUser", () => {
-        const channel = makeChannel({ fromUser: "" });
         expect(() =>
-          getChannels(makeEnv({ CHANNELS: JSON.stringify([channel]) })),
+          validateChannelFields(makeChannel({ fromUser: "" })),
         ).toThrow();
       });
 
       it("accepts valid fromUser without @ or whitespace", () => {
-        const channel = makeChannel({ fromUser: "newsletter" });
         expect(() =>
-          getChannels(makeEnv({ CHANNELS: JSON.stringify([channel]) })),
+          validateChannelFields(makeChannel({ fromUser: "newsletter" })),
         ).not.toThrow();
       });
     });
 
-    describe("feed validation", () => {
-      it("rejects feed missing name", () => {
-        const channel = makeChannel({
-          feeds: [{ url: "https://test.example.com/feed.xml" }],
-        });
+    describe("validateFeedFields", () => {
+      it("accepts valid feed fields", () => {
         expect(() =>
-          getChannels(makeEnv({ CHANNELS: JSON.stringify([channel]) })),
+          validateFeedFields({ name: "Feed", url: "https://example.com/feed.xml" }),
+        ).not.toThrow();
+      });
+
+      it("rejects feed missing name", () => {
+        expect(() =>
+          validateFeedFields({ url: "https://example.com/feed.xml" }),
         ).toThrow();
       });
 
       it("rejects feed missing url", () => {
-        const channel = makeChannel({
-          feeds: [{ name: "Main Feed" }],
-        });
-        expect(() =>
-          getChannels(makeEnv({ CHANNELS: JSON.stringify([channel]) })),
-        ).toThrow();
+        expect(() => validateFeedFields({ name: "Feed" })).toThrow();
       });
 
       it("rejects feed with empty name", () => {
-        const channel = makeChannel({
-          feeds: [{ name: "", url: "https://test.example.com/feed.xml" }],
-        });
         expect(() =>
-          getChannels(makeEnv({ CHANNELS: JSON.stringify([channel]) })),
+          validateFeedFields({ name: "", url: "https://example.com/feed.xml" }),
         ).toThrow();
       });
 
       it("rejects feed with empty url", () => {
-        const channel = makeChannel({
-          feeds: [{ name: "Main Feed", url: "" }],
-        });
         expect(() =>
-          getChannels(makeEnv({ CHANNELS: JSON.stringify([channel]) })),
+          validateFeedFields({ name: "Feed", url: "" }),
         ).toThrow();
-      });
-
-      it("accepts empty feeds array", () => {
-        const channel = makeChannel({ feeds: [] });
-        expect(() =>
-          getChannels(makeEnv({ CHANNELS: JSON.stringify([channel]) })),
-        ).not.toThrow();
-      });
-    });
-
-    describe("duplicate feed detection", () => {
-      it("rejects duplicate feed URLs within same channel", () => {
-        const channel = makeChannel({
-          feeds: [
-            { name: "Feed A", url: "https://test.example.com/feed.xml" },
-            { name: "Feed B", url: "https://test.example.com/feed.xml" },
-          ],
-        });
-        expect(() =>
-          getChannels(makeEnv({ CHANNELS: JSON.stringify([channel]) })),
-        ).toThrow();
-      });
-
-      it("rejects duplicate feed names (case-insensitive) within same channel", () => {
-        const channel = makeChannel({
-          feeds: [
-            { name: "Main Feed", url: "https://test.example.com/feed1.xml" },
-            { name: "main feed", url: "https://test.example.com/feed2.xml" },
-          ],
-        });
-        expect(() =>
-          getChannels(makeEnv({ CHANNELS: JSON.stringify([channel]) })),
-        ).toThrow();
-      });
-
-      it("allows duplicate feed URLs across different channels", () => {
-        const channel1 = makeChannel({
-          id: "channel-1",
-          feeds: [{ name: "Feed A", url: "https://shared.example.com/feed.xml" }],
-        });
-        const channel2 = makeChannel({
-          id: "channel-2",
-          feeds: [{ name: "Feed B", url: "https://shared.example.com/feed.xml" }],
-        });
-        expect(() =>
-          getChannels(
-            makeEnv({ CHANNELS: JSON.stringify([channel1, channel2]) }),
-          ),
-        ).not.toThrow();
-      });
-
-      it("allows duplicate feed names across different channels", () => {
-        const channel1 = makeChannel({
-          id: "channel-1",
-          feeds: [{ name: "Main Feed", url: "https://test.example.com/feed1.xml" }],
-        });
-        const channel2 = makeChannel({
-          id: "channel-2",
-          feeds: [{ name: "Main Feed", url: "https://test.example.com/feed2.xml" }],
-        });
-        expect(() =>
-          getChannels(
-            makeEnv({ CHANNELS: JSON.stringify([channel1, channel2]) }),
-          ),
-        ).not.toThrow();
-      });
-    });
-
-    describe("error messages identify channel and field", () => {
-      it("error message includes channel ID for field errors", () => {
-        const channel = makeChannel({ fromUser: "bad@user" });
-        expect(() =>
-          getChannels(makeEnv({ CHANNELS: JSON.stringify([channel]) })),
-        ).toThrow(/test-channel/);
-      });
-
-      it("error message identifies missing field", () => {
-        const channel = makeChannel();
-        delete channel.siteName;
-        expect(() =>
-          getChannels(makeEnv({ CHANNELS: JSON.stringify([channel]) })),
-        ).toThrow(/siteName/i);
       });
     });
   });
