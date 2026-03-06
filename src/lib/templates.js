@@ -8,6 +8,7 @@
  */
 
 import Handlebars from "handlebars/runtime.js";
+import { getChannelById } from "./config.js";
 
 // Import precompiled partial specs
 import emailFooterSpec from "../templates/compiled/partials/email-footer.js";
@@ -58,4 +59,26 @@ export function render(name, data) {
     throw new Error(`Unknown template: ${name}`);
   }
   return template(data);
+}
+
+/**
+ * Render the error page template and return an HTML Response.
+ * @param {object} env - Worker environment bindings
+ * @param {string|null} channelId - Channel ID for branding (nullable)
+ * @param {string} message - Error message to display
+ * @returns {Response}
+ */
+export function renderErrorPage(env, channelId, message) {
+  const channel = channelId ? getChannelById(env, channelId) : null;
+
+  const html = render("errorPage", {
+    siteName: channel?.siteName || "feedmail",
+    siteUrl: channel?.siteUrl || "/",
+    errorMessage: message,
+  });
+
+  return new Response(html, {
+    status: 200,
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
 }

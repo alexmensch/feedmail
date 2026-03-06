@@ -5,6 +5,12 @@ vi.mock("../../src/lib/config.js", () => ({
 }));
 vi.mock("../../src/lib/templates.js", () => ({
   render: vi.fn().mockReturnValue("<html>rendered</html>"),
+  renderErrorPage: vi.fn().mockImplementation(() =>
+    new Response("<html>error</html>", {
+      status: 200,
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    }),
+  ),
 }));
 vi.mock("../../src/lib/db.js", () => ({
   getSubscriberByUnsubscribeToken: vi.fn(),
@@ -13,7 +19,7 @@ vi.mock("../../src/lib/db.js", () => ({
 
 import { handleUnsubscribe } from "../../src/routes/unsubscribe.js";
 import { getChannelById } from "../../src/lib/config.js";
-import { render } from "../../src/lib/templates.js";
+import { render, renderErrorPage } from "../../src/lib/templates.js";
 import {
   getSubscriberByUnsubscribeToken,
   markSubscriberUnsubscribed,
@@ -50,11 +56,11 @@ describe("handleUnsubscribe", () => {
       const response = await handleUnsubscribe(makeRequest(), env, url);
 
       expect(response.status).toBe(200);
-      expect(render).toHaveBeenCalledWith("errorPage", {
-        siteName: "feedmail",
-        siteUrl: "/",
-        errorMessage: "Invalid unsubscribe link.",
-      });
+      expect(renderErrorPage).toHaveBeenCalledWith(
+        env,
+        null,
+        "Invalid unsubscribe link.",
+      );
     });
 
     it("returns error page when subscriber not found", async () => {
@@ -67,9 +73,11 @@ describe("handleUnsubscribe", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(render).toHaveBeenCalledWith("errorPage", expect.objectContaining({
-        errorMessage: "Invalid unsubscribe link.",
-      }));
+      expect(renderErrorPage).toHaveBeenCalledWith(
+        env,
+        null,
+        "Invalid unsubscribe link.",
+      );
     });
 
     it("error page uses fallback site info", async () => {
@@ -79,11 +87,11 @@ describe("handleUnsubscribe", () => {
         new URL("https://test.example.com/api/unsubscribe"),
       );
 
-      expect(render).toHaveBeenCalledWith("errorPage", {
-        siteName: "feedmail",
-        siteUrl: "/",
-        errorMessage: "Invalid unsubscribe link.",
-      });
+      expect(renderErrorPage).toHaveBeenCalledWith(
+        env,
+        null,
+        "Invalid unsubscribe link.",
+      );
     });
   });
 

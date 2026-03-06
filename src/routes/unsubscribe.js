@@ -4,7 +4,7 @@
  */
 
 import { getChannelById } from "../lib/config.js";
-import { render } from "../lib/templates.js";
+import { render, renderErrorPage } from "../lib/templates.js";
 import {
   getSubscriberByUnsubscribeToken,
   markSubscriberUnsubscribed,
@@ -21,13 +21,13 @@ export async function handleUnsubscribe(request, env, url) {
   const token = url.searchParams.get("token");
 
   if (!token) {
-    return errorPage(env, null, "Invalid unsubscribe link.");
+    return renderErrorPage(env, null, "Invalid unsubscribe link.");
   }
 
   const subscriber = await getSubscriberByUnsubscribeToken(env.DB, token);
 
   if (!subscriber) {
-    return errorPage(env, null, "Invalid unsubscribe link.");
+    return renderErrorPage(env, null, "Invalid unsubscribe link.");
   }
 
   // Mark as unsubscribed (idempotent — already-unsubscribed is fine)
@@ -46,21 +46,6 @@ export async function handleUnsubscribe(request, env, url) {
   const html = render("unsubscribePage", {
     siteName: channel?.siteName || "the newsletter",
     siteUrl: channel?.siteUrl || "/",
-  });
-
-  return new Response(html, {
-    status: 200,
-    headers: { "Content-Type": "text/html; charset=utf-8" },
-  });
-}
-
-function errorPage(env, channelId, message) {
-  const channel = channelId ? getChannelById(env, channelId) : null;
-
-  const html = render("errorPage", {
-    siteName: channel?.siteName || "feedmail",
-    siteUrl: channel?.siteUrl || "/",
-    errorMessage: message,
   });
 
   return new Response(html, {
