@@ -21,6 +21,7 @@ pattern = "newsletter.alxm.me/api/*"
 zone_name = "alxm.me"
 
 [vars]
+# For both hosting location and email sender
 DOMAIN = "newsletter.alxm.me"
 
 # Secrets (set via `wrangler secret put`):
