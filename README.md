@@ -9,14 +9,15 @@ An open-source RSS-to-email microservice that runs on Cloudflare Workers. Monito
 - **RSS & Atom support** — Parses both RSS 2.0 and Atom feeds
 - **Double opt-in** — Email verification with rate limiting and 24-hour token expiry
 - **One-click unsubscribe** — RFC 8058 `List-Unsubscribe-Post` headers
-- **Multi-site** — Single deployment can serve multiple sites with isolated subscriber lists
-- **Multi-feed** — Each site can monitor multiple feed URLs
+- **Multi-channel** — Single deployment can serve multiple channels with isolated subscriber lists
+- **Multi-feed** — Each channel can monitor multiple named feeds
 - **Zero tracking** — No open or click tracking; privacy by default
 - **Customizable templates** — Handlebars templates for emails and confirmation pages
 - **Admin API** — Subscriber stats and listing endpoints
 - **IP rate limiting** — Per-endpoint rolling window rate limiting via D1
 - **Bot protection** — Strict input validation with honeypot support, method enforcement with deliberate timeouts
 - **Feed bootstrapping** — First run seeds existing items without sending emails
+- **Config validation** — Validates all configuration at startup with clear error messages
 
 ## Architecture
 
@@ -59,41 +60,49 @@ pnpm run db:migrate        # Remote (production)
 pnpm run db:migrate:local  # Local dev
 ```
 
-### 4. Configure sites
+### 4. Configure channels
 
-Edit the `SITES` variable in `wrangler.toml`:
+Edit the `CHANNELS` variable in `wrangler.toml`:
 
 ```toml
 [vars]
-SITES = '''
+DOMAIN = "yourdomain.com"
+
+CHANNELS = '''
 [
   {
-    "id": "my-site",
-    "url": "https://example.com",
-    "name": "My Site",
-    "fromEmail": "hello@example.com",
+    "id": "my-channel",
+    "siteUrl": "https://example.com",
+    "siteName": "My Site",
+    "fromUser": "hello",
     "fromName": "My Site Newsletter",
     "corsOrigins": ["https://example.com"],
-    "feeds": ["https://example.com/feed.xml"]
+    "feeds": [
+      {"name": "Blog", "url": "https://example.com/feed.xml"}
+    ]
   }
 ]
 '''
 ```
 
-Each site object requires:
+Each channel object requires:
 
 | Field | Description |
 |---|---|
 | `id` | Unique identifier (sent by the subscribe form) |
-| `url` | Site URL (used in templates) |
-| `name` | Display name (used in email subjects and templates) |
-| `fromEmail` | Sender email address (must be verified in Resend) |
+| `siteUrl` | Site URL (used in templates) |
+| `siteName` | Display name (used in email subjects and templates) |
+| `fromUser` | Email local part (e.g. `"hello"`); combined with DOMAIN to form the from-email |
 | `fromName` | Sender display name |
 | `replyTo` | Reply-to email address (optional) |
 | `companyName` | Company name displayed in email footers (optional) |
 | `companyAddress` | Company address displayed in email footers (optional) |
 | `corsOrigins` | Allowed origins for the subscribe endpoint |
-| `feeds` | Array of RSS/Atom feed URLs to monitor |
+| `feeds` | Array of feed objects, each with `name` and `url` |
+
+The `DOMAIN` env var is used to construct:
+- All URLs: `https://{DOMAIN}/api/...`
+- From-email: `{fromUser}@{DOMAIN}`
 
 ### 5. Set secrets
 
@@ -124,8 +133,8 @@ zone_name = "yourdomain.com"
 
 | Variable | Default | Description |
 |---|---|---|
-| `SITES` | — | JSON array of site configurations (required) |
-| `BASE_URL` | — | Public base URL (e.g. `https://feedmail.cc`) (required) |
+| `DOMAIN` | — | Domain name (e.g. `feedmail.cc`). No protocol, trailing slash, or path. (required) |
+| `CHANNELS` | — | JSON array of channel configurations (required) |
 | `VERIFY_MAX_ATTEMPTS` | `"3"` | Max verification emails per rolling window |
 | `VERIFY_WINDOW_HOURS` | `"24"` | Rolling window duration in hours |
 
@@ -156,18 +165,18 @@ When rate limited, the API returns `429 Too Many Requests` with a `Retry-After` 
 
 #### `POST /api/subscribe`
 
-Subscribe an email address to a site's newsletter.
+Subscribe an email address to a channel's newsletter.
 
 **Request body:**
 
 ```json
 {
   "email": "user@example.com",
-  "siteId": "my-site"
+  "channelId": "my-channel"
 }
 ```
 
-Only `email` and `siteId` fields are accepted. Requests with any additional fields are rejected — this enables invisible honeypot fields in the subscribe form for bot protection.
+Only `email` and `channelId` fields are accepted. Requests with any additional fields are rejected — this enables invisible honeypot fields in the subscribe form for bot protection.
 
 **Response:** `200 OK`
 
@@ -203,11 +212,11 @@ All authenticated endpoints require an `Authorization: Bearer <ADMIN_API_KEY>` h
 
 #### `POST /api/send`
 
-Manually trigger feed checking and email sending. Optionally specify a site:
+Manually trigger feed checking and email sending. Optionally specify a channel:
 
 ```json
 {
-  "siteId": "my-site"
+  "channelId": "my-channel"
 }
 ```
 
@@ -217,36 +226,36 @@ Manually trigger feed checking and email sending. Optionally specify a site:
 {
   "sent": 3,
   "items": [
-    { "title": "Post Title", "recipients": 3, "siteId": "my-site" }
+    { "title": "Post Title", "recipients": 3, "channelId": "my-channel" }
   ],
   "seeded": false
 }
 ```
 
-#### `GET /api/admin/stats?siteId=<siteId>`
+#### `GET /api/admin/stats?channelId=<channelId>`
 
-Get subscriber and sent item statistics for a site.
+Get subscriber and sent item statistics for a channel.
 
 **Response:**
 
 ```json
 {
-  "siteId": "my-site",
+  "channelId": "my-channel",
   "subscribers": { "total": 50, "verified": 45, "pending": 3, "unsubscribed": 2 },
   "sentItems": { "total": 12, "lastSentAt": "2026-02-27T10:00:00Z" },
-  "feeds": ["https://example.com/feed.xml"]
+  "feeds": [{"name": "Blog", "url": "https://example.com/feed.xml"}]
 }
 ```
 
-#### `GET /api/admin/subscribers?siteId=<siteId>&status=<status>`
+#### `GET /api/admin/subscribers?channelId=<channelId>&status=<status>`
 
-List subscribers for a site. Optional `status` filter (`pending`, `verified`, `unsubscribed`).
+List subscribers for a channel. Optional `status` filter (`pending`, `verified`, `unsubscribed`).
 
 **Response:**
 
 ```json
 {
-  "siteId": "my-site",
+  "channelId": "my-channel",
   "count": 45,
   "subscribers": [
     {
@@ -303,7 +312,7 @@ Customize these files before deploying to match your branding.
 
 ## Subscribe Form Example
 
-Add a subscribe form to your website that POSTs to the feedmail API. The form should only send `email` and `siteId` — any extra fields will be rejected (which is useful for adding an invisible honeypot field for bot detection).
+Add a subscribe form to your website that POSTs to the feedmail API. The form should only send `email` and `channelId` — any extra fields will be rejected (which is useful for adding an invisible honeypot field for bot detection).
 
 ```html
 <form id="subscribe-form">
@@ -331,7 +340,7 @@ Add a subscribe form to your website that POSTs to the feedmail API. The form sh
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email: form.email.value,
-        siteId: 'your-site-id',
+        channelId: 'your-channel-id',
       }),
     });
 
@@ -341,33 +350,38 @@ Add a subscribe form to your website that POSTs to the feedmail API. The form sh
 </script>
 ```
 
-## Multi-site Setup
+## Multi-channel Setup
 
-feedmail supports multiple sites in a single deployment. Each site has its own subscriber list, feed URLs, sender identity, and CORS origins.
+feedmail supports multiple channels in a single deployment. Each channel has its own subscriber list, feeds, sender identity, and CORS origins.
 
-Add additional site objects to the `SITES` array in `wrangler.toml`:
+Add additional channel objects to the `CHANNELS` array in `wrangler.toml`:
 
 ```toml
 [vars]
-SITES = '''
+DOMAIN = "yourdomain.com"
+
+CHANNELS = '''
 [
   {
-    "id": "site-a",
-    "url": "https://site-a.com",
-    "name": "Site A",
-    "fromEmail": "newsletter@site-a.com",
+    "id": "channel-a",
+    "siteUrl": "https://site-a.com",
+    "siteName": "Site A",
+    "fromUser": "newsletter",
     "fromName": "Site A",
     "corsOrigins": ["https://site-a.com"],
-    "feeds": ["https://site-a.com/feed.xml"]
+    "feeds": [{"name": "Blog", "url": "https://site-a.com/feed.xml"}]
   },
   {
-    "id": "site-b",
-    "url": "https://site-b.com",
-    "name": "Site B",
-    "fromEmail": "newsletter@site-b.com",
+    "id": "channel-b",
+    "siteUrl": "https://site-b.com",
+    "siteName": "Site B",
+    "fromUser": "newsletter",
     "fromName": "Site B",
     "corsOrigins": ["https://site-b.com"],
-    "feeds": ["https://site-b.com/rss", "https://site-b.com/podcast.xml"]
+    "feeds": [
+      {"name": "Blog", "url": "https://site-b.com/rss"},
+      {"name": "Podcast", "url": "https://site-b.com/podcast.xml"}
+    ]
   }
 ]
 '''
