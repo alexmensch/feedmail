@@ -9,23 +9,19 @@ import { handleUnsubscribe } from "./routes/unsubscribe.js";
 import { handleSend, checkFeedsAndSend } from "./routes/send.js";
 import { handleAdmin } from "./routes/admin.js";
 import { handleCORSPreflight, withCORS } from "./lib/cors.js";
-import {
-  checkRateLimit,
-  getEndpointName,
-  RATE_LIMITS,
-} from "./lib/rate-limit.js";
+import { getRateLimitConfig } from "./lib/config.js";
+import { checkRateLimit, getEndpointName } from "./lib/rate-limit.js";
 
 /**
  * Allowed HTTP methods per route path.
- * Every routable path must be listed here explicitly.
+ * Exact-match routes are checked first; the /api/admin/ prefix is a catch-all
+ * for parameterized admin routes (channels, feeds, config).
  */
 const ROUTE_METHODS = {
   "/api/subscribe": ["POST"],
   "/api/verify": ["GET"],
   "/api/unsubscribe": ["GET", "POST"],
   "/api/send": ["POST"],
-  "/api/admin/stats": ["GET"],
-  "/api/admin/subscribers": ["GET"],
 };
 
 /** Delay duration (ms) for timeout responses on invalid method/path. */
@@ -71,9 +67,14 @@ async function timeoutResponse() {
  * @returns {boolean|null} true = allowed, false = wrong method, null = unknown path
  */
 function isMethodAllowed(method, pathname) {
+  // Exact match for public/send routes
   const methods = ROUTE_METHODS[pathname];
-  if (!methods) return null;
-  return methods.includes(method);
+  if (methods) return methods.includes(method);
+
+  // Prefix match for all admin routes (parameterized paths handled by handleAdmin)
+  if (pathname.startsWith("/api/admin/")) return true;
+
+  return null;
 }
 
 export default {
@@ -88,7 +89,7 @@ export default {
 
     // CORS preflight always handled immediately
     if (request.method === "OPTIONS") {
-      return handleCORSPreflight(request, env);
+      return await handleCORSPreflight(request, env);
     }
 
     // Method enforcement: unknown paths get immediate 404, wrong methods get timeout
@@ -103,28 +104,26 @@ export default {
     // IP-based rate limiting (before authentication to protect against brute-force)
     const endpointName = getEndpointName(url.pathname);
     if (endpointName && env.DB) {
-      const limits = RATE_LIMITS[endpointName];
-      if (limits) {
-        const ip = request.headers.get("CF-Connecting-IP") || "unknown";
-        const result = await checkRateLimit(
-          env.DB,
-          ip,
-          endpointName,
-          limits.maxRequests,
-          limits.windowSeconds,
-        );
-        if (!result.allowed) {
-          return new Response(
-            JSON.stringify({ error: "Too Many Requests" }),
-            {
-              status: 429,
-              headers: {
-                "Content-Type": "application/json",
-                "Retry-After": String(result.retryAfter),
-              },
+      const limits = await getRateLimitConfig(env.DB, endpointName);
+      const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+      const result = await checkRateLimit(
+        env.DB,
+        ip,
+        endpointName,
+        limits.maxRequests,
+        limits.windowSeconds,
+      );
+      if (!result.allowed) {
+        return new Response(
+          JSON.stringify({ error: "Too Many Requests" }),
+          {
+            status: 429,
+            headers: {
+              "Content-Type": "application/json",
+              "Retry-After": String(result.retryAfter),
             },
-          );
-        }
+          },
+        );
       }
     }
 
@@ -132,7 +131,7 @@ export default {
       // Public API routes
       if (url.pathname === "/api/subscribe") {
         const response = await handleSubscribe(request, env);
-        return withCORS(response, request, env);
+        return await withCORS(response, request, env);
       }
 
       if (url.pathname === "/api/verify") {

@@ -1,16 +1,24 @@
 /**
- * Configuration helpers for parsing CHANNELS and verification limits from env.
+ * Configuration helpers for reading channel and site config from D1.
+ * Validation functions are reusable by admin write endpoints.
  */
 
-let channelsCache = null;
+import {
+  getAllChannels,
+  getChannelFromDb,
+  getFeedsByChannelId,
+  getSiteConfig,
+  getRateLimitConfigByEndpoint,
+} from "./db.js";
+import { RATE_LIMITS } from "./rate-limit.js";
+
+// ─── Validation ─────────────────────────────────────────────────────────────
 
 /**
- * Validate DOMAIN and all channel configuration. Throws on invalid config.
- * @param {string} domain - The DOMAIN env var value
- * @param {Array<object>} channels - Parsed channel config array
+ * Validate DOMAIN format. Throws on invalid config.
+ * @param {string} domain
  */
-function validateConfig(domain, channels) {
-  // Validate DOMAIN
+export function validateDomain(domain) {
   if (!domain) {
     throw new Error("DOMAIN is required but missing or empty");
   }
@@ -23,116 +31,172 @@ function validateConfig(domain, channels) {
   if (domain.includes("/")) {
     throw new Error("DOMAIN must not contain path segments");
   }
+}
 
-  // Validate each channel
-  const requiredFields = ["id", "siteName", "siteUrl", "fromUser", "fromName", "corsOrigins"];
+/**
+ * Validate channel fields for create/update.
+ * Returns an error message string or null if valid.
+ * @param {object} data - Channel data
+ * @param {object} [options]
+ * @param {boolean} [options.requireFeeds] - Whether feeds are required (true for create)
+ * @returns {string|null}
+ */
+export function validateChannelFields(data, { requireFeeds = false } = {}) {
+  const requiredFields = ["siteName", "siteUrl", "fromUser", "fromName", "corsOrigins"];
 
-  for (let i = 0; i < channels.length; i++) {
-    const channel = channels[i];
-    const label = channel.id || `index ${i}`;
-
-    for (const field of requiredFields) {
-      if (!channel[field]) {
-        throw new Error(`Channel "${label}": missing required field "${field}"`);
-      }
-    }
-
-    // Validate fromUser
-    if (/[@\s]/.test(channel.fromUser)) {
-      throw new Error(
-        `Channel "${label}": fromUser must not contain '@' or whitespace`,
-      );
-    }
-
-    // Validate feeds
-    if (channel.feeds) {
-      const seenUrls = new Set();
-      const seenNames = new Set();
-
-      for (let j = 0; j < channel.feeds.length; j++) {
-        const feed = channel.feeds[j];
-
-        if (!feed.name || typeof feed.name !== "string") {
-          throw new Error(
-            `Channel "${label}": feed at index ${j} has missing or empty "name"`,
-          );
-        }
-        if (!feed.url || typeof feed.url !== "string") {
-          throw new Error(
-            `Channel "${label}": feed at index ${j} has missing or empty "url"`,
-          );
-        }
-
-        if (seenUrls.has(feed.url)) {
-          throw new Error(
-            `Channel "${label}": duplicate feed URL "${feed.url}"`,
-          );
-        }
-        seenUrls.add(feed.url);
-
-        const lowerName = feed.name.toLowerCase();
-        if (seenNames.has(lowerName)) {
-          throw new Error(
-            `Channel "${label}": duplicate feed name "${feed.name}" (case-insensitive)`,
-          );
-        }
-        seenNames.add(lowerName);
-      }
+  for (const field of requiredFields) {
+    if (!data[field]) {
+      return `Missing required field: ${field}`;
     }
   }
-}
 
-/**
- * Parse, validate, and return all configured channels.
- * @param {object} env - Worker environment bindings
- * @returns {Array<object>} Array of channel config objects
- */
-export function getChannels(env) {
-  if (!channelsCache) {
-    const channels = JSON.parse(env.CHANNELS);
-    validateConfig(env.DOMAIN, channels);
-    channelsCache = channels;
+  if (/[@\s]/.test(data.fromUser)) {
+    return "fromUser must not contain '@' or whitespace";
   }
-  return channelsCache;
+
+  if (!Array.isArray(data.corsOrigins) || data.corsOrigins.length === 0) {
+    return "corsOrigins must be a non-empty array";
+  }
+
+  if (requireFeeds) {
+    if (!Array.isArray(data.feeds) || data.feeds.length === 0) {
+      return "At least one feed is required";
+    }
+    const feedError = validateFeedList(data.feeds);
+    if (feedError) return feedError;
+  }
+
+  return null;
 }
 
 /**
- * Look up a channel by its ID.
- * @param {object} env - Worker environment bindings
- * @param {string} channelId - The channel ID to look up
- * @returns {object|null} Channel config or null if not found
+ * Validate a list of feeds for internal uniqueness (used during channel create).
+ * @param {Array<{name: string, url: string}>} feeds
+ * @returns {string|null}
  */
-export function getChannelById(env, channelId) {
-  const channels = getChannels(env);
-  return channels.find((c) => c.id === channelId) || null;
+export function validateFeedList(feeds) {
+  const seenUrls = new Set();
+  const seenNames = new Set();
+
+  for (let i = 0; i < feeds.length; i++) {
+    const feed = feeds[i];
+
+    if (!feed.name || typeof feed.name !== "string") {
+      return `Feed at index ${i}: missing or empty name`;
+    }
+    if (!feed.url || typeof feed.url !== "string") {
+      return `Feed at index ${i}: missing or empty url`;
+    }
+
+    if (seenUrls.has(feed.url)) {
+      return `Duplicate feed URL: ${feed.url}`;
+    }
+    seenUrls.add(feed.url);
+
+    const lowerName = feed.name.toLowerCase();
+    if (seenNames.has(lowerName)) {
+      return `Duplicate feed name: ${feed.name} (case-insensitive)`;
+    }
+    seenNames.add(lowerName);
+  }
+
+  return null;
+}
+
+// ─── DB-backed config readers ───────────────────────────────────────────────
+
+/**
+ * Convert a DB channel row (snake_case) to a JS channel object (camelCase).
+ * @param {object} row
+ * @param {Array} [feeds]
+ * @returns {object}
+ */
+function formatChannel(row, feeds) {
+  const channel = {
+    id: row.id,
+    siteName: row.site_name,
+    siteUrl: row.site_url,
+    fromUser: row.from_user,
+    fromName: row.from_name,
+    replyTo: row.reply_to || undefined,
+    companyName: row.company_name || undefined,
+    companyAddress: row.company_address || undefined,
+    corsOrigins: JSON.parse(row.cors_origins),
+  };
+  if (feeds !== undefined) {
+    channel.feeds = feeds.map((f) => ({ id: f.id, name: f.name, url: f.url }));
+  }
+  return channel;
 }
 
 /**
- * Get verification rate limit settings.
- * @param {object} env - Worker environment bindings
- * @returns {{ maxAttempts: number, windowHours: number }}
+ * Get all configured channels with their feeds.
+ * @param {object} db - D1 database binding
+ * @returns {Promise<Array<object>>}
  */
-export function getVerifyLimits(env) {
+export async function getChannels(db) {
+  const rows = await getAllChannels(db);
+  const channels = [];
+  for (const row of rows) {
+    const feeds = await getFeedsByChannelId(db, row.id);
+    channels.push(formatChannel(row, feeds));
+  }
+  return channels;
+}
+
+/**
+ * Look up a channel by its ID, including feeds.
+ * @param {object} db - D1 database binding
+ * @param {string} channelId
+ * @returns {Promise<object|null>}
+ */
+export async function getChannelById(db, channelId) {
+  const row = await getChannelFromDb(db, channelId);
+  if (!row) return null;
+  const feeds = await getFeedsByChannelId(db, row.id);
+  return formatChannel(row, feeds);
+}
+
+/**
+ * Get verification rate limit settings from DB, with hardcoded fallbacks.
+ * @param {object} db - D1 database binding
+ * @returns {Promise<{ maxAttempts: number, windowHours: number }>}
+ */
+export async function getVerifyLimits(db) {
+  const config = await getSiteConfig(db);
   return {
-    maxAttempts: parseInt(env.VERIFY_MAX_ATTEMPTS || "3", 10),
-    windowHours: parseInt(env.VERIFY_WINDOW_HOURS || "24", 10),
+    maxAttempts: config?.verify_max_attempts ?? 3,
+    windowHours: config?.verify_window_hours ?? 24,
   };
 }
 
 /**
  * Collect all CORS origins from all configured channels.
- * @param {object} env - Worker environment bindings
- * @returns {string[]} Array of allowed origin URLs
+ * @param {object} db - D1 database binding
+ * @returns {Promise<string[]>}
  */
-export function getAllCorsOrigins(env) {
-  const channels = getChannels(env);
+export async function getAllCorsOrigins(db) {
+  const rows = await getAllChannels(db);
   const origins = new Set();
-  for (const channel of channels) {
-    if (channel.corsOrigins) {
-      for (const origin of channel.corsOrigins) {
-        origins.add(origin);
-      }
+  for (const row of rows) {
+    const corsOrigins = JSON.parse(row.cors_origins);
+    for (const origin of corsOrigins) {
+      origins.add(origin);
     }
   }
   return [...origins];
+}
+
+/**
+ * Get rate limit config for an endpoint from DB, with hardcoded fallback.
+ * @param {object} db - D1 database binding
+ * @param {string} endpoint
+ * @returns {Promise<{ maxRequests: number, windowSeconds: number }>}
+ */
+export async function getRateLimitConfig(db, endpoint) {
+  const row = await getRateLimitConfigByEndpoint(db, endpoint);
+  if (row) {
+    return { maxRequests: row.max_requests, windowSeconds: row.window_seconds };
+  }
+  return RATE_LIMITS[endpoint] || { maxRequests: 10, windowSeconds: 3600 };
 }

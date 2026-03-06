@@ -16,11 +16,11 @@ const CORS_HEADERS = {
  * @param {object} env
  * @returns {string|null} The allowed origin, or null
  */
-function getAllowedOrigin(request, env) {
+async function getAllowedOrigin(request, db) {
   const origin = request.headers.get("Origin");
   if (!origin) return null;
 
-  const allowed = getAllCorsOrigins(env);
+  const allowed = await getAllCorsOrigins(db);
   return allowed.includes(origin) ? origin : null;
 }
 
@@ -30,8 +30,8 @@ function getAllowedOrigin(request, env) {
  * @param {object} env
  * @returns {Response}
  */
-export function handleCORSPreflight(request, env) {
-  const origin = getAllowedOrigin(request, env);
+export async function handleCORSPreflight(request, env) {
+  const origin = await getAllowedOrigin(request, env.DB);
   if (!origin) {
     return new Response(null, { status: 403 });
   }
@@ -52,8 +52,8 @@ export function handleCORSPreflight(request, env) {
  * @param {object} env
  * @returns {Response}
  */
-export function withCORS(response, request, env) {
-  const origin = getAllowedOrigin(request, env);
+export async function withCORS(response, request, env) {
+  const origin = await getAllowedOrigin(request, env.DB);
   if (!origin) return response;
 
   const newHeaders = new Headers(response.headers);

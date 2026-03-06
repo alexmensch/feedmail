@@ -68,8 +68,8 @@ export function render(name, data) {
  * @param {string} message - Error message to display
  * @returns {Response}
  */
-export function renderErrorPage(env, channelId, message) {
-  const channel = channelId ? getChannelById(env, channelId) : null;
+export async function renderErrorPage(env, channelId, message) {
+  const channel = channelId ? await getChannelById(env.DB, channelId) : null;
 
   const html = render("errorPage", {
     siteName: channel?.siteName || "feedmail",
