@@ -1,6 +1,6 @@
-name = "feedmail"
+name = "newsletter-alxm-me"
 main = "src/index.js"
-compatibility_date = "2025-07-01"
+compatibility_date = "2026-02-27"
 compatibility_flags = ["nodejs_compat"]
 account_id = "ecd2a3d65ecc1018f93da07542223581"
 upload_source_maps = true
@@ -18,7 +18,7 @@ database_id = "5a427f97-0e66-499c-85e3-687980dab09c"
 
 [[routes]]
 pattern = "newsletter.alxm.me/api/*"
-zone_name = "newsletter.alxm.me"
+zone_name = "alxm.me"
 
 [vars]
 CHANNELS = '''
