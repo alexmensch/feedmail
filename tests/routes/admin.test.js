@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../../src/lib/config.js", () => ({
-  getSiteById: vi.fn(),
+  getChannelById: vi.fn(),
 }));
 vi.mock("../../src/lib/db.js", () => ({
   getSubscriberStats: vi.fn(),
@@ -10,18 +10,18 @@ vi.mock("../../src/lib/db.js", () => ({
 }));
 
 import { handleAdmin } from "../../src/routes/admin.js";
-import { getSiteById } from "../../src/lib/config.js";
+import { getChannelById } from "../../src/lib/config.js";
 import {
   getSubscriberStats,
   getSentItemStats,
   getSubscriberList,
 } from "../../src/lib/db.js";
 
-const SITE = {
+const CHANNEL = {
   id: "test-site",
-  name: "Test Site",
-  url: "https://example.com",
-  feeds: ["https://example.com/feed.xml"],
+  siteName: "Test Site",
+  siteUrl: "https://example.com",
+  feeds: [{ name: "Main Feed", url: "https://example.com/feed.xml" }],
 };
 
 const env = { DB: {} };
@@ -40,7 +40,7 @@ function makeRequest(pathname, params = {}) {
 describe("handleAdmin", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getSiteById.mockReturnValue(SITE);
+    getChannelById.mockReturnValue(CHANNEL);
     getSubscriberStats.mockResolvedValue({
       total: 10,
       verified: 7,
@@ -57,7 +57,7 @@ describe("handleAdmin", () => {
   describe("routing", () => {
     it("routes /api/admin/stats to stats handler", async () => {
       const { request, url } = makeRequest("/api/admin/stats", {
-        siteId: "test-site",
+        channelId: "test-site",
       });
 
       const response = await handleAdmin(request, env, url);
@@ -70,7 +70,7 @@ describe("handleAdmin", () => {
 
     it("routes /api/admin/subscribers to subscribers handler", async () => {
       const { request, url } = makeRequest("/api/admin/subscribers", {
-        siteId: "test-site",
+        channelId: "test-site",
       });
 
       const response = await handleAdmin(request, env, url);
@@ -100,32 +100,32 @@ describe("handleAdmin", () => {
       const body = await response.json();
 
       expect(response.status).toBe(400);
-      expect(body.error).toBe("Missing siteId query parameter");
+      expect(body.error).toBe("Missing channelId query parameter");
     });
 
     it("returns 404 for unknown site", async () => {
-      getSiteById.mockReturnValue(null);
+      getChannelById.mockReturnValue(null);
       const { request, url } = makeRequest("/api/admin/stats", {
-        siteId: "nonexistent",
+        channelId: "nonexistent",
       });
 
       const response = await handleAdmin(request, env, url);
       const body = await response.json();
 
       expect(response.status).toBe(404);
-      expect(body.error).toBe("Unknown site");
+      expect(body.error).toBe("Unknown channel");
     });
 
     it("returns subscriber and sent item stats", async () => {
       const { request, url } = makeRequest("/api/admin/stats", {
-        siteId: "test-site",
+        channelId: "test-site",
       });
 
       const response = await handleAdmin(request, env, url);
       const body = await response.json();
 
       expect(response.status).toBe(200);
-      expect(body.siteId).toBe("test-site");
+      expect(body.channelId).toBe("test-site");
       expect(body.subscribers).toEqual({
         total: 10,
         verified: 7,
@@ -136,12 +136,12 @@ describe("handleAdmin", () => {
         total: 5,
         lastSentAt: "2025-01-15 10:00:00",
       });
-      expect(body.feeds).toEqual(["https://example.com/feed.xml"]);
+      expect(body.feeds).toEqual([{ name: "Main Feed", url: "https://example.com/feed.xml" }]);
     });
 
     it("calls getSubscriberStats and getSentItemStats in parallel", async () => {
       const { request, url } = makeRequest("/api/admin/stats", {
-        siteId: "test-site",
+        channelId: "test-site",
       });
 
       await handleAdmin(request, env, url);
@@ -161,20 +161,20 @@ describe("handleAdmin", () => {
       const body = await response.json();
 
       expect(response.status).toBe(400);
-      expect(body.error).toBe("Missing siteId query parameter");
+      expect(body.error).toBe("Missing channelId query parameter");
     });
 
     it("returns 404 for unknown site", async () => {
-      getSiteById.mockReturnValue(null);
+      getChannelById.mockReturnValue(null);
       const { request, url } = makeRequest("/api/admin/subscribers", {
-        siteId: "nonexistent",
+        channelId: "nonexistent",
       });
 
       const response = await handleAdmin(request, env, url);
       const body = await response.json();
 
       expect(response.status).toBe(404);
-      expect(body.error).toBe("Unknown site");
+      expect(body.error).toBe("Unknown channel");
     });
 
     it("returns subscriber list without status filter", async () => {
@@ -185,14 +185,14 @@ describe("handleAdmin", () => {
       getSubscriberList.mockResolvedValue(subscribers);
 
       const { request, url } = makeRequest("/api/admin/subscribers", {
-        siteId: "test-site",
+        channelId: "test-site",
       });
 
       const response = await handleAdmin(request, env, url);
       const body = await response.json();
 
       expect(response.status).toBe(200);
-      expect(body.siteId).toBe("test-site");
+      expect(body.channelId).toBe("test-site");
       expect(body.count).toBe(2);
       expect(body.subscribers).toEqual(subscribers);
       expect(getSubscriberList).toHaveBeenCalledWith(
@@ -206,7 +206,7 @@ describe("handleAdmin", () => {
       getSubscriberList.mockResolvedValue([]);
 
       const { request, url } = makeRequest("/api/admin/subscribers", {
-        siteId: "test-site",
+        channelId: "test-site",
         status: "verified",
       });
 
@@ -225,7 +225,7 @@ describe("handleAdmin", () => {
       ]);
 
       const { request, url } = makeRequest("/api/admin/subscribers", {
-        siteId: "test-site",
+        channelId: "test-site",
         status: "verified",
       });
 
@@ -239,7 +239,7 @@ describe("handleAdmin", () => {
       getSubscriberList.mockResolvedValue([]);
 
       const { request, url } = makeRequest("/api/admin/subscribers", {
-        siteId: "test-site",
+        channelId: "test-site",
       });
 
       const response = await handleAdmin(request, env, url);

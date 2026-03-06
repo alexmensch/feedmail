@@ -1,10 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../../src/lib/config.js", () => ({
-  getSiteById: vi.fn(),
+  getChannelById: vi.fn(),
 }));
 vi.mock("../../src/lib/templates.js", () => ({
   render: vi.fn().mockReturnValue("<html>rendered</html>"),
+  renderErrorPage: vi.fn().mockImplementation(() =>
+    new Response("<html>error</html>", {
+      status: 200,
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    }),
+  ),
 }));
 vi.mock("../../src/lib/db.js", () => ({
   getSubscriberByUnsubscribeToken: vi.fn(),
@@ -12,49 +18,49 @@ vi.mock("../../src/lib/db.js", () => ({
 }));
 
 import { handleUnsubscribe } from "../../src/routes/unsubscribe.js";
-import { getSiteById } from "../../src/lib/config.js";
-import { render } from "../../src/lib/templates.js";
+import { getChannelById } from "../../src/lib/config.js";
+import { render, renderErrorPage } from "../../src/lib/templates.js";
 import {
   getSubscriberByUnsubscribeToken,
   markSubscriberUnsubscribed,
 } from "../../src/lib/db.js";
 
-const SITE = {
+const CHANNEL = {
   id: "test-site",
-  name: "Test Site",
-  url: "https://example.com",
+  siteName: "Test Site",
+  siteUrl: "https://example.com",
 };
 
 const env = { DB: {} };
 
 function makeUrl(token) {
-  const url = new URL("https://feedmail.cc/api/unsubscribe");
+  const url = new URL("https://test.example.com/api/unsubscribe");
   if (token !== undefined) url.searchParams.set("token", token);
   return url;
 }
 
 function makeRequest(method = "GET") {
-  return new Request("https://feedmail.cc/api/unsubscribe", { method });
+  return new Request("https://test.example.com/api/unsubscribe", { method });
 }
 
 describe("handleUnsubscribe", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getSiteById.mockReturnValue(SITE);
+    getChannelById.mockReturnValue(CHANNEL);
   });
 
   describe("missing or invalid token", () => {
     it("returns error page when token is missing", async () => {
-      const url = new URL("https://feedmail.cc/api/unsubscribe");
+      const url = new URL("https://test.example.com/api/unsubscribe");
 
       const response = await handleUnsubscribe(makeRequest(), env, url);
 
       expect(response.status).toBe(200);
-      expect(render).toHaveBeenCalledWith("errorPage", {
-        siteName: "feedmail",
-        siteUrl: "/",
-        errorMessage: "Invalid unsubscribe link.",
-      });
+      expect(renderErrorPage).toHaveBeenCalledWith(
+        env,
+        null,
+        "Invalid unsubscribe link.",
+      );
     });
 
     it("returns error page when subscriber not found", async () => {
@@ -67,23 +73,25 @@ describe("handleUnsubscribe", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(render).toHaveBeenCalledWith("errorPage", expect.objectContaining({
-        errorMessage: "Invalid unsubscribe link.",
-      }));
+      expect(renderErrorPage).toHaveBeenCalledWith(
+        env,
+        null,
+        "Invalid unsubscribe link.",
+      );
     });
 
     it("error page uses fallback site info", async () => {
       await handleUnsubscribe(
         makeRequest(),
         env,
-        new URL("https://feedmail.cc/api/unsubscribe"),
+        new URL("https://test.example.com/api/unsubscribe"),
       );
 
-      expect(render).toHaveBeenCalledWith("errorPage", {
-        siteName: "feedmail",
-        siteUrl: "/",
-        errorMessage: "Invalid unsubscribe link.",
-      });
+      expect(renderErrorPage).toHaveBeenCalledWith(
+        env,
+        null,
+        "Invalid unsubscribe link.",
+      );
     });
   });
 
@@ -91,7 +99,7 @@ describe("handleUnsubscribe", () => {
     const subscriber = {
       id: 42,
       status: "verified",
-      site_id: "test-site",
+      channel_id: "test-site",
     };
 
     it("marks verified subscriber as unsubscribed", async () => {
@@ -130,7 +138,7 @@ describe("handleUnsubscribe", () => {
       getSubscriberByUnsubscribeToken.mockResolvedValue({
         id: 42,
         status: "verified",
-        site_id: "test-site",
+        channel_id: "test-site",
       });
 
       const response = await handleUnsubscribe(
@@ -155,7 +163,7 @@ describe("handleUnsubscribe", () => {
       getSubscriberByUnsubscribeToken.mockResolvedValue({
         id: 42,
         status: "verified",
-        site_id: "test-site",
+        channel_id: "test-site",
       });
 
       const response = await handleUnsubscribe(
@@ -173,7 +181,7 @@ describe("handleUnsubscribe", () => {
       getSubscriberByUnsubscribeToken.mockResolvedValue({
         id: 42,
         status: "verified",
-        site_id: "test-site",
+        channel_id: "test-site",
       });
 
       await handleUnsubscribe(
@@ -188,11 +196,11 @@ describe("handleUnsubscribe", () => {
 
   describe("site fallbacks", () => {
     it("uses fallback when site not found in config", async () => {
-      getSiteById.mockReturnValue(null);
+      getChannelById.mockReturnValue(null);
       getSubscriberByUnsubscribeToken.mockResolvedValue({
         id: 42,
         status: "verified",
-        site_id: "unknown-site",
+        channel_id: "unknown-site",
       });
 
       await handleUnsubscribe(
@@ -213,11 +221,11 @@ describe("handleUnsubscribe", () => {
       getSubscriberByUnsubscribeToken.mockResolvedValue({
         id: 42,
         status: "verified",
-        site_id: "test-site",
+        channel_id: "test-site",
       });
 
       const response = await handleUnsubscribe(
-        new Request("https://feedmail.cc/api/unsubscribe", { method: "PUT" }),
+        new Request("https://test.example.com/api/unsubscribe", { method: "PUT" }),
         env,
         makeUrl("valid-token"),
       );

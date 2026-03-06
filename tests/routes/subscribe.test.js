@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock all dependencies
 vi.mock("../../src/lib/config.js", () => ({
-  getSiteById: vi.fn(),
+  getChannelById: vi.fn(),
   getVerifyLimits: vi.fn(),
 }));
 vi.mock("../../src/lib/email.js", () => ({
@@ -21,7 +21,7 @@ vi.mock("../../src/lib/db.js", () => ({
 }));
 
 import { handleSubscribe } from "../../src/routes/subscribe.js";
-import { getSiteById, getVerifyLimits } from "../../src/lib/config.js";
+import { getChannelById, getVerifyLimits } from "../../src/lib/config.js";
 import { sendEmail } from "../../src/lib/email.js";
 import { render } from "../../src/lib/templates.js";
 import {
@@ -33,26 +33,26 @@ import {
   insertVerificationAttempt,
 } from "../../src/lib/db.js";
 
-const SITE = {
+const CHANNEL = {
   id: "test-site",
-  url: "https://example.com",
-  name: "Test Site",
-  fromEmail: "hello@example.com",
+  siteUrl: "https://example.com",
+  siteName: "Test Site",
+  fromUser: "hello",
   fromName: "Test",
   replyTo: "reply@example.com",
   corsOrigins: ["https://example.com"],
-  feeds: ["https://example.com/feed"],
+  feeds: [{ name: "Main Feed", url: "https://example.com/feed" }],
 };
 
 const env = {
   DB: {},
   RESEND_API_KEY: "re_test",
-  BASE_URL: "https://feedmail.cc",
-  SITES: JSON.stringify([SITE]),
+  DOMAIN: "test.example.com",
+  CHANNELS: JSON.stringify([CHANNEL]),
 };
 
 function makeRequest(body) {
-  return new Request("https://feedmail.cc/api/subscribe", {
+  return new Request("https://test.example.com/api/subscribe", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -70,7 +70,7 @@ describe("handleSubscribe", () => {
       randomUUID: vi.fn().mockReturnValue("test-uuid"),
     });
 
-    getSiteById.mockReturnValue(SITE);
+    getChannelById.mockReturnValue(CHANNEL);
     getVerifyLimits.mockReturnValue({ maxAttempts: 5, windowHours: 24 });
     sendEmail.mockResolvedValue({ success: true });
     countRecentVerificationAttempts.mockResolvedValue(0);
@@ -81,7 +81,7 @@ describe("handleSubscribe", () => {
 
   describe("input validation", () => {
     it("returns 400 for invalid JSON body", async () => {
-      const request = new Request("https://feedmail.cc/api/subscribe", {
+      const request = new Request("https://test.example.com/api/subscribe", {
         method: "POST",
         body: "not json",
       });
@@ -102,28 +102,28 @@ describe("handleSubscribe", () => {
       const body = await response.json();
 
       expect(response.status).toBe(400);
-      expect(body.message).toBe("Missing site identifier");
+      expect(body.message).toBe("Missing channel identifier");
     });
 
     it("returns 400 for unknown siteId", async () => {
-      getSiteById.mockReturnValue(null);
+      getChannelById.mockReturnValue(null);
 
       const response = await handleSubscribe(
         makeRequest({
           email: "a@b.com",
-          siteId: "unknown",
+          channelId: "unknown",
         }),
         env,
       );
       const body = await response.json();
 
       expect(response.status).toBe(400);
-      expect(body.message).toBe("Unknown site");
+      expect(body.message).toBe("Unknown channel");
     });
 
     it("returns 400 for missing email", async () => {
       const response = await handleSubscribe(
-        makeRequest({ siteId: "test-site" }),
+        makeRequest({ channelId: "test-site" }),
         env,
       );
       const body = await response.json();
@@ -144,7 +144,7 @@ describe("handleSubscribe", () => {
 
       for (const email of invalidEmails) {
         const response = await handleSubscribe(
-          makeRequest({ email, siteId: "test-site" }),
+          makeRequest({ email, channelId: "test-site" }),
           env,
         );
         const body = await response.json();
@@ -164,7 +164,7 @@ describe("handleSubscribe", () => {
 
       for (const email of validEmails) {
         const response = await handleSubscribe(
-          makeRequest({ email, siteId: "test-site" }),
+          makeRequest({ email, channelId: "test-site" }),
           env,
         );
         const body = await response.json();
@@ -179,7 +179,7 @@ describe("handleSubscribe", () => {
       const response = await handleSubscribe(
         makeRequest({
           email: "a@b.com",
-          siteId: "test-site",
+          channelId: "test-site",
           honeypot: "gotcha",
         }),
         env,
@@ -195,7 +195,7 @@ describe("handleSubscribe", () => {
       const response = await handleSubscribe(
         makeRequest({
           email: "a@b.com",
-          siteId: "test-site",
+          channelId: "test-site",
           name: "Bot",
           phone: "123",
         }),
@@ -211,7 +211,7 @@ describe("handleSubscribe", () => {
       getSubscriberByEmail.mockResolvedValue(null);
 
       const response = await handleSubscribe(
-        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        makeRequest({ email: "a@b.com", channelId: "test-site" }),
         env,
       );
       const body = await response.json();
@@ -224,7 +224,7 @@ describe("handleSubscribe", () => {
       await handleSubscribe(
         makeRequest({
           email: "a@b.com",
-          siteId: "test-site",
+          channelId: "test-site",
           honeypot: "filled",
         }),
         env,
@@ -247,7 +247,7 @@ describe("handleSubscribe", () => {
       const response = await handleSubscribe(
         makeRequest({
           email: "a@b.com",
-          siteId: "test-site",
+          channelId: "test-site",
         }),
         env,
       );
@@ -270,7 +270,7 @@ describe("handleSubscribe", () => {
       const response = await handleSubscribe(
         makeRequest({
           email: "a@b.com",
-          siteId: "test-site",
+          channelId: "test-site",
         }),
         env,
       );
@@ -297,7 +297,7 @@ describe("handleSubscribe", () => {
       const response = await handleSubscribe(
         makeRequest({
           email: "a@b.com",
-          siteId: "test-site",
+          channelId: "test-site",
         }),
         env,
       );
@@ -325,7 +325,7 @@ describe("handleSubscribe", () => {
 
       for (const existing of statuses) {
         vi.clearAllMocks();
-        getSiteById.mockReturnValue(SITE);
+        getChannelById.mockReturnValue(CHANNEL);
         getVerifyLimits.mockReturnValue({ maxAttempts: 5, windowHours: 24 });
         sendEmail.mockResolvedValue({ success: true });
         countRecentVerificationAttempts.mockResolvedValue(0);
@@ -335,7 +335,7 @@ describe("handleSubscribe", () => {
         const response = await handleSubscribe(
           makeRequest({
             email: "a@b.com",
-            siteId: "test-site",
+            channelId: "test-site",
           }),
           env,
         );
@@ -361,7 +361,7 @@ describe("handleSubscribe", () => {
       const response = await handleSubscribe(
         makeRequest({
           email: "New@Example.COM",
-          siteId: "test-site",
+          channelId: "test-site",
         }),
         env,
       );
@@ -372,7 +372,7 @@ describe("handleSubscribe", () => {
 
       // Should normalize email
       expect(insertSubscriber).toHaveBeenCalledWith(env.DB, {
-        siteId: "test-site",
+        channelId: "test-site",
         email: "new@example.com",
         verifyToken: "test-uuid",
         unsubscribeToken: "test-uuid",
@@ -387,7 +387,7 @@ describe("handleSubscribe", () => {
       await handleSubscribe(
         makeRequest({
           email: "USER@DOMAIN.COM",
-          siteId: "test-site",
+          channelId: "test-site",
         }),
         env,
       );
@@ -405,7 +405,7 @@ describe("handleSubscribe", () => {
       const response = await handleSubscribe(
         makeRequest({
           email: "  USER@DOMAIN.COM  ",
-          siteId: "test-site",
+          channelId: "test-site",
         }),
         env,
       );
@@ -425,7 +425,7 @@ describe("handleSubscribe", () => {
       await handleSubscribe(
         makeRequest({
           email: "a@b.com",
-          siteId: "test-site",
+          channelId: "test-site",
         }),
         env,
       );
@@ -443,7 +443,7 @@ describe("handleSubscribe", () => {
       const response = await handleSubscribe(
         makeRequest({
           email: "a@b.com",
-          siteId: "test-site",
+          channelId: "test-site",
         }),
         env,
       );
@@ -461,7 +461,7 @@ describe("handleSubscribe", () => {
       await handleSubscribe(
         makeRequest({
           email: "a@b.com",
-          siteId: "test-site",
+          channelId: "test-site",
         }),
         env,
       );
@@ -475,7 +475,7 @@ describe("handleSubscribe", () => {
       await handleSubscribe(
         makeRequest({
           email: "a@b.com",
-          siteId: "test-site",
+          channelId: "test-site",
         }),
         env,
       );
@@ -493,7 +493,7 @@ describe("handleSubscribe", () => {
       await handleSubscribe(
         makeRequest({
           email: "a@b.com",
-          siteId: "test-site",
+          channelId: "test-site",
         }),
         env,
       );
@@ -509,7 +509,7 @@ describe("handleSubscribe", () => {
       await handleSubscribe(
         makeRequest({
           email: "a@b.com",
-          siteId: "test-site",
+          channelId: "test-site",
         }),
         env,
       );
@@ -518,8 +518,8 @@ describe("handleSubscribe", () => {
       expect(render).toHaveBeenCalledWith("verificationEmail", {
         siteName: "Test Site",
         siteUrl: "https://example.com",
-        verifyUrl: "https://feedmail.cc/api/verify?token=test-uuid",
-        unsubscribeUrl: "https://feedmail.cc/api/unsubscribe?token=test-uuid",
+        verifyUrl: "https://test.example.com/api/verify?token=test-uuid",
+        unsubscribeUrl: "https://test.example.com/api/unsubscribe?token=test-uuid",
       });
     });
 
@@ -529,14 +529,14 @@ describe("handleSubscribe", () => {
       await handleSubscribe(
         makeRequest({
           email: "user@test.com",
-          siteId: "test-site",
+          channelId: "test-site",
         }),
         env,
       );
 
       // sendEmail call includes headers with both List-Unsubscribe headers
       expect(sendEmail).toHaveBeenCalledWith("re_test", {
-        from: "hello@example.com",
+        from: "hello@test.example.com",
         fromName: "Test",
         replyTo: "reply@example.com",
         to: "user@test.com",
@@ -544,7 +544,7 @@ describe("handleSubscribe", () => {
         html: expect.any(String),
         text: expect.stringContaining("Confirm your subscription"),
         headers: {
-          "List-Unsubscribe": "<https://feedmail.cc/api/unsubscribe?token=test-uuid>",
+          "List-Unsubscribe": "<https://test.example.com/api/unsubscribe?token=test-uuid>",
           "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
         },
       });
@@ -556,14 +556,14 @@ describe("handleSubscribe", () => {
       getSubscriberByEmail.mockResolvedValue(null);
 
       await handleSubscribe(
-        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        makeRequest({ email: "a@b.com", channelId: "test-site" }),
         env,
       );
 
       const emailCall = sendEmail.mock.calls[0];
       expect(emailCall[1].headers).toBeDefined();
       expect(emailCall[1].headers["List-Unsubscribe"]).toBe(
-        "<https://feedmail.cc/api/unsubscribe?token=test-uuid>",
+        "<https://test.example.com/api/unsubscribe?token=test-uuid>",
       );
     });
 
@@ -571,7 +571,7 @@ describe("handleSubscribe", () => {
       getSubscriberByEmail.mockResolvedValue(null);
 
       await handleSubscribe(
-        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        makeRequest({ email: "a@b.com", channelId: "test-site" }),
         env,
       );
 
@@ -590,13 +590,13 @@ describe("handleSubscribe", () => {
       });
 
       await handleSubscribe(
-        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        makeRequest({ email: "a@b.com", channelId: "test-site" }),
         env,
       );
 
       const emailCall = sendEmail.mock.calls[0];
       expect(emailCall[1].headers["List-Unsubscribe"]).toBe(
-        "<https://feedmail.cc/api/unsubscribe?token=existing-pending-token>",
+        "<https://test.example.com/api/unsubscribe?token=existing-pending-token>",
       );
       expect(emailCall[1].headers["List-Unsubscribe-Post"]).toBe(
         "List-Unsubscribe=One-Click",
@@ -612,13 +612,13 @@ describe("handleSubscribe", () => {
       });
 
       await handleSubscribe(
-        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        makeRequest({ email: "a@b.com", channelId: "test-site" }),
         env,
       );
 
       const emailCall = sendEmail.mock.calls[0];
       expect(emailCall[1].headers["List-Unsubscribe"]).toBe(
-        "<https://feedmail.cc/api/unsubscribe?token=existing-unsub-token>",
+        "<https://test.example.com/api/unsubscribe?token=existing-unsub-token>",
       );
       expect(emailCall[1].headers["List-Unsubscribe-Post"]).toBe(
         "List-Unsubscribe=One-Click",
@@ -630,7 +630,7 @@ describe("handleSubscribe", () => {
       getSubscriberByEmail.mockResolvedValue(null);
 
       await handleSubscribe(
-        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        makeRequest({ email: "a@b.com", channelId: "test-site" }),
         env,
       );
 
@@ -639,7 +639,7 @@ describe("handleSubscribe", () => {
       // Must start with < and end with >
       expect(header).toMatch(/^<.+>$/);
       // Must contain the full unsubscribe URL
-      expect(header).toContain("https://feedmail.cc/api/unsubscribe?token=");
+      expect(header).toContain("https://test.example.com/api/unsubscribe?token=");
     });
   });
 
@@ -648,7 +648,7 @@ describe("handleSubscribe", () => {
       getSubscriberByEmail.mockResolvedValue(null);
 
       await handleSubscribe(
-        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        makeRequest({ email: "a@b.com", channelId: "test-site" }),
         env,
       );
 
@@ -657,7 +657,7 @@ describe("handleSubscribe", () => {
       expect(render).toHaveBeenCalledWith(
         "verificationEmail",
         expect.objectContaining({
-          unsubscribeUrl: "https://feedmail.cc/api/unsubscribe?token=test-uuid",
+          unsubscribeUrl: "https://test.example.com/api/unsubscribe?token=test-uuid",
         }),
       );
     });
@@ -671,14 +671,14 @@ describe("handleSubscribe", () => {
       });
 
       await handleSubscribe(
-        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        makeRequest({ email: "a@b.com", channelId: "test-site" }),
         env,
       );
 
       expect(render).toHaveBeenCalledWith(
         "verificationEmail",
         expect.objectContaining({
-          unsubscribeUrl: "https://feedmail.cc/api/unsubscribe?token=pending-unsub-tok",
+          unsubscribeUrl: "https://test.example.com/api/unsubscribe?token=pending-unsub-tok",
         }),
       );
     });
@@ -692,14 +692,14 @@ describe("handleSubscribe", () => {
       });
 
       await handleSubscribe(
-        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        makeRequest({ email: "a@b.com", channelId: "test-site" }),
         env,
       );
 
       expect(render).toHaveBeenCalledWith(
         "verificationEmail",
         expect.objectContaining({
-          unsubscribeUrl: "https://feedmail.cc/api/unsubscribe?token=resub-unsub-tok",
+          unsubscribeUrl: "https://test.example.com/api/unsubscribe?token=resub-unsub-tok",
         }),
       );
     });
@@ -708,7 +708,7 @@ describe("handleSubscribe", () => {
       getSubscriberByEmail.mockResolvedValue(null);
 
       await handleSubscribe(
-        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        makeRequest({ email: "a@b.com", channelId: "test-site" }),
         env,
       );
 
@@ -716,17 +716,17 @@ describe("handleSubscribe", () => {
       const textBody = emailCall[1].text;
       // plain text includes "Unsubscribe: {url}"
       expect(textBody).toContain("Unsubscribe:");
-      expect(textBody).toContain("https://feedmail.cc/api/unsubscribe?token=test-uuid");
+      expect(textBody).toContain("https://test.example.com/api/unsubscribe?token=test-uuid");
     });
   });
 
   describe("optional companyName and companyAddress in SITES config", () => {
     it("site config without companyName and companyAddress works normally", async () => {
-      // SITE fixture has no companyName or companyAddress
+      // CHANNEL fixture has no companyName or companyAddress
       getSubscriberByEmail.mockResolvedValue(null);
 
       const response = await handleSubscribe(
-        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        makeRequest({ email: "a@b.com", channelId: "test-site" }),
         env,
       );
       const body = await response.json();
@@ -737,16 +737,16 @@ describe("handleSubscribe", () => {
     });
 
     it("site config with companyName and companyAddress works normally", async () => {
-      const siteWithCompany = {
-        ...SITE,
+      const channelWithCompany = {
+        ...CHANNEL,
         companyName: "Acme Corp",
         companyAddress: "123 Main St, Springfield, IL 62701",
       };
-      getSiteById.mockReturnValue(siteWithCompany);
+      getChannelById.mockReturnValue(channelWithCompany);
       getSubscriberByEmail.mockResolvedValue(null);
 
       const response = await handleSubscribe(
-        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        makeRequest({ email: "a@b.com", channelId: "test-site" }),
         env,
       );
       const body = await response.json();
@@ -757,16 +757,16 @@ describe("handleSubscribe", () => {
     });
 
     it("site config with empty string companyName and companyAddress works normally", async () => {
-      const siteWithEmpty = {
-        ...SITE,
+      const channelWithEmpty = {
+        ...CHANNEL,
         companyName: "",
         companyAddress: "",
       };
-      getSiteById.mockReturnValue(siteWithEmpty);
+      getChannelById.mockReturnValue(channelWithEmpty);
       getSubscriberByEmail.mockResolvedValue(null);
 
       const response = await handleSubscribe(
-        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        makeRequest({ email: "a@b.com", channelId: "test-site" }),
         env,
       );
       const body = await response.json();
@@ -778,16 +778,16 @@ describe("handleSubscribe", () => {
 
   describe("company info in verification email footer", () => {
     it("passes companyName and companyAddress to template data when configured", async () => {
-      const siteWithCompany = {
-        ...SITE,
+      const channelWithCompany = {
+        ...CHANNEL,
         companyName: "Acme Corp",
         companyAddress: "123 Main St, Springfield, IL 62701",
       };
-      getSiteById.mockReturnValue(siteWithCompany);
+      getChannelById.mockReturnValue(channelWithCompany);
       getSubscriberByEmail.mockResolvedValue(null);
 
       await handleSubscribe(
-        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        makeRequest({ email: "a@b.com", channelId: "test-site" }),
         env,
       );
 
@@ -801,11 +801,11 @@ describe("handleSubscribe", () => {
     });
 
     it("does not pass companyName or companyAddress when not configured", async () => {
-      // Default SITE has no companyName/companyAddress
+      // Default CHANNEL has no companyName/companyAddress
       getSubscriberByEmail.mockResolvedValue(null);
 
       await handleSubscribe(
-        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        makeRequest({ email: "a@b.com", channelId: "test-site" }),
         env,
       );
 
@@ -825,17 +825,17 @@ describe("handleSubscribe", () => {
       );
     });
 
-    it("passes empty string companyName when site has empty string", async () => {
-      const siteWithEmpty = {
-        ...SITE,
+    it("passes empty string companyName when channel has empty string", async () => {
+      const channelWithEmpty = {
+        ...CHANNEL,
         companyName: "",
         companyAddress: "123 Main St",
       };
-      getSiteById.mockReturnValue(siteWithEmpty);
+      getChannelById.mockReturnValue(channelWithEmpty);
       getSubscriberByEmail.mockResolvedValue(null);
 
       await handleSubscribe(
-        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        makeRequest({ email: "a@b.com", channelId: "test-site" }),
         env,
       );
 
@@ -850,16 +850,16 @@ describe("handleSubscribe", () => {
     });
 
     it("includes company info in plain text email when configured", async () => {
-      const siteWithCompany = {
-        ...SITE,
+      const channelWithCompany = {
+        ...CHANNEL,
         companyName: "Acme Corp",
         companyAddress: "123 Main St, Springfield, IL 62701",
       };
-      getSiteById.mockReturnValue(siteWithCompany);
+      getChannelById.mockReturnValue(channelWithCompany);
       getSubscriberByEmail.mockResolvedValue(null);
 
       await handleSubscribe(
-        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        makeRequest({ email: "a@b.com", channelId: "test-site" }),
         env,
       );
 
@@ -870,11 +870,11 @@ describe("handleSubscribe", () => {
     });
 
     it("does not include company info in plain text email when not configured", async () => {
-      // Default SITE has no companyName/companyAddress
+      // Default CHANNEL has no companyName/companyAddress
       getSubscriberByEmail.mockResolvedValue(null);
 
       await handleSubscribe(
-        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        makeRequest({ email: "a@b.com", channelId: "test-site" }),
         env,
       );
 
@@ -888,15 +888,15 @@ describe("handleSubscribe", () => {
 
     it("includes only companyAddress when companyName is empty string", async () => {
       const sitePartial = {
-        ...SITE,
+        ...CHANNEL,
         companyName: "",
         companyAddress: "123 Main St",
       };
-      getSiteById.mockReturnValue(sitePartial);
+      getChannelById.mockReturnValue(sitePartial);
       getSubscriberByEmail.mockResolvedValue(null);
 
       await handleSubscribe(
-        makeRequest({ email: "a@b.com", siteId: "test-site" }),
+        makeRequest({ email: "a@b.com", channelId: "test-site" }),
         env,
       );
 

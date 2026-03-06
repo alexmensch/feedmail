@@ -42,15 +42,15 @@ function mockDb(returnValue) {
 describe("db", () => {
   describe("Subscribers", () => {
     describe("getSubscriberByEmail", () => {
-      it("queries by email and site_id", async () => {
-        const subscriber = { id: 1, email: "a@b.com", site_id: "site1" };
+      it("queries by email and channel_id", async () => {
+        const subscriber = { id: 1, email: "a@b.com", channel_id: "site1" };
         const db = mockDb(subscriber);
 
         const result = await getSubscriberByEmail(db, "a@b.com", "site1");
 
         expect(result).toEqual(subscriber);
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("WHERE email = ? AND site_id = ?"),
+          expect.stringContaining("WHERE email = ? AND channel_id = ?"),
         );
         expect(db._chain.bind).toHaveBeenCalledWith("a@b.com", "site1");
         expect(db._chain.first).toHaveBeenCalled();
@@ -138,7 +138,7 @@ describe("db", () => {
         const db = mockDb({ meta: { last_row_id: 42 } });
 
         await insertSubscriber(db, {
-          siteId: "site1",
+          channelId: "site1",
           email: "new@test.com",
           verifyToken: "vtok",
           unsubscribeToken: "utok",

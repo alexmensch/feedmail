@@ -17,38 +17,28 @@ database_name = "feedmail"
 database_id = "5a427f97-0e66-499c-85e3-687980dab09c"
 
 [[routes]]
-pattern = "feedmail.cc/api/*"
-zone_name = "feedmail.cc"
+pattern = "newsletter.alxm.me/api/*"
+zone_name = "newsletter.alxm.me"
 
 [vars]
-SITES = '''
+CHANNELS = '''
 [
   {
     "id": "alxm.me",
-    "url": "https://alxm.me",
-    "name": "Alex Marshall",
-    "fromEmail": "hello@newsletter.alxm.me",
+    "siteUrl": "https://alxm.me/writing",
+    "siteName": "Alex Marshall",
+    "fromUser": "hello",
     "fromName": "Alex Marshall",
     "replyTo": "hello@alxm.me",
     "companyName": "Thoughtful Design Ltd (№15642102)",
     "companyAddress": "82A James Carter Road, Mildenhall IP28 7DE, England, United Kingdom",
     "corsOrigins": ["https://alxm.me"],
-    "feeds": ["https://alxm.me/writing.atom"]
-  },
-  {
-    "id": "feedmail-waitlist",
-    "url": "https://feedmail.cc",
-    "name": "Feedmail",
-    "fromEmail": "hello@newsletter.alxm.me",
-    "fromName": "Alex Marshall from Feedmail",
-    "replyTo": "hello@alxm.me",
-    "corsOrigins": ["https://feedmail.cc"],
-    "feeds": []
+    "feeds": [{"name": "Writing", "url": "https://alxm.me/writing.atom"}]
   }
 ]
 '''
 
-BASE_URL = "https://feedmail.cc"
+DOMAIN = "newsletter.alxm.me"
 VERIFY_MAX_ATTEMPTS = "3"
 VERIFY_WINDOW_HOURS = "24"
 

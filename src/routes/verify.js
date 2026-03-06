@@ -3,8 +3,8 @@
  * Handles email verification link clicks.
  */
 
-import { getSiteById } from "../lib/config.js";
-import { render } from "../lib/templates.js";
+import { getChannelById } from "../lib/config.js";
+import { render, renderErrorPage } from "../lib/templates.js";
 import {
   getSubscriberByVerifyToken,
   markSubscriberVerified,
@@ -22,13 +22,13 @@ export async function handleVerify(request, env, url) {
   const token = url.searchParams.get("token");
 
   if (!token) {
-    return errorPage(env, null, "This link is invalid or has expired. Please try subscribing again.");
+    return renderErrorPage(env, null, "This link is invalid or has expired. Please try subscribing again.");
   }
 
   const subscriber = await getSubscriberByVerifyToken(env.DB, token);
 
   if (!subscriber) {
-    return errorPage(env, null, "This link is invalid or has expired. Please try subscribing again.");
+    return renderErrorPage(env, null, "This link is invalid or has expired. Please try subscribing again.");
   }
 
   // Check if token has expired (24 hours from created_at)
@@ -37,9 +37,9 @@ export async function handleVerify(request, env, url) {
   const hoursSinceCreation = (now - createdAt) / (1000 * 60 * 60);
 
   if (hoursSinceCreation > 24) {
-    return errorPage(
+    return renderErrorPage(
       env,
-      subscriber.site_id,
+      subscriber.channel_id,
       "This link is invalid or has expired. Please try subscribing again.",
     );
   }
@@ -50,26 +50,11 @@ export async function handleVerify(request, env, url) {
   // Clear verification attempt history
   await clearVerificationAttempts(env.DB, subscriber.id);
 
-  const site = getSiteById(env, subscriber.site_id);
+  const channel = getChannelById(env, subscriber.channel_id);
 
   const html = render("verifyPage", {
-    siteName: site?.name || "the newsletter",
-    siteUrl: site?.url || "/",
-  });
-
-  return new Response(html, {
-    status: 200,
-    headers: { "Content-Type": "text/html; charset=utf-8" },
-  });
-}
-
-function errorPage(env, siteId, message) {
-  const site = siteId ? getSiteById(env, siteId) : null;
-
-  const html = render("errorPage", {
-    siteName: site?.name || "feedmail",
-    siteUrl: site?.url || "/",
-    errorMessage: message,
+    siteName: channel?.siteName || "the newsletter",
+    siteUrl: channel?.siteUrl || "/",
   });
 
   return new Response(html, {

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 pnpm run dev              # Local dev server (wrangler dev) on port 8787
-pnpm run dev:test         # Local dev with test site config (wrangler.test.toml)
+pnpm run dev:test         # Local dev with test channel config (wrangler.test.toml)
 pnpm run dev:feed         # Serve test feed fixtures on port 8888
 pnpm run deploy           # Deploy to Cloudflare Workers
 pnpm run db:migrate       # Apply D1 migrations (remote/production)
@@ -39,7 +39,7 @@ src/
     send.js             # POST /api/send + checkFeedsAndSend() — feed processing + email dispatch
     admin.js            # GET /api/admin/stats, /api/admin/subscribers — bearer auth required
   lib/
-    config.js           # SITES JSON parsing, site lookup, rate limit config (cached)
+    config.js           # CHANNELS JSON parsing, channel lookup, config validation, rate limit config (cached)
     cors.js             # CORS preflight + response header helpers
     db.js               # All D1 query helpers (subscribers, verification_attempts, sent_items)
     feed-parser.js      # RSS 2.0 + Atom parsing via fast-xml-parser, normalized item shape
@@ -60,8 +60,9 @@ migrations/
   0001_initial.sql      # D1 schema: subscribers, verification_attempts, sent_items
   0002_subscriber_sends.sql  # Per-subscriber send tracking for partial send recovery
   0003_rate_limits.sql  # IP-based rate limiting table
-wrangler.toml           # Worker config, cron, D1 binding, SITES config, route pattern
-wrangler.test.toml      # Local testing config — test site with localhost feeds
+  0004_rename_site_id_to_channel_id.sql  # Rename site_id → channel_id in subscribers
+wrangler.toml           # Worker config, cron, D1 binding, CHANNELS config, route pattern
+wrangler.test.toml      # Local testing config — test channel with localhost feeds
 tests/
   fixtures/
     feed.rss            # RSS 2.0 test feed fixture (served by dev:feed)
@@ -73,7 +74,7 @@ scripts/
 
 ### Local Testing
 
-`wrangler.test.toml` provides a separate config for local testing with a test site that has all optional fields populated (companyName, companyAddress, replyTo) and feeds pointing to local fixtures. This avoids putting test config in production.
+`wrangler.test.toml` provides a separate config for local testing with a test channel that has all optional fields populated (companyName, companyAddress, replyTo) and feeds pointing to local fixtures. This avoids putting test config in production.
 
 To test the full email flow locally:
 1. `pnpm run dev:feed` — serves RSS and Atom fixtures on port 8888
@@ -82,12 +83,15 @@ To test the full email flow locally:
 
 ### Key Design Decisions
 
-- **Multi-site support:** All config is in a `SITES` JSON array (in `wrangler.toml` vars). Each site has its own subscriber list, feeds, sender identity, and CORS origins. All routes accept a `siteId` parameter to scope operations.
+- **Multi-channel support:** All config is in a `CHANNELS` JSON array (in `wrangler.toml` vars). Each channel has its own subscriber list, feeds, sender identity, and CORS origins. All routes accept a `channelId` parameter to scope operations. A single deployment is the site; channels are subscriber lists with feeds.
+- **DOMAIN-based URL/email construction:** The `DOMAIN` env var (e.g. `feedmail.cc`) is used to construct all URLs as `https://{DOMAIN}/api/...` and from-email addresses as `{fromUser}@{DOMAIN}`. HTTPS is always assumed.
+- **Config validation at startup:** `getChannels()` validates DOMAIN format, required channel fields, `fromUser` format (no `@` or whitespace), feed object structure, and per-channel feed uniqueness (URLs exact-match, names case-insensitive). Invalid config prevents the service from handling requests.
+- **Structured feeds:** Each feed is an object with `name` and `url` properties, not a bare URL string.
 - **No info leakage:** Subscribe endpoint always returns the same success response regardless of whether email is new, already subscribed, rate-limited, or unsubscribed. Verify endpoint shows the same error for invalid and expired tokens.
 - **Verification rate limiting:** `verification_attempts` table tracks emails sent per subscriber. Rolling window (`VERIFY_WINDOW_HOURS`, default 24h) with max attempts (`VERIFY_MAX_ATTEMPTS`, default 3).
 - **IP-based rate limiting:** `rate_limits` table tracks requests per IP per endpoint using a rolling window. Configurable per endpoint (subscribe: 10/hr, verify: 20/hr, unsubscribe: 20/hr, send: 5/hr, admin: 30/hr). Rate limiting runs before authentication to protect against brute-force API key guessing. `Retry-After` header uses oldest-request-expiry strategy with 0–30s random jitter to prevent thundering herd retries. Expired rows for the specific IP+endpoint are cleaned up on every check; rows older than 7 days (from IPs that stopped visiting) are pruned probabilistically — 1% chance per check — via a fire-and-forget global DELETE, distributing cleanup load across normal traffic without blocking request handling.
 - **Strict HTTP method enforcement:** `ROUTE_METHODS` in `index.js` explicitly lists every route and its allowed methods. Known routes with wrong methods receive a deliberate 10-second delay then 408 timeout (discourages bot probing). Unknown paths get an immediate 404 with no body.
-- **Strict input validation:** Subscribe endpoint rejects requests with any fields beyond `email` and `siteId` (same error as malformed JSON — no info leak). This enables invisible honeypot fields in the subscribe form.
+- **Strict input validation:** Subscribe endpoint rejects requests with any fields beyond `email` and `channelId` (same error as malformed JSON — no info leak). This enables invisible honeypot fields in the subscribe form.
 - **Feed bootstrapping:** First time a feed URL is seen, all existing items are inserted into `sent_items` with `recipient_count = 0` — prevents blasting historical content on first deployment.
 - **Per-subscriber sends:** Each subscriber gets an individual email with personalized `List-Unsubscribe` headers. Template uses `%%UNSUBSCRIBE_URL%%` placeholder replaced per-subscriber before sending. The `subscriber_sends` table tracks delivery per-subscriber so partial sends (from quota exhaustion) can resume on the next cron run without duplicates.
 - **Resend rate limit handling:** The email module retries 429 responses up to 3 times, respecting the `retry-after` header (capped at 60s). If quota is exhausted, the send loop halts and the item is left unmarked in `sent_items` so the next run retries remaining subscribers.
@@ -97,7 +101,7 @@ To test the full email flow locally:
 
 ### D1 Schema (5 tables)
 
-- `subscribers` — email, site_id, status (pending/verified/unsubscribed), verify_token, unsubscribe_token. UNIQUE(email, site_id).
+- `subscribers` — email, channel_id, status (pending/verified/unsubscribed), verify_token, unsubscribe_token. UNIQUE(email, channel_id).
 - `verification_attempts` — subscriber_id, sent_at. Used for rolling window rate limiting.
 - `sent_items` — item_id, feed_url, title, recipient_count. UNIQUE(item_id, feed_url). Tracks both seeded (bootstrapped) and actually-sent items. Only inserted when all subscribers have been reached.
 - `subscriber_sends` — subscriber_id, item_id, feed_url. UNIQUE(subscriber_id, item_id, feed_url). Per-subscriber deduplication so partial sends (interrupted by quota exhaustion) can resume without re-sending.
@@ -106,14 +110,14 @@ To test the full email flow locally:
 ### API Routes
 
 **Public (CORS-enabled for configured origins):**
-- `POST /api/subscribe` — `{email, siteId}` (only these two fields accepted; extra fields are rejected)
+- `POST /api/subscribe` — `{email, channelId}` (only these two fields accepted; extra fields are rejected)
 - `GET /api/verify?token=` — Returns HTML page
 - `GET|POST /api/unsubscribe?token=` — GET returns HTML, POST is RFC 8058 one-click
 
 **Authenticated (Bearer token via `ADMIN_API_KEY`):**
-- `POST /api/send` — Manual feed check + send, optional `{siteId}` filter
-- `GET /api/admin/stats?siteId=` — Subscriber counts + sent item stats
-- `GET /api/admin/subscribers?siteId=&status=` — Subscriber list with optional status filter
+- `POST /api/send` — Manual feed check + send, optional `{channelId}` filter
+- `GET /api/admin/stats?channelId=` — Subscriber counts + sent item stats
+- `GET /api/admin/subscribers?channelId=&status=` — Subscriber list with optional status filter
 
 ### Security Layers
 
@@ -129,8 +133,18 @@ Requests pass through these checks in order:
 ### Configuration
 
 **`wrangler.toml` vars:**
-- `BASE_URL` — Public base URL of the service (e.g. `https://feedmail.cc`), used to construct verify/unsubscribe links in emails
-- `SITES` — JSON array of site objects (id, url, name, fromEmail, fromName, replyTo (optional), companyName (optional), companyAddress (optional), corsOrigins, feeds)
+- `DOMAIN` — Domain name of the service (e.g. `feedmail.cc`). Used to construct all URLs as `https://{DOMAIN}/api/...` and from-email as `{fromUser}@{DOMAIN}`. Must not include protocol, trailing slash, or path segments.
+- `CHANNELS` — JSON array of channel objects:
+  - `id` — Channel identifier (used in API params)
+  - `siteName` — Display name of the content site
+  - `siteUrl` — URL of the content site
+  - `fromUser` — Email local part (e.g. `"hello"`); combined with DOMAIN to form `hello@feedmail.cc`
+  - `fromName` — Display name for the sender
+  - `replyTo` (optional) — Reply-to email address
+  - `companyName` (optional) — Company name for email footer
+  - `companyAddress` (optional) — Company address for email footer
+  - `corsOrigins` — Allowed CORS origins for this channel
+  - `feeds` — Array of feed objects, each with `name` (string) and `url` (string)
 - `VERIFY_MAX_ATTEMPTS` — Max verification emails per rolling window (default "3")
 - `VERIFY_WINDOW_HOURS` — Rolling window in hours (default "24")
 
@@ -146,7 +160,7 @@ ADMIN_API_KEY=any-test-value
 
 ### Cron Trigger
 
-Configured in `wrangler.toml` as `0 */6 * * *` (every 6 hours). Calls `checkFeedsAndSend(env)` which iterates all sites and feeds.
+Configured in `wrangler.toml` as `0 */6 * * *` (every 6 hours). Calls `checkFeedsAndSend(env)` which iterates all channels and feeds.
 
 ### Route Configuration
 

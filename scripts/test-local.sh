@@ -13,7 +13,7 @@
 set -euo pipefail
 
 BASE="http://localhost:8787"
-SITE="test"
+CHANNEL="test"
 
 if [ $# -lt 1 ]; then
   echo "Usage: $0 <email>"
@@ -59,13 +59,13 @@ echo "=== Seeding feeds (bootstrapping existing items) ==="
 curl -s -X POST "$BASE/api/send" \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
-  -d "{\"siteId\": \"$SITE\"}" | python3 -m json.tool
+  -d "{\"channelId\": \"$CHANNEL\"}" | python3 -m json.tool
 echo ""
 
-echo "=== Subscribing $EMAIL to site '$SITE' ==="
+echo "=== Subscribing $EMAIL to channel '$CHANNEL' ==="
 curl -s -X POST "$BASE/api/subscribe" \
   -H "Content-Type: application/json" \
-  -d "{\"email\": \"$EMAIL\", \"siteId\": \"$SITE\"}" | python3 -m json.tool
+  -d "{\"email\": \"$EMAIL\", \"channelId\": \"$CHANNEL\"}" | python3 -m json.tool
 echo ""
 
 echo "=== Check your email for the verification link and click it ==="
@@ -86,11 +86,11 @@ npx wrangler d1 execute feedmail --local --command "
 "
 echo ""
 
-echo "=== Triggering send for site '$SITE' ==="
+echo "=== Triggering send for channel '$CHANNEL' ==="
 curl -s -X POST "$BASE/api/send" \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
-  -d "{\"siteId\": \"$SITE\"}" | python3 -m json.tool
+  -d "{\"channelId\": \"$CHANNEL\"}" | python3 -m json.tool
 echo ""
 
 echo "=== Done. Check your email for the newsletter. ==="

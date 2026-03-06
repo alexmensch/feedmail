@@ -3,7 +3,7 @@
  * All routes require ADMIN_API_KEY authentication.
  */
 
-import { getSiteById } from "../lib/config.js";
+import { getChannelById } from "../lib/config.js";
 import {
   getSubscriberStats,
   getSentItemStats,
@@ -33,38 +33,38 @@ export async function handleAdmin(request, env, url) {
 }
 
 /**
- * GET /api/admin/stats?siteId=alxm.me
- * Returns subscriber counts and sent item stats for a site.
+ * GET /api/admin/stats?channelId=alxm.me
+ * Returns subscriber counts and sent item stats for a channel.
  */
 async function handleStats(env, url) {
-  const siteId = url.searchParams.get("siteId");
+  const channelId = url.searchParams.get("channelId");
 
-  if (!siteId) {
+  if (!channelId) {
     return new Response(
-      JSON.stringify({ error: "Missing siteId query parameter" }),
+      JSON.stringify({ error: "Missing channelId query parameter" }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
   }
 
-  const site = getSiteById(env, siteId);
-  if (!site) {
-    return new Response(JSON.stringify({ error: "Unknown site" }), {
+  const channel = getChannelById(env, channelId);
+  if (!channel) {
+    return new Response(JSON.stringify({ error: "Unknown channel" }), {
       status: 404,
       headers: { "Content-Type": "application/json" },
     });
   }
 
   const [subscribers, sentItems] = await Promise.all([
-    getSubscriberStats(env.DB, siteId),
-    getSentItemStats(env.DB, site.feeds),
+    getSubscriberStats(env.DB, channelId),
+    getSentItemStats(env.DB, channel.feeds.map((f) => f.url)),
   ]);
 
   return new Response(
     JSON.stringify({
-      siteId,
+      channelId,
       subscribers,
       sentItems,
-      feeds: site.feeds,
+      feeds: channel.feeds,
     }),
     {
       status: 200,
@@ -74,33 +74,33 @@ async function handleStats(env, url) {
 }
 
 /**
- * GET /api/admin/subscribers?siteId=alxm.me&status=verified
- * Returns list of subscribers for a site, optionally filtered by status.
+ * GET /api/admin/subscribers?channelId=alxm.me&status=verified
+ * Returns list of subscribers for a channel, optionally filtered by status.
  */
 async function handleSubscribers(env, url) {
-  const siteId = url.searchParams.get("siteId");
+  const channelId = url.searchParams.get("channelId");
 
-  if (!siteId) {
+  if (!channelId) {
     return new Response(
-      JSON.stringify({ error: "Missing siteId query parameter" }),
+      JSON.stringify({ error: "Missing channelId query parameter" }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
   }
 
-  const site = getSiteById(env, siteId);
-  if (!site) {
-    return new Response(JSON.stringify({ error: "Unknown site" }), {
+  const channel = getChannelById(env, channelId);
+  if (!channel) {
+    return new Response(JSON.stringify({ error: "Unknown channel" }), {
       status: 404,
       headers: { "Content-Type": "application/json" },
     });
   }
 
   const statusFilter = url.searchParams.get("status") || null;
-  const subscribers = await getSubscriberList(env.DB, siteId, statusFilter);
+  const subscribers = await getSubscriberList(env.DB, channelId, statusFilter);
 
   return new Response(
     JSON.stringify({
-      siteId,
+      channelId,
       count: subscribers.length,
       subscribers,
     }),

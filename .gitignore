@@ -7,4 +7,3 @@ coverage/
 src/templates/compiled/
 .DS_Store
 .claude/
-requirements/
