@@ -16,29 +16,7 @@ database_name = "feedmail"
 database_id = "5a427f97-0e66-499c-85e3-687980dab09c"
 
 [vars]
-CHANNELS = '''
-[
-  {
-    "id": "test",
-    "siteUrl": "https://example.com",
-    "siteName": "feedmail Test",
-    "fromUser": "hello",
-    "fromName": "feedmail Test",
-    "replyTo": "hello@alxm.me",
-    "companyName": "Test Company Inc.",
-    "companyAddress": "123 Test Lane, Testville, TS 00000",
-    "corsOrigins": ["http://localhost:3000"],
-    "feeds": [
-      {"name": "RSS Feed", "url": "http://localhost:8888/feed.rss"},
-      {"name": "Atom Feed", "url": "http://localhost:8888/feed.atom"}
-    ]
-  }
-]
-'''
-
 DOMAIN = "localhost:8787"
-VERIFY_MAX_ATTEMPTS = "3"
-VERIFY_WINDOW_HOURS = "24"
 
 [observability.logs]
 enabled = true
