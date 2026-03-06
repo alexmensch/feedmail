@@ -9,15 +9,15 @@ CREATE TABLE site_config (
 CREATE TABLE rate_limit_config (
   endpoint TEXT PRIMARY KEY,
   max_requests INTEGER NOT NULL,
-  window_seconds INTEGER NOT NULL
+  window_hours REAL NOT NULL
 );
 
 -- Seed default rate limit values
-INSERT INTO rate_limit_config (endpoint, max_requests, window_seconds) VALUES ('subscribe', 10, 3600);
-INSERT INTO rate_limit_config (endpoint, max_requests, window_seconds) VALUES ('verify', 20, 3600);
-INSERT INTO rate_limit_config (endpoint, max_requests, window_seconds) VALUES ('unsubscribe', 20, 3600);
-INSERT INTO rate_limit_config (endpoint, max_requests, window_seconds) VALUES ('send', 5, 3600);
-INSERT INTO rate_limit_config (endpoint, max_requests, window_seconds) VALUES ('admin', 30, 3600);
+INSERT INTO rate_limit_config (endpoint, max_requests, window_hours) VALUES ('subscribe', 10, 1);
+INSERT INTO rate_limit_config (endpoint, max_requests, window_hours) VALUES ('verify', 20, 1);
+INSERT INTO rate_limit_config (endpoint, max_requests, window_hours) VALUES ('unsubscribe', 20, 1);
+INSERT INTO rate_limit_config (endpoint, max_requests, window_hours) VALUES ('send', 5, 1);
+INSERT INTO rate_limit_config (endpoint, max_requests, window_hours) VALUES ('admin', 30, 1);
 
 -- Channel configuration (replaces CHANNELS env var)
 CREATE TABLE channels (

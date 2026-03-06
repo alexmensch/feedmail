@@ -69,7 +69,7 @@ export function render(name, data) {
  * @returns {Response}
  */
 export async function renderErrorPage(env, channelId, message) {
-  const channel = channelId ? await getChannelById(env.DB, channelId) : null;
+  const channel = channelId ? await getChannelById(env, channelId) : null;
 
   const html = render("errorPage", {
     siteName: channel?.siteName || "feedmail",

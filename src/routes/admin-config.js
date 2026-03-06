@@ -3,16 +3,22 @@
  * Site-level settings and per-endpoint rate limit configuration.
  */
 
-import { getVerifyLimits, getRateLimitConfig } from "../lib/config.js";
-import { RATE_LIMITS } from "../lib/rate-limit.js";
 import {
   getSiteConfig,
   upsertSiteConfig,
-  getAllRateLimitConfig,
+  getRateLimitConfigs,
   upsertRateLimitConfig,
 } from "../lib/db.js";
 
-const VALID_ENDPOINTS = Object.keys(RATE_LIMITS);
+const RATE_LIMIT_DEFAULTS = {
+  subscribe: { windowHours: 1, maxRequests: 10 },
+  verify: { windowHours: 1, maxRequests: 20 },
+  unsubscribe: { windowHours: 1, maxRequests: 20 },
+  send: { windowHours: 1, maxRequests: 5 },
+  admin: { windowHours: 1, maxRequests: 30 },
+};
+
+const VALID_ENDPOINTS = Object.keys(RATE_LIMIT_DEFAULTS);
 
 /**
  * Handle config requests.
@@ -31,14 +37,20 @@ export async function handleAdminConfig(request, env) {
 }
 
 async function getConfig(env) {
-  const verify = await getVerifyLimits(env.DB);
+  const siteConfig = await getSiteConfig(env.DB);
+  const dbRateLimits = await getRateLimitConfigs(env.DB);
 
+  // Merge DB rate limits with defaults
   const rateLimits = {};
   for (const endpoint of VALID_ENDPOINTS) {
-    rateLimits[endpoint] = await getRateLimitConfig(env.DB, endpoint);
+    rateLimits[endpoint] = dbRateLimits[endpoint] || RATE_LIMIT_DEFAULTS[endpoint];
   }
 
-  return jsonResponse(200, { verify, rateLimits });
+  return jsonResponse(200, {
+    verifyMaxAttempts: siteConfig?.verifyMaxAttempts ?? 3,
+    verifyWindowHours: siteConfig?.verifyWindowHours ?? 24,
+    rateLimits,
+  });
 }
 
 async function updateConfig(request, env) {
@@ -50,17 +62,22 @@ async function updateConfig(request, env) {
   }
 
   // Validate and apply verify settings
-  if (body.verify) {
-    const current = await getVerifyLimits(env.DB);
-    const maxAttempts = body.verify.maxAttempts ?? current.maxAttempts;
-    const windowHours = body.verify.windowHours ?? current.windowHours;
+  if (body.verifyMaxAttempts !== undefined || body.verifyWindowHours !== undefined) {
+    const currentSiteConfig = await getSiteConfig(env.DB);
 
-    if (!Number.isInteger(maxAttempts) || maxAttempts <= 0) {
-      return jsonResponse(400, { error: "verify.maxAttempts must be a positive integer" });
+    if (body.verifyMaxAttempts !== undefined) {
+      if (!Number.isInteger(body.verifyMaxAttempts) || body.verifyMaxAttempts <= 0) {
+        return jsonResponse(400, { error: "verifyMaxAttempts must be a positive integer" });
+      }
     }
-    if (!Number.isInteger(windowHours) || windowHours <= 0) {
-      return jsonResponse(400, { error: "verify.windowHours must be a positive integer" });
+    if (body.verifyWindowHours !== undefined) {
+      if (typeof body.verifyWindowHours !== "number" || body.verifyWindowHours <= 0) {
+        return jsonResponse(400, { error: "verifyWindowHours must be a positive number" });
+      }
     }
+
+    const maxAttempts = body.verifyMaxAttempts ?? currentSiteConfig?.verifyMaxAttempts ?? 3;
+    const windowHours = body.verifyWindowHours ?? currentSiteConfig?.verifyWindowHours ?? 24;
 
     await upsertSiteConfig(env.DB, { verifyMaxAttempts: maxAttempts, verifyWindowHours: windowHours });
   }
@@ -72,18 +89,17 @@ async function updateConfig(request, env) {
         return jsonResponse(400, { error: `Unknown endpoint: ${endpoint}` });
       }
 
-      const current = await getRateLimitConfig(env.DB, endpoint);
-      const maxRequests = config.maxRequests ?? current.maxRequests;
-      const windowSeconds = config.windowSeconds ?? current.windowSeconds;
-
-      if (!Number.isInteger(maxRequests) || maxRequests <= 0) {
-        return jsonResponse(400, { error: `rateLimits.${endpoint}.maxRequests must be a positive integer` });
+      if (typeof config.maxRequests !== "number" || config.maxRequests <= 0) {
+        return jsonResponse(400, { error: `rateLimits.${endpoint}.maxRequests must be a positive number` });
       }
-      if (!Number.isInteger(windowSeconds) || windowSeconds <= 0) {
-        return jsonResponse(400, { error: `rateLimits.${endpoint}.windowSeconds must be a positive integer` });
+      if (typeof config.windowHours !== "number" || config.windowHours <= 0) {
+        return jsonResponse(400, { error: `rateLimits.${endpoint}.windowHours must be a positive number` });
       }
 
-      await upsertRateLimitConfig(env.DB, endpoint, maxRequests, windowSeconds);
+      await upsertRateLimitConfig(env.DB, endpoint, {
+        windowHours: config.windowHours,
+        maxRequests: config.maxRequests,
+      });
     }
   }
 

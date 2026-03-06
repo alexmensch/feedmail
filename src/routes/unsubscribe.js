@@ -35,7 +35,7 @@ export async function handleUnsubscribe(request, env, url) {
     await markSubscriberUnsubscribed(env.DB, subscriber.id);
   }
 
-  const channel = await getChannelById(env.DB, subscriber.channel_id);
+  const channel = await getChannelById(env, subscriber.channel_id);
 
   // POST requests come from List-Unsubscribe-Post (RFC 8058) — return 200 OK
   if (request.method === "POST") {

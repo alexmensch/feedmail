@@ -38,17 +38,16 @@ export async function handleAdmin(request, env, url) {
     return handleAdminConfig(request, env);
   }
 
-  // /api/admin/channels or /api/admin/channels/{channelId}
-  // /api/admin/channels/{channelId}/feeds or /api/admin/channels/{channelId}/feeds/{feedId}
+  // /api/admin/channels/* — delegate to channels or feeds handler
   const channelsMatch = path.match(/^\/api\/admin\/channels(?:\/([^/]+)(?:\/feeds(?:\/(\d+))?)?)?$/);
   if (channelsMatch) {
     const channelId = channelsMatch[1] || null;
-    const feedId = channelsMatch[2] ? parseInt(channelsMatch[2], 10) : null;
+    const hasFeedsSegment = channelId && path.includes("/feeds");
 
-    if (feedId !== null || (channelId && path.includes("/feeds"))) {
-      return handleAdminFeeds(request, env, channelId, feedId);
+    if (hasFeedsSegment) {
+      return handleAdminFeeds(request, env, url);
     }
-    return handleAdminChannels(request, env, channelId);
+    return handleAdminChannels(request, env, url);
   }
 
   return jsonResponse(404, { error: "Not Found" });
@@ -64,7 +63,7 @@ async function handleStats(env, url) {
     return jsonResponse(400, { error: "Missing channelId query parameter" });
   }
 
-  const channel = await getChannelById(env.DB, channelId);
+  const channel = await getChannelById(env, channelId);
   if (!channel) {
     return jsonResponse(404, { error: "Unknown channel" });
   }
@@ -93,7 +92,7 @@ async function handleSubscribers(env, url) {
     return jsonResponse(400, { error: "Missing channelId query parameter" });
   }
 
-  const channel = await getChannelById(env.DB, channelId);
+  const channel = await getChannelById(env, channelId);
   if (!channel) {
     return jsonResponse(404, { error: "Unknown channel" });
   }

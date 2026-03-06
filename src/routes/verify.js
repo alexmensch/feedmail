@@ -50,7 +50,7 @@ export async function handleVerify(request, env, url) {
   // Clear verification attempt history
   await clearVerificationAttempts(env.DB, subscriber.id);
 
-  const channel = await getChannelById(env.DB, subscriber.channel_id);
+  const channel = await getChannelById(env, subscriber.channel_id);
 
   const html = render("verifyPage", {
     siteName: channel?.siteName || "the newsletter",

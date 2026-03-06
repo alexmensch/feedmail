@@ -195,7 +195,12 @@ export async function deleteSubscriberSends(db, itemId, feedUrl) {
 // ─── Site Config ────────────────────────────────────────────────────────────
 
 export async function getSiteConfig(db) {
-  return db.prepare("SELECT * FROM site_config WHERE id = 1").first();
+  const row = await db.prepare("SELECT * FROM site_config WHERE id = 1").first();
+  if (!row) return null;
+  return {
+    verifyMaxAttempts: row.verify_max_attempts,
+    verifyWindowHours: row.verify_window_hours,
+  };
 }
 
 export async function upsertSiteConfig(db, { verifyMaxAttempts, verifyWindowHours }) {
@@ -213,34 +218,48 @@ export async function upsertSiteConfig(db, { verifyMaxAttempts, verifyWindowHour
 
 // ─── Rate Limit Config ──────────────────────────────────────────────────────
 
-export async function getAllRateLimitConfig(db) {
+export async function getRateLimitConfigs(db) {
   const { results } = await db
-    .prepare("SELECT endpoint, max_requests, window_seconds FROM rate_limit_config")
+    .prepare("SELECT endpoint, max_requests, window_hours FROM rate_limit_config")
     .all();
-  return results;
+  const map = {};
+  for (const row of results) {
+    map[row.endpoint] = {
+      windowHours: row.window_hours,
+      maxRequests: row.max_requests,
+    };
+  }
+  return map;
 }
 
-export async function getRateLimitConfigByEndpoint(db, endpoint) {
-  return db
-    .prepare("SELECT max_requests, window_seconds FROM rate_limit_config WHERE endpoint = ?")
-    .bind(endpoint)
-    .first();
-}
-
-export async function upsertRateLimitConfig(db, endpoint, maxRequests, windowSeconds) {
+export async function upsertRateLimitConfig(db, endpoint, { windowHours, maxRequests }) {
   return db
     .prepare(
-      `INSERT INTO rate_limit_config (endpoint, max_requests, window_seconds)
+      `INSERT INTO rate_limit_config (endpoint, max_requests, window_hours)
        VALUES (?, ?, ?)
        ON CONFLICT(endpoint) DO UPDATE SET
          max_requests = excluded.max_requests,
-         window_seconds = excluded.window_seconds`,
+         window_hours = excluded.window_hours`,
     )
-    .bind(endpoint, maxRequests, windowSeconds)
+    .bind(endpoint, maxRequests, windowHours)
     .run();
 }
 
 // ─── Channels ───────────────────────────────────────────────────────────────
+
+function formatChannelRow(row) {
+  return {
+    id: row.id,
+    siteName: row.site_name,
+    siteUrl: row.site_url,
+    fromUser: row.from_user,
+    fromName: row.from_name,
+    replyTo: row.reply_to || undefined,
+    companyName: row.company_name || undefined,
+    companyAddress: row.company_address || undefined,
+    corsOrigins: JSON.parse(row.cors_origins),
+  };
+}
 
 export async function getAllChannels(db) {
   const { results } = await db
@@ -250,11 +269,11 @@ export async function getAllChannels(db) {
        FROM channels ORDER BY created_at`,
     )
     .all();
-  return results;
+  return results.map(formatChannelRow);
 }
 
-export async function getChannelFromDb(db, channelId) {
-  return db
+export async function getChannelById(db, channelId) {
+  const row = await db
     .prepare(
       `SELECT id, site_name, site_url, from_user, from_name, reply_to,
               company_name, company_address, cors_origins, created_at, updated_at
@@ -262,6 +281,7 @@ export async function getChannelFromDb(db, channelId) {
     )
     .bind(channelId)
     .first();
+  return row ? formatChannelRow(row) : null;
 }
 
 export async function insertChannel(db, data) {
@@ -308,7 +328,7 @@ export async function updateChannel(db, channelId, data) {
     .run();
 }
 
-export async function deleteChannelCascade(db, channelId) {
+export async function deleteChannel(db, channelId) {
   // Get feed URLs before deleting (needed for sent_items/subscriber_sends cleanup)
   const { results: feeds } = await db
     .prepare("SELECT url FROM feeds WHERE channel_id = ?")
@@ -359,28 +379,28 @@ export async function getFeedsByChannelId(db, channelId) {
   return results;
 }
 
-export async function getFeedById(db, feedId, channelId) {
+export async function getFeedById(db, feedId) {
   return db
-    .prepare("SELECT id, channel_id, name, url FROM feeds WHERE id = ? AND channel_id = ?")
-    .bind(feedId, channelId)
+    .prepare("SELECT id, channel_id, name, url FROM feeds WHERE id = ?")
+    .bind(feedId)
     .first();
 }
 
-export async function insertFeed(db, channelId, name, url) {
+export async function insertFeed(db, channelId, { name, url }) {
   return db
     .prepare("INSERT INTO feeds (channel_id, name, url) VALUES (?, ?, ?)")
     .bind(channelId, name, url)
     .run();
 }
 
-export async function updateFeed(db, feedId, name, url) {
+export async function updateFeed(db, feedId, { name, url }) {
   return db
     .prepare("UPDATE feeds SET name = ?, url = ?, updated_at = datetime('now') WHERE id = ?")
     .bind(name, url, feedId)
     .run();
 }
 
-export async function deleteFeedCascade(db, feedId) {
+export async function deleteFeed(db, feedId) {
   // Get the feed URL for cleaning up sent_items/subscriber_sends
   const feed = await db
     .prepare("SELECT url FROM feeds WHERE id = ?")
@@ -399,25 +419,6 @@ export async function deleteFeedCascade(db, feedId) {
   }
 
   return db.prepare("DELETE FROM feeds WHERE id = ?").bind(feedId).run();
-}
-
-export async function checkFeedUrlUnique(db, channelId, url, excludeFeedId = null) {
-  const query = excludeFeedId
-    ? "SELECT id FROM feeds WHERE channel_id = ? AND url = ? AND id != ? LIMIT 1"
-    : "SELECT id FROM feeds WHERE channel_id = ? AND url = ? LIMIT 1";
-  const binds = excludeFeedId ? [channelId, url, excludeFeedId] : [channelId, url];
-  const result = await db.prepare(query).bind(...binds).first();
-  return !result;
-}
-
-export async function checkFeedNameUnique(db, channelId, name, excludeFeedId = null) {
-  // Case-insensitive comparison using SQLite LOWER()
-  const query = excludeFeedId
-    ? "SELECT id FROM feeds WHERE channel_id = ? AND LOWER(name) = LOWER(?) AND id != ? LIMIT 1"
-    : "SELECT id FROM feeds WHERE channel_id = ? AND LOWER(name) = LOWER(?) LIMIT 1";
-  const binds = excludeFeedId ? [channelId, name, excludeFeedId] : [channelId, name];
-  const result = await db.prepare(query).bind(...binds).first();
-  return !result;
 }
 
 // ─── Admin Queries ──────────────────────────────────────────────────────────

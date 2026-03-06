@@ -66,7 +66,7 @@ export async function handleSubscribe(request, env) {
     });
   }
 
-  const channel = await getChannelById(env.DB, channelId);
+  const channel = await getChannelById(env, channelId);
   if (!channel) {
     return jsonResponse(400, {
       success: false,
@@ -138,7 +138,7 @@ export async function handleSubscribe(request, env) {
  * Check rate limit and send verification email if allowed.
  */
 async function trySendVerification(env, channel, email, verifyToken, subscriberId, unsubscribeToken) {
-  const limits = await getVerifyLimits(env.DB);
+  const limits = await getVerifyLimits(env);
   const recentCount = await countRecentVerificationAttempts(
     env.DB,
     subscriberId,

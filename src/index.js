@@ -22,6 +22,9 @@ const ROUTE_METHODS = {
   "/api/verify": ["GET"],
   "/api/unsubscribe": ["GET", "POST"],
   "/api/send": ["POST"],
+  "/api/admin/stats": ["GET"],
+  "/api/admin/subscribers": ["GET"],
+  "/api/admin/config": ["GET", "PATCH"],
 };
 
 /** Delay duration (ms) for timeout responses on invalid method/path. */
@@ -71,8 +74,8 @@ function isMethodAllowed(method, pathname) {
   const methods = ROUTE_METHODS[pathname];
   if (methods) return methods.includes(method);
 
-  // Prefix match for all admin routes (parameterized paths handled by handleAdmin)
-  if (pathname.startsWith("/api/admin/")) return true;
+  // Prefix match for admin channel/feed routes (parameterized paths handled by handleAdmin)
+  if (pathname.startsWith("/api/admin/channels")) return true;
 
   return null;
 }
@@ -104,7 +107,8 @@ export default {
     // IP-based rate limiting (before authentication to protect against brute-force)
     const endpointName = getEndpointName(url.pathname);
     if (endpointName && env.DB) {
-      const limits = await getRateLimitConfig(env.DB, endpointName);
+      const rateLimitMap = await getRateLimitConfig(env);
+      const limits = rateLimitMap[endpointName];
       const ip = request.headers.get("CF-Connecting-IP") || "unknown";
       const result = await checkRateLimit(
         env.DB,
