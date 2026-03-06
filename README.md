@@ -29,13 +29,35 @@ feedmail runs entirely on Cloudflare's edge platform:
 
 ## Quick Start
 
+The recommended way to install feedmail is with the automated installer:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/alexmensch/feedmail/master/scripts/install.sh | bash
+```
+
+This will check prerequisites, clone the repo, install dependencies, and walk you through an interactive setup wizard that:
+
+1. Creates a Cloudflare D1 database
+2. Generates your `wrangler.prod.toml` config
+3. Sets your Resend and admin API secrets
+4. Runs database migrations
+5. Deploys the worker
+6. Creates your first channel
+
 ### Prerequisites
 
+- [Git](https://git-scm.com/)
 - [Node.js](https://nodejs.org/) (v18+)
 - [pnpm](https://pnpm.io/)
-- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) (`pnpm add -g wrangler`)
-- A [Resend](https://resend.com/) account with an API key
+- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) (`npm install -g wrangler`), authenticated via `wrangler login`
 - A [Cloudflare](https://cloudflare.com/) account
+- A [Resend](https://resend.com/) account with an API key
+
+> **Note:** Resend requires domain verification before you can send from a custom domain. See the [Resend domain verification docs](https://resend.com/docs/dashboard/domains/introduction) to set this up.
+
+## Manual Setup
+
+If you prefer to set up manually instead of using the installer:
 
 ### 1. Clone and install
 
@@ -51,57 +73,39 @@ pnpm install
 wrangler d1 create feedmail
 ```
 
-Copy the `database_id` from the output into `wrangler.toml`.
+### 3. Create `wrangler.prod.toml`
 
-### 3. Run migrations
-
-```bash
-pnpm run db:migrate        # Remote (production)
-pnpm run db:migrate:local  # Local dev
-```
-
-### 4. Set your domain
-
-Edit `wrangler.toml` to set your domain:
-
-```toml
-[vars]
-DOMAIN = "yourdomain.com"
-```
-
-The `DOMAIN` env var is used to construct:
-- All URLs: `https://{DOMAIN}/api/...`
-- From-email: `{fromUser}@{DOMAIN}`
-
-### 5. Set secrets
+Copy `wrangler.toml` as a starting point and fill in your values:
 
 ```bash
-wrangler secret put RESEND_API_KEY
-wrangler secret put ADMIN_API_KEY
+cp wrangler.toml wrangler.prod.toml
 ```
 
-### 6. Deploy
+Edit `wrangler.prod.toml` to set:
+- `name` — your worker name
+- `database_id` — the ID from step 2
+- `DOMAIN` — your domain (bare hostname, no protocol or path)
+- Uncomment and configure the `[[routes]]` section if using a custom domain
+
+### 4. Set secrets
+
+```bash
+wrangler secret put RESEND_API_KEY --config wrangler.prod.toml
+wrangler secret put ADMIN_API_KEY --config wrangler.prod.toml
+```
+
+### 5. Deploy
 
 ```bash
 pnpm run deploy
 ```
 
-### 7. Set up your route pattern
+This runs migrations and deploys the worker using `wrangler.prod.toml`.
 
-Update the `[[routes]]` section in `wrangler.toml` to use your domain:
-
-```toml
-[[routes]]
-pattern = "yourdomain.com/api/*"
-zone_name = "yourdomain.com"
-```
-
-### 8. Configure your first channel
-
-Use the admin API to create your first channel:
+### 6. Create your first channel
 
 ```bash
-curl -X POST https://yourdomain.com/api/admin/channels \
+curl -X POST https://your-worker.workers.dev/api/admin/channels \
   -H "Authorization: Bearer YOUR_ADMIN_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -117,7 +121,7 @@ curl -X POST https://yourdomain.com/api/admin/channels \
   }'
 ```
 
-Each channel object requires:
+Each channel requires:
 
 | Field | Description |
 |---|---|
@@ -126,15 +130,26 @@ Each channel object requires:
 | `siteName` | Display name (used in email subjects and templates) |
 | `fromUser` | Email local part (e.g. `"hello"`); combined with DOMAIN to form the from-email |
 | `fromName` | Sender display name |
-| `replyTo` | Reply-to email address (optional) |
-| `companyName` | Company name displayed in email footers (optional) |
-| `companyAddress` | Company address displayed in email footers (optional) |
 | `corsOrigins` | Allowed origins for the subscribe endpoint |
 | `feeds` | Array of feed objects, each with `name` and `url` |
 
+Optional fields: `replyTo`, `companyName`, `companyAddress`.
+
+## Updating
+
+To update feedmail to the latest version:
+
+```bash
+git pull origin master
+pnpm install
+pnpm run deploy
+```
+
+Your `wrangler.prod.toml` is gitignored, so it won't be overwritten by pulls.
+
 ## Configuration
 
-### Environment variables (`wrangler.toml [vars]`)
+### Environment variables (`wrangler.prod.toml [vars]`)
 
 | Variable | Default | Description |
 |---|---|---|
