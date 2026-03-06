@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
-  RATE_LIMITS,
   STALE_ROW_MAX_AGE_SECONDS,
   CLEANUP_PROBABILITY,
   checkRateLimit,
   cleanupStaleRateLimits,
   getEndpointName,
 } from "../../src/lib/rate-limit.js";
+import { RATE_LIMIT_DEFAULTS } from "../../src/lib/config.js";
 
 /**
  * Create a mock D1 database that supports multiple prepare() calls.
@@ -51,21 +51,20 @@ function mockDbWithCleanupBehavior(cleanupRun) {
   };
 }
 
-describe("RATE_LIMITS config", () => {
+describe("RATE_LIMIT_DEFAULTS config", () => {
   it("has entries for all five endpoints", () => {
-    expect(RATE_LIMITS).toHaveProperty("subscribe");
-    expect(RATE_LIMITS).toHaveProperty("verify");
-    expect(RATE_LIMITS).toHaveProperty("unsubscribe");
-    expect(RATE_LIMITS).toHaveProperty("send");
-    expect(RATE_LIMITS).toHaveProperty("admin");
+    expect(RATE_LIMIT_DEFAULTS).toHaveProperty("subscribe");
+    expect(RATE_LIMIT_DEFAULTS).toHaveProperty("verify");
+    expect(RATE_LIMIT_DEFAULTS).toHaveProperty("unsubscribe");
+    expect(RATE_LIMIT_DEFAULTS).toHaveProperty("send");
+    expect(RATE_LIMIT_DEFAULTS).toHaveProperty("admin");
   });
 
-  it("all entries have positive maxRequests and windowSeconds", () => {
-    for (const [name, config] of Object.entries(RATE_LIMITS)) {
+  it("all entries have positive maxRequests and windowHours", () => {
+    for (const [name, config] of Object.entries(RATE_LIMIT_DEFAULTS)) {
       expect(config.maxRequests, `${name}.maxRequests`).toBeGreaterThan(0);
-      expect(config.windowSeconds, `${name}.windowSeconds`).toBeGreaterThan(0);
+      expect(config.windowHours, `${name}.windowHours`).toBeGreaterThan(0);
       expect(Number.isInteger(config.maxRequests), `${name}.maxRequests is integer`).toBe(true);
-      expect(Number.isInteger(config.windowSeconds), `${name}.windowSeconds is integer`).toBe(true);
     }
   });
 });

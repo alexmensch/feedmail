@@ -55,6 +55,34 @@ fi
 pnpm run db:reset:local
 echo ""
 
+echo "=== Creating test channel ==="
+RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE/api/admin/channels" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "test",
+    "siteName": "Test Site",
+    "siteUrl": "http://localhost:8888",
+    "fromUser": "test",
+    "fromName": "Test Newsletter",
+    "replyTo": "reply@example.com",
+    "companyName": "Test Company",
+    "companyAddress": "123 Test St",
+    "corsOrigins": ["http://localhost:8787"],
+    "feeds": [
+      {"name": "RSS Feed", "url": "http://localhost:8888/feed.rss"},
+      {"name": "Atom Feed", "url": "http://localhost:8888/feed.atom"}
+    ]
+  }')
+HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+BODY=$(echo "$RESPONSE" | sed '$d')
+echo "$BODY" | python3 -m json.tool
+if [ "$HTTP_CODE" != "201" ]; then
+  echo "Error: Failed to create test channel (HTTP $HTTP_CODE)"
+  exit 1
+fi
+echo ""
+
 echo "=== Seeding feeds (bootstrapping existing items) ==="
 curl -s -X POST "$BASE/api/send" \
   -H "Authorization: Bearer $API_KEY" \

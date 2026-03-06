@@ -1,16 +1,31 @@
 /**
- * Configuration helpers for parsing CHANNELS and verification limits from env.
+ * Configuration helpers for reading channel and site config from D1.
+ * Validation functions are reusable by admin write endpoints.
  */
 
-let channelsCache = null;
+import {
+  getAllChannels as dbGetAllChannels,
+  getChannelById as dbGetChannelById,
+  getFeedsByChannelId,
+  getSiteConfig,
+  getRateLimitConfigs,
+} from "./db.js";
+
+export const RATE_LIMIT_DEFAULTS = {
+  subscribe: { windowHours: 1, maxRequests: 10 },
+  verify: { windowHours: 1, maxRequests: 20 },
+  unsubscribe: { windowHours: 1, maxRequests: 20 },
+  send: { windowHours: 1, maxRequests: 5 },
+  admin: { windowHours: 1, maxRequests: 30 },
+};
+
+// ─── Validation ─────────────────────────────────────────────────────────────
 
 /**
- * Validate DOMAIN and all channel configuration. Throws on invalid config.
- * @param {string} domain - The DOMAIN env var value
- * @param {Array<object>} channels - Parsed channel config array
+ * Validate DOMAIN format. Throws on invalid config.
+ * @param {string} domain
  */
-function validateConfig(domain, channels) {
-  // Validate DOMAIN
+export function validateDomain(domain) {
   if (!domain) {
     throw new Error("DOMAIN is required but missing or empty");
   }
@@ -23,109 +38,120 @@ function validateConfig(domain, channels) {
   if (domain.includes("/")) {
     throw new Error("DOMAIN must not contain path segments");
   }
+}
 
-  // Validate each channel
+/**
+ * Validate channel fields for create/update. Throws on invalid data.
+ * @param {object} data - Channel data
+ * @param {object} [options]
+ * @param {boolean} [options.requireFeeds] - Whether feeds are required (true for create)
+ */
+export function validateChannelFields(data, { requireFeeds = false } = {}) {
   const requiredFields = ["id", "siteName", "siteUrl", "fromUser", "fromName", "corsOrigins"];
 
-  for (let i = 0; i < channels.length; i++) {
-    const channel = channels[i];
-    const label = channel.id || `index ${i}`;
-
-    for (const field of requiredFields) {
-      if (!channel[field]) {
-        throw new Error(`Channel "${label}": missing required field "${field}"`);
-      }
+  for (const field of requiredFields) {
+    if (!data[field]) {
+      throw new Error(`Missing required field: ${field}`);
     }
+  }
 
-    // Validate fromUser
-    if (/[@\s]/.test(channel.fromUser)) {
-      throw new Error(
-        `Channel "${label}": fromUser must not contain '@' or whitespace`,
-      );
+  if (/[@\s]/.test(data.fromUser)) {
+    throw new Error("fromUser must not contain '@' or whitespace");
+  }
+
+  if (!Array.isArray(data.corsOrigins) || data.corsOrigins.length === 0) {
+    throw new Error("corsOrigins must be a non-empty array");
+  }
+
+  if (requireFeeds) {
+    if (!Array.isArray(data.feeds) || data.feeds.length === 0) {
+      throw new Error("At least one feed is required");
     }
-
-    // Validate feeds
-    if (channel.feeds) {
-      const seenUrls = new Set();
-      const seenNames = new Set();
-
-      for (let j = 0; j < channel.feeds.length; j++) {
-        const feed = channel.feeds[j];
-
-        if (!feed.name || typeof feed.name !== "string") {
-          throw new Error(
-            `Channel "${label}": feed at index ${j} has missing or empty "name"`,
-          );
-        }
-        if (!feed.url || typeof feed.url !== "string") {
-          throw new Error(
-            `Channel "${label}": feed at index ${j} has missing or empty "url"`,
-          );
-        }
-
-        if (seenUrls.has(feed.url)) {
-          throw new Error(
-            `Channel "${label}": duplicate feed URL "${feed.url}"`,
-          );
-        }
-        seenUrls.add(feed.url);
-
-        const lowerName = feed.name.toLowerCase();
-        if (seenNames.has(lowerName)) {
-          throw new Error(
-            `Channel "${label}": duplicate feed name "${feed.name}" (case-insensitive)`,
-          );
-        }
-        seenNames.add(lowerName);
+    for (const feed of data.feeds) {
+      validateFeedFields(feed);
+    }
+    // Check for duplicate URLs (exact match)
+    const seenUrls = new Set();
+    const seenNames = new Set();
+    for (const feed of data.feeds) {
+      if (seenUrls.has(feed.url)) {
+        throw new Error(`Duplicate feed URL: ${feed.url}`);
       }
+      seenUrls.add(feed.url);
+
+      const lowerName = feed.name.toLowerCase();
+      if (seenNames.has(lowerName)) {
+        throw new Error(`Duplicate feed name: ${feed.name} (case-insensitive)`);
+      }
+      seenNames.add(lowerName);
     }
   }
 }
 
 /**
- * Parse, validate, and return all configured channels.
- * @param {object} env - Worker environment bindings
- * @returns {Array<object>} Array of channel config objects
+ * Validate a single feed object. Throws on invalid data.
+ * @param {object} feed - { name, url }
  */
-export function getChannels(env) {
-  if (!channelsCache) {
-    const channels = JSON.parse(env.CHANNELS);
-    validateConfig(env.DOMAIN, channels);
-    channelsCache = channels;
+export function validateFeedFields(feed) {
+  if (!feed.name || typeof feed.name !== "string") {
+    throw new Error("Feed name is required");
   }
-  return channelsCache;
+  if (!feed.url || typeof feed.url !== "string") {
+    throw new Error("Feed url is required");
+  }
+}
+
+// ─── DB-backed config readers ───────────────────────────────────────────────
+
+/**
+ * Get all configured channels with their feeds.
+ * @param {object} env - Worker environment bindings
+ * @returns {Promise<Array<object>>}
+ */
+export async function getChannels(env) {
+  validateDomain(env.DOMAIN);
+  const channels = await dbGetAllChannels(env.DB);
+  for (const channel of channels) {
+    const feeds = (await getFeedsByChannelId(env.DB, channel.id)) || [];
+    channel.feeds = feeds.map((f) => ({ id: f.id, name: f.name, url: f.url }));
+  }
+  return channels;
 }
 
 /**
- * Look up a channel by its ID.
+ * Look up a channel by its ID, including feeds.
  * @param {object} env - Worker environment bindings
- * @param {string} channelId - The channel ID to look up
- * @returns {object|null} Channel config or null if not found
+ * @param {string} channelId
+ * @returns {Promise<object|null>}
  */
-export function getChannelById(env, channelId) {
-  const channels = getChannels(env);
-  return channels.find((c) => c.id === channelId) || null;
+export async function getChannelById(env, channelId) {
+  const channel = await dbGetChannelById(env.DB, channelId);
+  if (!channel) return null;
+  const feeds = (await getFeedsByChannelId(env.DB, channel.id)) || [];
+  channel.feeds = feeds.map((f) => ({ id: f.id, name: f.name, url: f.url }));
+  return channel;
 }
 
 /**
- * Get verification rate limit settings.
+ * Get verification rate limit settings from DB, with hardcoded fallbacks.
  * @param {object} env - Worker environment bindings
- * @returns {{ maxAttempts: number, windowHours: number }}
+ * @returns {Promise<{ maxAttempts: number, windowHours: number }>}
  */
-export function getVerifyLimits(env) {
+export async function getVerifyLimits(env) {
+  const config = await getSiteConfig(env.DB);
   return {
-    maxAttempts: parseInt(env.VERIFY_MAX_ATTEMPTS || "3", 10),
-    windowHours: parseInt(env.VERIFY_WINDOW_HOURS || "24", 10),
+    maxAttempts: config?.verifyMaxAttempts ?? 3,
+    windowHours: config?.verifyWindowHours ?? 24,
   };
 }
 
 /**
  * Collect all CORS origins from all configured channels.
  * @param {object} env - Worker environment bindings
- * @returns {string[]} Array of allowed origin URLs
+ * @returns {Promise<string[]>}
  */
-export function getAllCorsOrigins(env) {
-  const channels = getChannels(env);
+export async function getAllCorsOrigins(env) {
+  const channels = await dbGetAllChannels(env.DB);
   const origins = new Set();
   for (const channel of channels) {
     if (channel.corsOrigins) {
@@ -135,4 +161,23 @@ export function getAllCorsOrigins(env) {
     }
   }
   return [...origins];
+}
+
+/**
+ * Get rate limit config for all endpoints from DB, with hardcoded fallbacks.
+ * Each entry includes windowSeconds for rate-limit.js compatibility.
+ * @param {object} env - Worker environment bindings
+ * @returns {Promise<Record<string, { maxRequests: number, windowHours: number, windowSeconds: number }>>}
+ */
+export async function getRateLimitConfig(env) {
+  const dbConfig = await getRateLimitConfigs(env.DB);
+  const config = {};
+  for (const endpoint of Object.keys(RATE_LIMIT_DEFAULTS)) {
+    const entry = dbConfig[endpoint] || RATE_LIMIT_DEFAULTS[endpoint];
+    config[endpoint] = {
+      ...entry,
+      windowSeconds: entry.windowHours * 3600,
+    };
+  }
+  return config;
 }

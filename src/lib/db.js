@@ -192,6 +192,235 @@ export async function deleteSubscriberSends(db, itemId, feedUrl) {
     .run();
 }
 
+// ─── Site Config ────────────────────────────────────────────────────────────
+
+export async function getSiteConfig(db) {
+  const row = await db.prepare("SELECT * FROM site_config WHERE id = 1").first();
+  if (!row) return null;
+  return {
+    verifyMaxAttempts: row.verify_max_attempts,
+    verifyWindowHours: row.verify_window_hours,
+  };
+}
+
+export async function upsertSiteConfig(db, { verifyMaxAttempts, verifyWindowHours }) {
+  return db
+    .prepare(
+      `INSERT INTO site_config (id, verify_max_attempts, verify_window_hours)
+       VALUES (1, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         verify_max_attempts = excluded.verify_max_attempts,
+         verify_window_hours = excluded.verify_window_hours`,
+    )
+    .bind(verifyMaxAttempts, verifyWindowHours)
+    .run();
+}
+
+// ─── Rate Limit Config ──────────────────────────────────────────────────────
+
+export async function getRateLimitConfigs(db) {
+  const { results } = await db
+    .prepare("SELECT endpoint, max_requests, window_hours FROM rate_limit_config")
+    .all();
+  const map = {};
+  for (const row of results) {
+    map[row.endpoint] = {
+      windowHours: row.window_hours,
+      maxRequests: row.max_requests,
+    };
+  }
+  return map;
+}
+
+export async function upsertRateLimitConfig(db, endpoint, { windowHours, maxRequests }) {
+  return db
+    .prepare(
+      `INSERT INTO rate_limit_config (endpoint, max_requests, window_hours)
+       VALUES (?, ?, ?)
+       ON CONFLICT(endpoint) DO UPDATE SET
+         max_requests = excluded.max_requests,
+         window_hours = excluded.window_hours`,
+    )
+    .bind(endpoint, maxRequests, windowHours)
+    .run();
+}
+
+// ─── Channels ───────────────────────────────────────────────────────────────
+
+function formatChannelRow(row) {
+  return {
+    id: row.id,
+    siteName: row.site_name,
+    siteUrl: row.site_url,
+    fromUser: row.from_user,
+    fromName: row.from_name,
+    replyTo: row.reply_to || undefined,
+    companyName: row.company_name || undefined,
+    companyAddress: row.company_address || undefined,
+    corsOrigins: JSON.parse(row.cors_origins),
+  };
+}
+
+export async function getAllChannels(db) {
+  const { results } = await db
+    .prepare(
+      `SELECT id, site_name, site_url, from_user, from_name, reply_to,
+              company_name, company_address, cors_origins, created_at, updated_at
+       FROM channels ORDER BY created_at`,
+    )
+    .all();
+  return results.map(formatChannelRow);
+}
+
+export async function getChannelById(db, channelId) {
+  const row = await db
+    .prepare(
+      `SELECT id, site_name, site_url, from_user, from_name, reply_to,
+              company_name, company_address, cors_origins, created_at, updated_at
+       FROM channels WHERE id = ?`,
+    )
+    .bind(channelId)
+    .first();
+  return row ? formatChannelRow(row) : null;
+}
+
+export async function insertChannel(db, data) {
+  return db
+    .prepare(
+      `INSERT INTO channels (id, site_name, site_url, from_user, from_name, reply_to,
+                             company_name, company_address, cors_origins)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      data.id,
+      data.siteName,
+      data.siteUrl,
+      data.fromUser,
+      data.fromName,
+      data.replyTo || null,
+      data.companyName || null,
+      data.companyAddress || null,
+      JSON.stringify(data.corsOrigins),
+    )
+    .run();
+}
+
+export async function updateChannel(db, channelId, data) {
+  return db
+    .prepare(
+      `UPDATE channels SET
+         site_name = ?, site_url = ?, from_user = ?, from_name = ?,
+         reply_to = ?, company_name = ?, company_address = ?, cors_origins = ?,
+         updated_at = datetime('now')
+       WHERE id = ?`,
+    )
+    .bind(
+      data.siteName,
+      data.siteUrl,
+      data.fromUser,
+      data.fromName,
+      data.replyTo || null,
+      data.companyName || null,
+      data.companyAddress || null,
+      JSON.stringify(data.corsOrigins),
+      channelId,
+    )
+    .run();
+}
+
+export async function deleteChannel(db, channelId) {
+  // Get feed URLs before deleting (needed for sent_items/subscriber_sends cleanup)
+  const { results: feeds } = await db
+    .prepare("SELECT url FROM feeds WHERE channel_id = ?")
+    .bind(channelId)
+    .all();
+
+  const feedUrls = feeds.map((f) => f.url);
+
+  // Delete sent_items and subscriber_sends for these feed URLs
+  if (feedUrls.length > 0) {
+    const placeholders = feedUrls.map(() => "?").join(", ");
+    await db
+      .prepare(`DELETE FROM sent_items WHERE feed_url IN (${placeholders})`)
+      .bind(...feedUrls)
+      .run();
+    await db
+      .prepare(`DELETE FROM subscriber_sends WHERE feed_url IN (${placeholders})`)
+      .bind(...feedUrls)
+      .run();
+  }
+
+  // Delete verification_attempts for this channel's subscribers
+  await db
+    .prepare(
+      `DELETE FROM verification_attempts WHERE subscriber_id IN
+       (SELECT id FROM subscribers WHERE channel_id = ?)`,
+    )
+    .bind(channelId)
+    .run();
+
+  // Delete subscribers
+  await db
+    .prepare("DELETE FROM subscribers WHERE channel_id = ?")
+    .bind(channelId)
+    .run();
+
+  // Delete channel (cascades to feeds via FK)
+  return db.prepare("DELETE FROM channels WHERE id = ?").bind(channelId).run();
+}
+
+// ─── Feeds ──────────────────────────────────────────────────────────────────
+
+export async function getFeedsByChannelId(db, channelId) {
+  const { results } = await db
+    .prepare("SELECT id, channel_id, name, url FROM feeds WHERE channel_id = ? ORDER BY id")
+    .bind(channelId)
+    .all();
+  return results;
+}
+
+export async function getFeedById(db, feedId) {
+  return db
+    .prepare("SELECT id, channel_id, name, url FROM feeds WHERE id = ?")
+    .bind(feedId)
+    .first();
+}
+
+export async function insertFeed(db, channelId, { name, url }) {
+  return db
+    .prepare("INSERT INTO feeds (channel_id, name, url) VALUES (?, ?, ?)")
+    .bind(channelId, name, url)
+    .run();
+}
+
+export async function updateFeed(db, feedId, { name, url }) {
+  return db
+    .prepare("UPDATE feeds SET name = ?, url = ?, updated_at = datetime('now') WHERE id = ?")
+    .bind(name, url, feedId)
+    .run();
+}
+
+export async function deleteFeed(db, feedId) {
+  // Get the feed URL for cleaning up sent_items/subscriber_sends
+  const feed = await db
+    .prepare("SELECT url FROM feeds WHERE id = ?")
+    .bind(feedId)
+    .first();
+
+  if (feed) {
+    await db
+      .prepare("DELETE FROM sent_items WHERE feed_url = ?")
+      .bind(feed.url)
+      .run();
+    await db
+      .prepare("DELETE FROM subscriber_sends WHERE feed_url = ?")
+      .bind(feed.url)
+      .run();
+  }
+
+  return db.prepare("DELETE FROM feeds WHERE id = ?").bind(feedId).run();
+}
+
 // ─── Admin Queries ──────────────────────────────────────────────────────────
 
 export async function getSubscriberStats(db, channelId) {

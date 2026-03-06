@@ -3,6 +3,8 @@ name: CI
 on:
   pull_request:
     branches: [master]
+  push:
+    branches: [master]
 
 jobs:
   test:
@@ -21,8 +23,15 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Run tests
-        run: pnpm test
+      - name: Run tests with coverage
+        run: pnpm run test:coverage
+
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage/lcov.info
+          fail_ci_if_error: false
 
   validate:
     runs-on: ubuntu-latest

@@ -1,6 +1,6 @@
 {
   "name": "feedmail",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "RSS-to-email microservice on Cloudflare Workers. Monitor feeds, manage subscribers, send newsletters.",
   "type": "module",
   "license": "AGPL-3.0",
@@ -11,7 +11,8 @@
     "deploy": "wrangler d1 migrations apply feedmail --remote && wrangler deploy",
     "db:migrate": "wrangler d1 migrations apply feedmail --remote",
     "db:migrate:local": "wrangler d1 migrations apply feedmail --local",
-    "db:reset:local": "wrangler d1 execute feedmail --local --command \"DELETE FROM subscribers; DELETE FROM verification_attempts; DELETE FROM sent_items; DELETE FROM subscriber_sends; DELETE FROM rate_limits;\"",
+    "db:reset:local": "wrangler d1 execute feedmail --local --command \"DELETE FROM subscribers; DELETE FROM verification_attempts; DELETE FROM sent_items; DELETE FROM subscriber_sends; DELETE FROM rate_limits; DELETE FROM site_config; DELETE FROM rate_limit_config; DELETE FROM feeds; DELETE FROM channels;\"",
+    "db:seed:local": "node scripts/migrate-env-to-db.mjs --local",
     "build:check": "wrangler deploy --dry-run --outdir dist",
     "pretest": "node scripts/precompile-templates.mjs",
     "test": "vitest run",

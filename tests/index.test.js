@@ -21,16 +21,12 @@ vi.mock("../src/lib/cors.js", () => ({
   handleCORSPreflight: vi.fn(),
   withCORS: vi.fn(),
 }));
+vi.mock("../src/lib/config.js", () => ({
+  getRateLimitConfig: vi.fn(),
+}));
 vi.mock("../src/lib/rate-limit.js", () => ({
   checkRateLimit: vi.fn(),
   getEndpointName: vi.fn(),
-  RATE_LIMITS: {
-    subscribe: { maxRequests: 10, windowSeconds: 3600 },
-    verify: { maxRequests: 20, windowSeconds: 3600 },
-    unsubscribe: { maxRequests: 20, windowSeconds: 3600 },
-    send: { maxRequests: 5, windowSeconds: 3600 },
-    admin: { maxRequests: 30, windowSeconds: 3600 },
-  },
 }));
 
 import app from "../src/index.js";
@@ -40,7 +36,16 @@ import { handleUnsubscribe } from "../src/routes/unsubscribe.js";
 import { handleSend, checkFeedsAndSend } from "../src/routes/send.js";
 import { handleAdmin } from "../src/routes/admin.js";
 import { handleCORSPreflight, withCORS } from "../src/lib/cors.js";
+import { getRateLimitConfig } from "../src/lib/config.js";
 import { checkRateLimit, getEndpointName } from "../src/lib/rate-limit.js";
+
+const RATE_LIMITS = {
+  subscribe: { maxRequests: 10, windowSeconds: 3600 },
+  verify: { maxRequests: 20, windowSeconds: 3600 },
+  unsubscribe: { maxRequests: 20, windowSeconds: 3600 },
+  send: { maxRequests: 5, windowSeconds: 3600 },
+  admin: { maxRequests: 30, windowSeconds: 3600 },
+};
 
 const env = {
   ADMIN_API_KEY: "test-admin-key",
@@ -66,6 +71,7 @@ describe("index.js — fetch handler", () => {
     withCORS.mockImplementation((response) => response);
 
     // Rate limiting defaults: allow all requests
+    getRateLimitConfig.mockResolvedValue(RATE_LIMITS);
     checkRateLimit.mockResolvedValue({ allowed: true });
     getEndpointName.mockImplementation((pathname) => {
       if (pathname === "/api/subscribe") return "subscribe";

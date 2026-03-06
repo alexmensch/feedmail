@@ -1,14 +1,19 @@
 /**
- * Admin API routes — subscriber stats and listing.
- * All routes require ADMIN_API_KEY authentication.
+ * Admin API router — routes to sub-handlers for config, channels, feeds,
+ * stats, and subscriber management.
+ * All routes require ADMIN_API_KEY authentication (enforced in index.js).
  */
 
 import { getChannelById } from "../lib/config.js";
+import { jsonResponse } from "../lib/response.js";
 import {
   getSubscriberStats,
   getSentItemStats,
   getSubscriberList,
 } from "../lib/db.js";
+import { handleAdminConfig } from "./admin-config.js";
+import { handleAdminChannels } from "./admin-channels.js";
+import { handleAdminFeeds } from "./admin-feeds.js";
 
 /**
  * Route admin requests by pathname.
@@ -18,95 +23,91 @@ import {
  * @returns {Promise<Response>}
  */
 export async function handleAdmin(request, env, url) {
-  if (url.pathname === "/api/admin/stats") {
+  const path = url.pathname;
+
+  if (path === "/api/admin/stats") {
+    if (request.method !== "GET") return methodNotAllowed();
     return handleStats(env, url);
   }
 
-  if (url.pathname === "/api/admin/subscribers") {
+  if (path === "/api/admin/subscribers") {
+    if (request.method !== "GET") return methodNotAllowed();
     return handleSubscribers(env, url);
   }
 
-  return new Response(JSON.stringify({ error: "Not Found" }), {
-    status: 404,
-    headers: { "Content-Type": "application/json" },
-  });
+  if (path === "/api/admin/config") {
+    return handleAdminConfig(request, env);
+  }
+
+  // /api/admin/channels/* — delegate to channels or feeds handler
+  const channelsMatch = path.match(/^\/api\/admin\/channels(?:\/([^/]+)(?:\/feeds(?:\/(\d+))?)?)?$/);
+  if (channelsMatch) {
+    const channelId = channelsMatch[1] || null;
+    const hasFeedsSegment = channelId && path.includes("/feeds");
+
+    if (hasFeedsSegment) {
+      return handleAdminFeeds(request, env, url);
+    }
+    return handleAdminChannels(request, env, url);
+  }
+
+  return jsonResponse(404, { error: "Not Found" });
 }
 
 /**
  * GET /api/admin/stats?channelId=alxm.me
- * Returns subscriber counts and sent item stats for a channel.
  */
 async function handleStats(env, url) {
   const channelId = url.searchParams.get("channelId");
 
   if (!channelId) {
-    return new Response(
-      JSON.stringify({ error: "Missing channelId query parameter" }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
-    );
+    return jsonResponse(400, { error: "Missing channelId query parameter" });
   }
 
-  const channel = getChannelById(env, channelId);
+  const channel = await getChannelById(env, channelId);
   if (!channel) {
-    return new Response(JSON.stringify({ error: "Unknown channel" }), {
-      status: 404,
-      headers: { "Content-Type": "application/json" },
-    });
+    return jsonResponse(404, { error: "Unknown channel" });
   }
 
+  const feedUrls = channel.feeds.map((f) => f.url);
   const [subscribers, sentItems] = await Promise.all([
     getSubscriberStats(env.DB, channelId),
-    getSentItemStats(env.DB, channel.feeds.map((f) => f.url)),
+    feedUrls.length > 0 ? getSentItemStats(env.DB, feedUrls) : { total: 0, lastSentAt: null },
   ]);
 
-  return new Response(
-    JSON.stringify({
-      channelId,
-      subscribers,
-      sentItems,
-      feeds: channel.feeds,
-    }),
-    {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    },
-  );
+  return jsonResponse(200, {
+    channelId,
+    subscribers,
+    sentItems,
+    feeds: channel.feeds,
+  });
 }
 
 /**
  * GET /api/admin/subscribers?channelId=alxm.me&status=verified
- * Returns list of subscribers for a channel, optionally filtered by status.
  */
 async function handleSubscribers(env, url) {
   const channelId = url.searchParams.get("channelId");
 
   if (!channelId) {
-    return new Response(
-      JSON.stringify({ error: "Missing channelId query parameter" }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
-    );
+    return jsonResponse(400, { error: "Missing channelId query parameter" });
   }
 
-  const channel = getChannelById(env, channelId);
+  const channel = await getChannelById(env, channelId);
   if (!channel) {
-    return new Response(JSON.stringify({ error: "Unknown channel" }), {
-      status: 404,
-      headers: { "Content-Type": "application/json" },
-    });
+    return jsonResponse(404, { error: "Unknown channel" });
   }
 
   const statusFilter = url.searchParams.get("status") || null;
   const subscribers = await getSubscriberList(env.DB, channelId, statusFilter);
 
-  return new Response(
-    JSON.stringify({
-      channelId,
-      count: subscribers.length,
-      subscribers,
-    }),
-    {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    },
-  );
+  return jsonResponse(200, {
+    channelId,
+    count: subscribers.length,
+    subscribers,
+  });
+}
+
+function methodNotAllowed() {
+  return jsonResponse(405, { error: "Method Not Allowed" });
 }

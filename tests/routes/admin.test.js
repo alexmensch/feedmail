@@ -1,8 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../../src/lib/config.js", () => ({
-  getChannelById: vi.fn(),
-}));
+vi.mock("../../src/lib/config.js", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    getChannelById: vi.fn(),
+  };
+});
 vi.mock("../../src/lib/db.js", () => ({
   getSubscriberStats: vi.fn(),
   getSentItemStats: vi.fn(),

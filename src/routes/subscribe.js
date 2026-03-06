@@ -4,6 +4,7 @@
  */
 
 import { getChannelById, getVerifyLimits } from "../lib/config.js";
+import { jsonResponse } from "../lib/response.js";
 import { sendEmail } from "../lib/email.js";
 import { render } from "../lib/templates.js";
 import {
@@ -66,7 +67,7 @@ export async function handleSubscribe(request, env) {
     });
   }
 
-  const channel = getChannelById(env, channelId);
+  const channel = await getChannelById(env, channelId);
   if (!channel) {
     return jsonResponse(400, {
       success: false,
@@ -138,7 +139,7 @@ export async function handleSubscribe(request, env) {
  * Check rate limit and send verification email if allowed.
  */
 async function trySendVerification(env, channel, email, verifyToken, subscriberId, unsubscribeToken) {
-  const limits = getVerifyLimits(env);
+  const limits = await getVerifyLimits(env);
   const recentCount = await countRecentVerificationAttempts(
     env.DB,
     subscriberId,
@@ -199,11 +200,4 @@ async function trySendVerification(env, channel, email, verifyToken, subscriberI
   } else {
     console.error("Failed to send verification email:", result.error);
   }
-}
-
-function jsonResponse(status, body) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
 }

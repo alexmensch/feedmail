@@ -21,26 +21,7 @@ pattern = "newsletter.alxm.me/api/*"
 zone_name = "alxm.me"
 
 [vars]
-CHANNELS = '''
-[
-  {
-    "id": "alxm.me",
-    "siteUrl": "https://alxm.me/writing",
-    "siteName": "Alex Marshall",
-    "fromUser": "hello",
-    "fromName": "Alex Marshall",
-    "replyTo": "hello@alxm.me",
-    "companyName": "Thoughtful Design Ltd (№15642102)",
-    "companyAddress": "82A James Carter Road, Mildenhall IP28 7DE, England, United Kingdom",
-    "corsOrigins": ["https://alxm.me"],
-    "feeds": [{"name": "Writing", "url": "https://alxm.me/writing.atom"}]
-  }
-]
-'''
-
 DOMAIN = "newsletter.alxm.me"
-VERIFY_MAX_ATTEMPTS = "3"
-VERIFY_WINDOW_HOURS = "24"
 
 # Secrets (set via `wrangler secret put`):
 # RESEND_API_KEY

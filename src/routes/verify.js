@@ -22,13 +22,13 @@ export async function handleVerify(request, env, url) {
   const token = url.searchParams.get("token");
 
   if (!token) {
-    return renderErrorPage(env, null, "This link is invalid or has expired. Please try subscribing again.");
+    return await renderErrorPage(env, null, "This link is invalid or has expired. Please try subscribing again.");
   }
 
   const subscriber = await getSubscriberByVerifyToken(env.DB, token);
 
   if (!subscriber) {
-    return renderErrorPage(env, null, "This link is invalid or has expired. Please try subscribing again.");
+    return await renderErrorPage(env, null, "This link is invalid or has expired. Please try subscribing again.");
   }
 
   // Check if token has expired (24 hours from created_at)
@@ -37,7 +37,7 @@ export async function handleVerify(request, env, url) {
   const hoursSinceCreation = (now - createdAt) / (1000 * 60 * 60);
 
   if (hoursSinceCreation > 24) {
-    return renderErrorPage(
+    return await renderErrorPage(
       env,
       subscriber.channel_id,
       "This link is invalid or has expired. Please try subscribing again.",
@@ -50,7 +50,7 @@ export async function handleVerify(request, env, url) {
   // Clear verification attempt history
   await clearVerificationAttempts(env.DB, subscriber.id);
 
-  const channel = getChannelById(env, subscriber.channel_id);
+  const channel = await getChannelById(env, subscriber.channel_id);
 
   const html = render("verifyPage", {
     siteName: channel?.siteName || "the newsletter",
