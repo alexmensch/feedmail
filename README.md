@@ -13,7 +13,7 @@ An open-source RSS-to-email microservice that runs on Cloudflare Workers. Monito
 - **Multi-feed** — Each channel can monitor multiple named feeds
 - **Zero tracking** — No open or click tracking; privacy by default
 - **Customizable templates** — Handlebars templates for emails and confirmation pages
-- **Admin API** — Subscriber stats and listing endpoints
+- **Admin API** — Runtime config management, subscriber stats, channel/feed CRUD
 - **IP rate limiting** — Per-endpoint rolling window rate limiting via D1
 - **Bot protection** — Strict input validation with honeypot support, method enforcement with deliberate timeouts
 - **Feed bootstrapping** — First run seeds existing items without sending emails
@@ -24,7 +24,7 @@ An open-source RSS-to-email microservice that runs on Cloudflare Workers. Monito
 feedmail runs entirely on Cloudflare's edge platform:
 
 - **Cloudflare Workers** — Handles HTTP requests and cron triggers
-- **Cloudflare D1** — Stores subscribers, verification attempts, sent item history, and rate limits
+- **Cloudflare D1** — Stores subscribers, configuration, sent item history, and rate limits
 - **Resend** — Sends transactional emails (verification and newsletter)
 
 ## Quick Start
@@ -60,45 +60,14 @@ pnpm run db:migrate        # Remote (production)
 pnpm run db:migrate:local  # Local dev
 ```
 
-### 4. Configure channels
+### 4. Set your domain
 
-Edit the `CHANNELS` variable in `wrangler.toml`:
+Edit `wrangler.toml` to set your domain:
 
 ```toml
 [vars]
 DOMAIN = "yourdomain.com"
-
-CHANNELS = '''
-[
-  {
-    "id": "my-channel",
-    "siteUrl": "https://example.com",
-    "siteName": "My Site",
-    "fromUser": "hello",
-    "fromName": "My Site Newsletter",
-    "corsOrigins": ["https://example.com"],
-    "feeds": [
-      {"name": "Blog", "url": "https://example.com/feed.xml"}
-    ]
-  }
-]
-'''
 ```
-
-Each channel object requires:
-
-| Field | Description |
-|---|---|
-| `id` | Unique identifier (sent by the subscribe form) |
-| `siteUrl` | Site URL (used in templates) |
-| `siteName` | Display name (used in email subjects and templates) |
-| `fromUser` | Email local part (e.g. `"hello"`); combined with DOMAIN to form the from-email |
-| `fromName` | Sender display name |
-| `replyTo` | Reply-to email address (optional) |
-| `companyName` | Company name displayed in email footers (optional) |
-| `companyAddress` | Company address displayed in email footers (optional) |
-| `corsOrigins` | Allowed origins for the subscribe endpoint |
-| `feeds` | Array of feed objects, each with `name` and `url` |
 
 The `DOMAIN` env var is used to construct:
 - All URLs: `https://{DOMAIN}/api/...`
@@ -127,6 +96,42 @@ pattern = "yourdomain.com/api/*"
 zone_name = "yourdomain.com"
 ```
 
+### 8. Configure your first channel
+
+Use the admin API to create your first channel:
+
+```bash
+curl -X POST https://yourdomain.com/api/admin/channels \
+  -H "Authorization: Bearer YOUR_ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "my-channel",
+    "siteUrl": "https://example.com",
+    "siteName": "My Site",
+    "fromUser": "hello",
+    "fromName": "My Site Newsletter",
+    "corsOrigins": ["https://example.com"],
+    "feeds": [
+      {"name": "Blog", "url": "https://example.com/feed.xml"}
+    ]
+  }'
+```
+
+Each channel object requires:
+
+| Field | Description |
+|---|---|
+| `id` | Unique identifier (sent by the subscribe form) |
+| `siteUrl` | Site URL (used in templates) |
+| `siteName` | Display name (used in email subjects and templates) |
+| `fromUser` | Email local part (e.g. `"hello"`); combined with DOMAIN to form the from-email |
+| `fromName` | Sender display name |
+| `replyTo` | Reply-to email address (optional) |
+| `companyName` | Company name displayed in email footers (optional) |
+| `companyAddress` | Company address displayed in email footers (optional) |
+| `corsOrigins` | Allowed origins for the subscribe endpoint |
+| `feeds` | Array of feed objects, each with `name` and `url` |
+
 ## Configuration
 
 ### Environment variables (`wrangler.toml [vars]`)
@@ -134,9 +139,8 @@ zone_name = "yourdomain.com"
 | Variable | Default | Description |
 |---|---|---|
 | `DOMAIN` | — | Domain name (e.g. `feedmail.cc`). No protocol, trailing slash, or path. (required) |
-| `CHANNELS` | — | JSON array of channel configurations (required) |
-| `VERIFY_MAX_ATTEMPTS` | `"3"` | Max verification emails per rolling window |
-| `VERIFY_WINDOW_HOURS` | `"24"` | Rolling window duration in hours |
+
+All other configuration (channels, feeds, verification limits, rate limits) is stored in D1 and managed via the admin API.
 
 ### Secrets (`wrangler secret put`)
 
@@ -147,7 +151,7 @@ zone_name = "yourdomain.com"
 
 ### IP Rate Limits
 
-Rate limits are configured per endpoint in `src/lib/rate-limit.js`:
+Default rate limits per endpoint (configurable via `PATCH /api/admin/config`):
 
 | Endpoint | Limit | Window |
 |---|---|---|
@@ -269,6 +273,40 @@ List subscribers for a channel. Optional `status` filter (`pending`, `verified`,
 }
 ```
 
+#### `GET /api/admin/config`
+
+Get site-level settings (verification limits and rate limits).
+
+#### `PATCH /api/admin/config`
+
+Update site-level settings. Partial updates supported.
+
+```json
+{
+  "verifyMaxAttempts": 5,
+  "verifyWindowHours": 12,
+  "rateLimits": {
+    "subscribe": { "maxRequests": 20, "windowHours": 1 }
+  }
+}
+```
+
+#### `GET|POST /api/admin/channels`
+
+List all channels (`GET`) or create a new channel (`POST`).
+
+#### `GET|PUT|DELETE /api/admin/channels/{channelId}`
+
+Get, update, or delete a specific channel.
+
+#### `GET|POST /api/admin/channels/{channelId}/feeds`
+
+List feeds for a channel (`GET`) or add a new feed (`POST`).
+
+#### `PUT|DELETE /api/admin/channels/{channelId}/feeds/{feedId}`
+
+Update or delete a specific feed.
+
 ## Security
 
 feedmail uses a layered security approach instead of CAPTCHA challenges:
@@ -354,24 +392,13 @@ Add a subscribe form to your website that POSTs to the feedmail API. The form sh
 
 feedmail supports multiple channels in a single deployment. Each channel has its own subscriber list, feeds, sender identity, and CORS origins.
 
-Add additional channel objects to the `CHANNELS` array in `wrangler.toml`:
+Create additional channels via the admin API:
 
-```toml
-[vars]
-DOMAIN = "yourdomain.com"
-
-CHANNELS = '''
-[
-  {
-    "id": "channel-a",
-    "siteUrl": "https://site-a.com",
-    "siteName": "Site A",
-    "fromUser": "newsletter",
-    "fromName": "Site A",
-    "corsOrigins": ["https://site-a.com"],
-    "feeds": [{"name": "Blog", "url": "https://site-a.com/feed.xml"}]
-  },
-  {
+```bash
+curl -X POST https://yourdomain.com/api/admin/channels \
+  -H "Authorization: Bearer YOUR_ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
     "id": "channel-b",
     "siteUrl": "https://site-b.com",
     "siteName": "Site B",
@@ -382,9 +409,7 @@ CHANNELS = '''
       {"name": "Blog", "url": "https://site-b.com/rss"},
       {"name": "Podcast", "url": "https://site-b.com/podcast.xml"}
     ]
-  }
-]
-'''
+  }'
 ```
 
 ## Development

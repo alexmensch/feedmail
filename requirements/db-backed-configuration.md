@@ -108,3 +108,14 @@ This feature migrates channel configuration, verification settings, and rate lim
 ### Implementation Order
 
 1. DB schema (reqs 1-4) → 2. Validation extraction (req 8) → 3. Env var removal + async migration (reqs 5-7) → 4. API endpoints (reqs 9-19) → 5. Empty DB handling (req 21) → 6. Migration script (req 22)
+
+## Out-of-spec changes
+
+Changes made during code review that were not part of the original specification.
+
+| # | Area | Change | Rationale |
+|---|------|--------|-----------|
+| 1 | DRY | Extract `jsonResponse` helper to `src/lib/response.js`, replacing 5 identical local copies across route files | Eliminates function duplication in admin.js, admin-channels.js, admin-config.js, admin-feeds.js, subscribe.js |
+| 2 | DRY | Export `RATE_LIMIT_DEFAULTS` from config.js and import in admin-config.js | Eliminates duplicate constant definition across two files |
+| 3 | Dead code | Remove `RATE_LIMITS` export from rate-limit.js | No longer referenced — rate limit defaults now sourced from config.js `RATE_LIMIT_DEFAULTS` + DB |
+| 4 | Router | Add specific admin routes (`/api/admin/stats`, `/api/admin/subscribers`, `/api/admin/config`) to `ROUTE_METHODS` in index.js | Enables per-route method enforcement for admin endpoints (e.g. POST on GET-only route returns 408) |
