@@ -217,23 +217,23 @@ describe("install.sh structure and content", () => {
   it("checks for git prerequisite", () => {
     const content = readFile(scriptPath);
     expect(content).toMatch(/git/);
-    // Should check if git is installed (command -v or which or type)
-    expect(content).toMatch(/command\s+-v\s+git|which\s+git|type\s+git/);
+    // May use a reusable function (check_command git) or literal (command -v git)
+    expect(content).toMatch(/check_command\s+git|command\s+-v\s+git|which\s+git|type\s+git/);
   });
 
   it("checks for node prerequisite", () => {
     const content = readFile(scriptPath);
-    expect(content).toMatch(/command\s+-v\s+node|which\s+node|type\s+node/);
+    expect(content).toMatch(/check_command\s+node|command\s+-v\s+node|which\s+node|type\s+node/);
   });
 
   it("checks for pnpm prerequisite", () => {
     const content = readFile(scriptPath);
-    expect(content).toMatch(/command\s+-v\s+pnpm|which\s+pnpm|type\s+pnpm/);
+    expect(content).toMatch(/check_command\s+pnpm|command\s+-v\s+pnpm|which\s+pnpm|type\s+pnpm/);
   });
 
   it("checks for wrangler prerequisite", () => {
     const content = readFile(scriptPath);
-    expect(content).toMatch(/command\s+-v\s+wrangler|which\s+wrangler|type\s+wrangler/);
+    expect(content).toMatch(/check_command\s+wrangler|command\s+-v\s+wrangler|which\s+wrangler|type\s+wrangler/);
   });
 
   it("checks wrangler authentication with wrangler whoami", () => {
