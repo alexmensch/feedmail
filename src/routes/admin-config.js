@@ -9,14 +9,8 @@ import {
   getRateLimitConfigs,
   upsertRateLimitConfig,
 } from "../lib/db.js";
-
-const RATE_LIMIT_DEFAULTS = {
-  subscribe: { windowHours: 1, maxRequests: 10 },
-  verify: { windowHours: 1, maxRequests: 20 },
-  unsubscribe: { windowHours: 1, maxRequests: 20 },
-  send: { windowHours: 1, maxRequests: 5 },
-  admin: { windowHours: 1, maxRequests: 30 },
-};
+import { RATE_LIMIT_DEFAULTS } from "../lib/config.js";
+import { jsonResponse } from "../lib/response.js";
 
 const VALID_ENDPOINTS = Object.keys(RATE_LIMIT_DEFAULTS);
 
@@ -105,11 +99,4 @@ async function updateConfig(request, env) {
 
   // Return full updated config
   return getConfig(env);
-}
-
-function jsonResponse(status, body) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
 }

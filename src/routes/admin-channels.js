@@ -5,6 +5,7 @@
  */
 
 import { validateChannelFields } from "../lib/config.js";
+import { jsonResponse } from "../lib/response.js";
 import {
   getAllChannels,
   getChannelById,
@@ -131,11 +132,4 @@ async function deleteChannelHandler(env, channelId) {
 
   await deleteChannel(env.DB, channelId);
   return new Response(null, { status: 204 });
-}
-
-function jsonResponse(status, body) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
 }

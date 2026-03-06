@@ -11,7 +11,7 @@ import {
   getRateLimitConfigs,
 } from "./db.js";
 
-const RATE_LIMIT_DEFAULTS = {
+export const RATE_LIMIT_DEFAULTS = {
   subscribe: { windowHours: 1, maxRequests: 10 },
   verify: { windowHours: 1, maxRequests: 20 },
   unsubscribe: { windowHours: 1, maxRequests: 20 },

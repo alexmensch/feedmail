@@ -5,6 +5,7 @@
  */
 
 import { getChannelById } from "../lib/config.js";
+import { jsonResponse } from "../lib/response.js";
 import {
   getSubscriberStats,
   getSentItemStats,
@@ -109,11 +110,4 @@ async function handleSubscribers(env, url) {
 
 function methodNotAllowed() {
   return jsonResponse(405, { error: "Method Not Allowed" });
-}
-
-function jsonResponse(status, body) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
 }

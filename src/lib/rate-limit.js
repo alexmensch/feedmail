@@ -3,19 +3,6 @@
  * Rolling window counting — tracks individual requests per IP per endpoint.
  */
 
-/**
- * Rate limit configuration per endpoint.
- * Keys are logical endpoint names, values define the limits.
- * @type {Record<string, { maxRequests: number, windowSeconds: number }>}
- */
-export const RATE_LIMITS = {
-  subscribe: { maxRequests: 10, windowSeconds: 3600 },
-  verify: { maxRequests: 20, windowSeconds: 3600 },
-  unsubscribe: { maxRequests: 20, windowSeconds: 3600 },
-  send: { maxRequests: 5, windowSeconds: 3600 },
-  admin: { maxRequests: 30, windowSeconds: 3600 },
-};
-
 /** Maximum age for rate limit rows before they are eligible for cleanup (7 days). */
 export const STALE_ROW_MAX_AGE_SECONDS = 604800;
 

@@ -12,6 +12,7 @@ import {
   updateFeed,
   deleteFeed,
 } from "../lib/db.js";
+import { jsonResponse } from "../lib/response.js";
 
 /**
  * Route feed requests.
@@ -132,11 +133,4 @@ async function deleteFeedHandler(env, feedId) {
 
   await deleteFeed(env.DB, feedId);
   return new Response(null, { status: 204 });
-}
-
-function jsonResponse(status, body) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
 }

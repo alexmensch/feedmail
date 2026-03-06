@@ -4,6 +4,7 @@
  */
 
 import { getChannelById, getVerifyLimits } from "../lib/config.js";
+import { jsonResponse } from "../lib/response.js";
 import { sendEmail } from "../lib/email.js";
 import { render } from "../lib/templates.js";
 import {
@@ -199,11 +200,4 @@ async function trySendVerification(env, channel, email, verifyToken, subscriberI
   } else {
     console.error("Failed to send verification email:", result.error);
   }
-}
-
-function jsonResponse(status, body) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
 }
