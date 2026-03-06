@@ -77,39 +77,18 @@ echo ""
 # --- Write wrangler.prod.toml (R10) ---
 
 echo "Writing wrangler.prod.toml ..."
-cat > wrangler.prod.toml <<EOF
-name = "$WORKER_NAME"
-main = "src/index.js"
-compatibility_date = "2026-02-27"
-compatibility_flags = ["nodejs_compat"]
-upload_source_maps = true
+cp wrangler.toml wrangler.prod.toml
 
-[build]
-command = "node scripts/precompile-templates.mjs"
+# Replace placeholder values with user-provided ones
+sed -i '' "s/^name = .*/name = \"$WORKER_NAME\"/" wrangler.prod.toml
+sed -i '' "s/YOUR_DATABASE_ID/$DATABASE_ID/" wrangler.prod.toml
+sed -i '' "s/YOUR_DOMAIN/$DOMAIN/g" wrangler.prod.toml
+sed -i '' "s/^database_name = .*/database_name = \"$WORKER_NAME\"/" wrangler.prod.toml
 
-[triggers]
-crons = ["0 */6 * * *"]
-
-[[d1_databases]]
-binding = "DB"
-database_name = "$WORKER_NAME"
-database_id = "$DATABASE_ID"
-
-# Uncomment and configure routes for custom domain:
-# [[routes]]
-# pattern = "$DOMAIN/api/*"
-# zone_name = "$DOMAIN"
-
-[vars]
-DOMAIN = "$DOMAIN"
-
-# Secrets (set via \`wrangler secret put\`):
-# RESEND_API_KEY
-# ADMIN_API_KEY
-
-[observability.logs]
-enabled = true
-EOF
+# Comment out the routes section (deployer uncomments when ready)
+sed -i '' 's/^\(\[\[routes\]\]\)/# \1/' wrangler.prod.toml
+sed -i '' 's/^pattern = /# pattern = /' wrangler.prod.toml
+sed -i '' 's/^zone_name = /# zone_name = /' wrangler.prod.toml
 
 echo "  Created wrangler.prod.toml"
 echo ""
@@ -265,27 +244,33 @@ echo ""
 
 echo "Creating channel '$CHANNEL_ID' ..."
 
-# Build JSON payload — optional fields included only if provided
-JSON_PAYLOAD="{"
-JSON_PAYLOAD="$JSON_PAYLOAD\"id\":\"$CHANNEL_ID\""
-JSON_PAYLOAD="$JSON_PAYLOAD,\"siteName\":\"$SITE_NAME\""
-JSON_PAYLOAD="$JSON_PAYLOAD,\"siteUrl\":\"$SITE_URL\""
-JSON_PAYLOAD="$JSON_PAYLOAD,\"fromUser\":\"$FROM_USER\""
-JSON_PAYLOAD="$JSON_PAYLOAD,\"fromName\":\"$FROM_NAME\""
-JSON_PAYLOAD="$JSON_PAYLOAD,\"corsOrigins\":[\"$CORS_ORIGIN\"]"
-JSON_PAYLOAD="$JSON_PAYLOAD,\"feeds\":[{\"name\":\"$FEED_NAME\",\"url\":\"$FEED_URL\"}]"
+# Build JSON payload using python3 for safe escaping of user input
+json_escape() {
+  printf '%s' "$1" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()), end="")'
+}
 
-if [ -n "$REPLY_TO" ]; then
-  JSON_PAYLOAD="$JSON_PAYLOAD,\"replyTo\":\"$REPLY_TO\""
-fi
-if [ -n "$COMPANY_NAME" ]; then
-  JSON_PAYLOAD="$JSON_PAYLOAD,\"companyName\":\"$COMPANY_NAME\""
-fi
-if [ -n "$COMPANY_ADDRESS" ]; then
-  JSON_PAYLOAD="$JSON_PAYLOAD,\"companyAddress\":\"$COMPANY_ADDRESS\""
-fi
-
-JSON_PAYLOAD="$JSON_PAYLOAD}"
+JSON_PAYLOAD=$(python3 -c "
+import json, sys
+data = {
+    'id': $(json_escape "$CHANNEL_ID"),
+    'siteName': $(json_escape "$SITE_NAME"),
+    'siteUrl': $(json_escape "$SITE_URL"),
+    'fromUser': $(json_escape "$FROM_USER"),
+    'fromName': $(json_escape "$FROM_NAME"),
+    'corsOrigins': [$(json_escape "$CORS_ORIGIN")],
+    'feeds': [{'name': $(json_escape "$FEED_NAME"), 'url': $(json_escape "$FEED_URL")}],
+}
+reply_to = $(json_escape "$REPLY_TO")
+company_name = $(json_escape "$COMPANY_NAME")
+company_address = $(json_escape "$COMPANY_ADDRESS")
+if reply_to:
+    data['replyTo'] = reply_to
+if company_name:
+    data['companyName'] = company_name
+if company_address:
+    data['companyAddress'] = company_address
+print(json.dumps(data))
+")
 
 RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$API_URL/api/admin/channels" \
   -H "Authorization: Bearer $ADMIN_KEY" \
