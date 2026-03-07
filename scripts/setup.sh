@@ -10,6 +10,20 @@
 
 set -euo pipefail
 
+WRANGLER="pnpm exec wrangler"
+
+# --- Verify wrangler is available and authenticated ---
+
+if ! $WRANGLER version &>/dev/null; then
+  echo "Error: wrangler not found. Run 'pnpm install' first."
+  exit 1
+fi
+
+if ! $WRANGLER whoami &>/dev/null; then
+  echo "Error: wrangler is not authenticated. Run: pnpm exec wrangler login"
+  exit 1
+fi
+
 echo ""
 echo "=== feedmail setup ==="
 echo ""
@@ -56,7 +70,7 @@ echo ""
 # --- Create D1 database (R9) ---
 
 echo "Creating D1 database '$WORKER_NAME' ..."
-D1_OUTPUT=$(wrangler d1 create "$WORKER_NAME" 2>&1) || {
+D1_OUTPUT=$($WRANGLER d1 create "$WORKER_NAME" 2>&1) || {
   echo "Error: Failed to create D1 database."
   echo "$D1_OUTPUT"
   echo ""
@@ -100,7 +114,7 @@ echo ""
 
 read -rsp "Resend API key: " RESEND_KEY
 echo ""
-echo "$RESEND_KEY" | wrangler secret put RESEND_API_KEY --config wrangler.prod.toml || {
+echo "$RESEND_KEY" | $WRANGLER secret put RESEND_API_KEY --config wrangler.prod.toml || {
   echo "Error: Failed to set RESEND_API_KEY."
   exit 1
 }
@@ -108,7 +122,7 @@ echo "$RESEND_KEY" | wrangler secret put RESEND_API_KEY --config wrangler.prod.t
 echo ""
 read -rsp "Admin API key: " ADMIN_KEY
 echo ""
-echo "$ADMIN_KEY" | wrangler secret put ADMIN_API_KEY --config wrangler.prod.toml || {
+echo "$ADMIN_KEY" | $WRANGLER secret put ADMIN_API_KEY --config wrangler.prod.toml || {
   echo "Error: Failed to set ADMIN_API_KEY."
   exit 1
 }
@@ -118,7 +132,7 @@ echo ""
 # --- Run migrations (R12) ---
 
 echo "Running D1 migrations ..."
-wrangler d1 migrations apply "$WORKER_NAME" --remote --config wrangler.prod.toml || {
+$WRANGLER d1 migrations apply "$WORKER_NAME" --remote --config wrangler.prod.toml || {
   echo "Error: Migrations failed."
   exit 1
 }
@@ -128,7 +142,7 @@ echo ""
 # --- Deploy worker (R13) ---
 
 echo "Deploying worker ..."
-DEPLOY_OUTPUT=$(wrangler deploy --config wrangler.prod.toml 2>&1) || {
+DEPLOY_OUTPUT=$($WRANGLER deploy --config wrangler.prod.toml 2>&1) || {
   echo "Error: Deployment failed."
   echo "$DEPLOY_OUTPUT"
   exit 1

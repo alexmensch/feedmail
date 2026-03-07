@@ -37,19 +37,13 @@ fi
 
 check_command pnpm "Install from https://pnpm.io/installation"
 
-check_command wrangler "Install with: npm install -g wrangler"
-if ! wrangler whoami &>/dev/null; then
-  echo "Error: wrangler is not authenticated. Run: wrangler login"
-  exit 1
-fi
-echo "  wrangler authenticated ... ok"
-
 echo ""
 
 # --- Clone repository ---
 
 read -rp "Install directory [./feedmail]: " INSTALL_DIR
 INSTALL_DIR="${INSTALL_DIR:-./feedmail}"
+INSTALL_DIR="${INSTALL_DIR/#\~/$HOME}"
 
 if [ -d "$INSTALL_DIR" ]; then
   echo "Error: Directory '$INSTALL_DIR' already exists."
