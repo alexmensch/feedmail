@@ -1,6 +1,6 @@
 {
   "name": "feedmail",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "RSS-to-email microservice on Cloudflare Workers. Monitor feeds, manage subscribers, send newsletters.",
   "type": "module",
   "license": "AGPL-3.0",

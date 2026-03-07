@@ -218,12 +218,8 @@ describe("install.sh structure and content", () => {
     expect(content).toMatch(/check_command\s+pnpm|command\s+-v\s+pnpm|which\s+pnpm|type\s+pnpm/);
   });
 
-  it("checks for wrangler prerequisite", () => {
-    expect(content).toMatch(/check_command\s+wrangler|command\s+-v\s+wrangler|which\s+wrangler|type\s+wrangler/);
-  });
-
-  it("checks wrangler authentication with wrangler whoami", () => {
-    expect(content).toContain("wrangler whoami");
+  it("does not check for wrangler prerequisite (installed via pnpm install)", () => {
+    expect(content).not.toMatch(/check_command\s+wrangler/);
   });
 
   it("checks node version is v18+", () => {
@@ -279,6 +275,16 @@ describe("setup.sh structure and content", () => {
     }).not.toThrow();
   });
 
+  describe("wrangler via pnpm", () => {
+    it("uses pnpm exec wrangler instead of bare wrangler", () => {
+      expect(content).toContain("pnpm exec wrangler");
+    });
+
+    it("checks wrangler authentication with wrangler whoami", () => {
+      expect(content).toMatch(/\bwrangler\s+whoami|\$WRANGLER\s+whoami/);
+    });
+  });
+
   describe("existing config guard", () => {
     it("checks for existing wrangler.prod.toml", () => {
       expect(content).toContain("wrangler.prod.toml");
@@ -315,7 +321,7 @@ describe("setup.sh structure and content", () => {
 
   describe("D1 database creation", () => {
     it("runs wrangler d1 create", () => {
-      expect(content).toContain("wrangler d1 create");
+      expect(content).toMatch(/wrangler d1 create|\$WRANGLER d1 create/);
     });
 
     it("extracts database_id from output", () => {
@@ -356,11 +362,11 @@ describe("setup.sh structure and content", () => {
 
   describe("secret setting", () => {
     it("sets RESEND_API_KEY via wrangler secret put", () => {
-      expect(content).toMatch(/wrangler\s+secret\s+put\s+RESEND_API_KEY/);
+      expect(content).toMatch(/(wrangler|\$WRANGLER)\s+secret\s+put\s+RESEND_API_KEY/);
     });
 
     it("sets ADMIN_API_KEY via wrangler secret put", () => {
-      expect(content).toMatch(/wrangler\s+secret\s+put\s+ADMIN_API_KEY/);
+      expect(content).toMatch(/(wrangler|\$WRANGLER)\s+secret\s+put\s+ADMIN_API_KEY/);
     });
 
     it("uses echo-disabled input for secret prompting", () => {
@@ -374,7 +380,7 @@ describe("setup.sh structure and content", () => {
 
   describe("migrations", () => {
     it("runs D1 migrations with prod config", () => {
-      expect(content).toMatch(/wrangler\s+d1\s+migrations\s+apply/);
+      expect(content).toMatch(/(wrangler|\$WRANGLER)\s+d1\s+migrations\s+apply/);
     });
 
     it("passes --config wrangler.prod.toml to migrations", () => {
@@ -384,11 +390,11 @@ describe("setup.sh structure and content", () => {
 
   describe("deployment", () => {
     it("runs wrangler deploy", () => {
-      expect(content).toMatch(/wrangler\s+deploy/);
+      expect(content).toMatch(/(wrangler|\$WRANGLER)\s+deploy/);
     });
 
     it("passes --config wrangler.prod.toml to deploy", () => {
-      expect(content).toMatch(/wrangler\s+deploy.*--config\s+wrangler\.prod\.toml|--config\s+wrangler\.prod\.toml.*wrangler\s+deploy/);
+      expect(content).toMatch(/(wrangler|\$WRANGLER)\s+deploy.*--config\s+wrangler\.prod\.toml/);
     });
   });
 
