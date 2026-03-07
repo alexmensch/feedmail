@@ -17,7 +17,7 @@ WRANGLER="pnpm exec wrangler"
 
 # --- Verify wrangler is available and authenticated ---
 
-if ! $WRANGLER version &>/dev/null; then
+if ! $WRANGLER -v &>/dev/null; then
   echo "Error: wrangler not found. Run 'pnpm install' first."
   exit 1
 fi
@@ -48,7 +48,7 @@ read -rp "Worker name [feedmail]: " WORKER_NAME
 WORKER_NAME="${WORKER_NAME:-feedmail}"
 
 while true; do
-  read -rp "Domain (bare hostname, e.g. feedmail.cc): " DOMAIN
+  read -rp "Domain for emails and API (bare hostname, e.g. feedmail.cc): " DOMAIN
   if [ -z "$DOMAIN" ]; then
     echo "  Domain is required."
     continue
@@ -110,25 +110,15 @@ sed -i '' 's/^zone_name = /# zone_name = /' wrangler.prod.toml
 echo "  Created wrangler.prod.toml"
 echo ""
 
-# --- Set secrets (R11) ---
+# --- Collect secrets (R11a) ---
 
 echo "Setting secrets ..."
 echo ""
 
 read -rsp "Resend API key: " RESEND_KEY
 echo ""
-echo "$RESEND_KEY" | $WRANGLER secret put RESEND_API_KEY --config wrangler.prod.toml || {
-  echo "Error: Failed to set RESEND_API_KEY."
-  exit 1
-}
-
-echo ""
 read -rsp "Admin API key: " ADMIN_KEY
 echo ""
-echo "$ADMIN_KEY" | $WRANGLER secret put ADMIN_API_KEY --config wrangler.prod.toml || {
-  echo "Error: Failed to set ADMIN_API_KEY."
-  exit 1
-}
 
 echo ""
 
@@ -156,25 +146,26 @@ echo "$DEPLOY_OUTPUT"
 # Parse workers.dev URL from deploy output
 WORKERS_DEV_URL=$(echo "$DEPLOY_OUTPUT" | grep -oE 'https://[^ ]*workers\.dev[^ ]*' | head -1) || true
 
+if [ -z "${WORKERS_DEV_URL:-}" ]; then
+  echo "Error: Could not parse workers.dev URL from deploy output."
+  exit 1
+fi
+
+API_URL="${WORKERS_DEV_URL%/}"
+
 echo ""
 
-# --- Confirm API URL (R14) ---
+# --- Set secrets (R11b) ---
 
-while true; do
-  if [ -n "${WORKERS_DEV_URL:-}" ]; then
-    read -rp "API base URL for channel setup [$WORKERS_DEV_URL]: " API_URL
-    API_URL="${API_URL:-$WORKERS_DEV_URL}"
-  else
-    read -rp "API base URL for channel setup: " API_URL
-    if [ -z "$API_URL" ]; then
-      echo "  URL is required."
-      continue
-    fi
-  fi
-  # Strip trailing slash
-  API_URL="${API_URL%/}"
-  break
-done
+echo "$RESEND_KEY" | $WRANGLER secret put RESEND_API_KEY --config wrangler.prod.toml || {
+  echo "Error: Failed to set RESEND_API_KEY."
+  exit 1
+}
+
+echo "$ADMIN_KEY" | $WRANGLER secret put ADMIN_API_KEY --config wrangler.prod.toml || {
+  echo "Error: Failed to set ADMIN_API_KEY."
+  exit 1
+}
 
 echo ""
 

@@ -85,6 +85,14 @@ describe("wrangler.toml sanitisation", () => {
     expect(toml).toMatch(/compatibility_flags/);
   });
 
+  it("has workers_dev enabled", () => {
+    expect(toml).toMatch(/workers_dev\s*=\s*true/);
+  });
+
+  it("has preview_urls disabled", () => {
+    expect(toml).toMatch(/preview_urls\s*=\s*false/);
+  });
+
   it("does not contain any real Cloudflare account or database IDs", () => {
     // Real IDs are hex strings of 32+ characters or UUID format
     expect(toml).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);

@@ -3,6 +3,8 @@ main = "src/index.js"
 compatibility_date = "2026-02-27"
 compatibility_flags = ["nodejs_compat"]
 upload_source_maps = true
+workers_dev = true
+preview_urls = false
 
 [build]
 command = "node scripts/precompile-templates.mjs"
