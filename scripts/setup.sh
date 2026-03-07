@@ -125,7 +125,7 @@ echo ""
 # --- Run migrations (R12) ---
 
 echo "Running D1 migrations ..."
-yes | $WRANGLER d1 migrations apply "$WORKER_NAME" --remote --config wrangler.prod.toml || {
+echo "y" | $WRANGLER d1 migrations apply "$WORKER_NAME" --remote --config wrangler.prod.toml || {
   echo "Error: Migrations failed."
   exit 1
 }
