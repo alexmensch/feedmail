@@ -6,6 +6,42 @@ feedmail is an RSS-to-email microservice for Cloudflare Workers. It monitors RSS
 
 The project reached 1.0.0 with a solid core: multi-channel support, per-subscriber personalisation, strict security layering, email deliverability signals (List-Unsubscribe headers, standardised footers), and a well-validated channel configuration schema. The "Open Source Ready" release (2.1.0) completed the goal of making feedmail genuinely distributable: DB-backed configuration provides runtime admin API management, and open-source packaging enables anyone with a Cloudflare account to self-host feedmail with a single curl command.
 
+The next priority is an admin console — a browser-based interface that gives operators visual access to the management capabilities currently available only through the admin API. The console runs as a separate Cloudflare Worker alongside the existing API Worker, using the admin API as its data layer rather than accessing D1 directly. This keeps the API as the single source of truth and allows the console to be scaled or replaced independently. Authentication uses passkeys as the primary login method with magic link email as a fallback — no passwords, no third-party SSO. Features are sequenced so that each step delivers testable, working functionality: magic link auth provides a complete login system first, passkey support layers on top, the styled UI brings it all together, and enhancements add pagination and config editing after the core console is usable.
+
+---
+
+## Target Users
+
+### Self-hosting operator
+
+A developer or technically proficient sysadmin who runs feedmail on their own Cloudflare account. They are comfortable with CLI tools, wrangler, and API calls. They choose feedmail because it's lightweight, self-hosted, and avoids third-party newsletter platforms. They want an admin UI for convenience and visibility, not because they can't use the API — it saves time on routine tasks like checking subscriber counts and managing feeds. They value simplicity, zero lock-in, and full control over their data.
+
+### Subscriber
+
+A reader who subscribes to receive feed updates via email. They interact with feedmail only through the subscribe form, verification email, and newsletter emails. They expect a frictionless subscribe flow, reliable email delivery, and easy one-click unsubscribe. They never see the admin interface.
+
+---
+
+## Planned
+
+### Release: Admin Console
+
+A browser-based admin console with passwordless authentication, giving operators a visual interface for managing channels, feeds, and subscribers without API calls.
+
+| # | Feature | Description | GUID |
+|---|---------|-------------|------|
+| 1 | [admin-auth-magic-link](./admin-auth-magic-link.md) | Establishes the admin Worker, session management, and magic link email login for the admin console | `233E72F0-C4B3-41A8-8A4E-5AEC156C456E` |
+| 2 | [admin-auth-passkey](./admin-auth-passkey.md) | Adds passkey (WebAuthn) authentication as the primary login method, with magic link as fallback | `FF8F870D-4FD8-491F-9DF2-A4D5E332BE22` |
+| 3 | [admin-console-ui](./admin-console-ui.md) | Server-rendered admin UI with HTMX and CUBE CSS: dashboard, channel/feed CRUD, subscriber list, and styled auth pages | `D108788E-EB05-4EFC-B7AD-FB9840790A69` |
+
+### Release: Admin Console Enhancements
+
+Paginated subscriber lists and in-browser site configuration editing.
+
+| # | Feature | Description | GUID |
+|---|---------|-------------|------|
+| 4 | [admin-console-enhancements](./admin-console-enhancements.md) | Server-side subscriber list pagination with API changes, and site config editing in the Settings page | `0921300D-83E6-4423-AE32-DFB5ED5BD88A` |
+
 ---
 
 ## Shipped
