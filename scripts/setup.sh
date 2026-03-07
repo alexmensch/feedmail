@@ -108,6 +108,10 @@ sed -i '' 's/^pattern = /# pattern = /' wrangler.prod.toml
 sed -i '' 's/^zone_name = /# zone_name = /' wrangler.prod.toml
 
 echo "  Created wrangler.prod.toml"
+
+# Update package.json deploy/migrate scripts to use the correct database name
+sed -i '' "s/wrangler d1 migrations apply feedmail --remote/wrangler d1 migrations apply $WORKER_NAME --remote/g" package.json
+
 echo ""
 
 # --- Collect secrets (R11a) ---
@@ -125,7 +129,7 @@ echo ""
 # --- Run migrations (R12) ---
 
 echo "Running D1 migrations ..."
-$WRANGLER d1 migrations apply "$WORKER_NAME" --remote --config wrangler.prod.toml || {
+yes | $WRANGLER d1 migrations apply "$WORKER_NAME" --remote --config wrangler.prod.toml || {
   echo "Error: Migrations failed."
   exit 1
 }
@@ -299,8 +303,48 @@ fi
 echo ""
 echo "=== Setup complete! ==="
 echo ""
-echo "Your feedmail worker is deployed and ready."
-echo "Add a subscribe form to your site that POSTs to: $API_URL/api/subscribe"
+echo "Your feedmail worker is deployed and available at:"
+echo "  $API_URL"
 echo ""
-echo "To add more channels or feeds, use the admin API."
-echo "See the README for details."
+echo "Configuration summary:"
+echo "  Worker name:    $WORKER_NAME"
+echo "  Domain:         $DOMAIN"
+echo "  Channel:        $CHANNEL_ID"
+echo "  Site name:      $SITE_NAME"
+echo "  Site URL:       $SITE_URL"
+echo "  From:           $FROM_USER@$DOMAIN ($FROM_NAME)"
+if [ -n "$REPLY_TO" ]; then
+  echo "  Reply-to:       $REPLY_TO"
+fi
+if [ -n "$COMPANY_NAME" ] || [ -n "$COMPANY_ADDRESS" ]; then
+  COMPANY_LINE=""
+  if [ -n "$COMPANY_NAME" ]; then
+    COMPANY_LINE="$COMPANY_NAME"
+  fi
+  if [ -n "$COMPANY_ADDRESS" ]; then
+    if [ -n "$COMPANY_LINE" ]; then
+      COMPANY_LINE="$COMPANY_LINE, $COMPANY_ADDRESS"
+    else
+      COMPANY_LINE="$COMPANY_ADDRESS"
+    fi
+  fi
+  echo "  Company:        $COMPANY_LINE"
+fi
+echo "  Feed:           $FEED_NAME → $FEED_URL"
+echo "  CORS origin:    $CORS_ORIGIN"
+echo ""
+echo "Next steps:"
+echo "  1. Configure DNS routes: edit wrangler.prod.toml to uncomment the"
+echo "     [[routes]] section. Set zone_name to your Cloudflare zone (usually"
+echo "     the apex domain) so that https://$DOMAIN/api/* is accessible."
+echo "     Then redeploy with: pnpm run deploy"
+echo "  2. Verify the service is accessible on your domain:"
+echo "     curl -s https://$DOMAIN/api/admin/channels \\"
+echo "       -H \"Authorization: Bearer <your-admin-key>\" | python3 -m json.tool"
+echo "  3. Add a subscribe form to your site that POSTs to:"
+echo "     https://$DOMAIN/api/subscribe"
+echo "  4. Seed your feed history (prevents sending old items to new subscribers):"
+echo "     curl -s -X POST https://$DOMAIN/api/send \\"
+echo "       -H \"Authorization: Bearer <your-admin-key>\""
+echo "  5. To add more channels or feeds, use the admin API."
+echo "     See the README for details."
