@@ -41,7 +41,7 @@ echo ""
 
 # --- Clone repository ---
 
-read -rp "Install directory [./feedmail]: " INSTALL_DIR
+read -rp "Install directory [./feedmail]: " INSTALL_DIR < /dev/tty
 INSTALL_DIR="${INSTALL_DIR:-./feedmail}"
 INSTALL_DIR="${INSTALL_DIR/#\~/$HOME}"
 
