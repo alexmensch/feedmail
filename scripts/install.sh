@@ -63,4 +63,4 @@ echo ""
 
 # --- Hand off to setup wizard ---
 
-exec bash scripts/setup.sh
+exec bash "$INSTALL_DIR/scripts/setup.sh"
