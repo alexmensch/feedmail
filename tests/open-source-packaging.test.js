@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { readFileSync, existsSync, accessSync, constants } from "fs";
-import { execSync } from "child_process";
+import { execSync, execFileSync } from "child_process";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -266,7 +266,7 @@ describe("setup.sh structure and content", () => {
 
   it("passes bash -n syntax check", () => {
     expect(() => {
-      execSync(`bash -n ${resolve(ROOT, scriptPath)}`, {
+      execFileSync("bash", ["-n", resolve(ROOT, scriptPath)], {
         encoding: "utf-8",
         stdio: "pipe",
       });
