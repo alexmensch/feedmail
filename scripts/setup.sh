@@ -135,6 +135,19 @@ yes | $WRANGLER d1 migrations apply "$WORKER_NAME" --remote --config wrangler.pr
 }
 
 echo ""
+echo "Seeding default configuration ..."
+$WRANGLER d1 execute "$WORKER_NAME" --remote --config wrangler.prod.toml --command "\
+INSERT OR IGNORE INTO site_config (id, verify_max_attempts, verify_window_hours) VALUES (1, 3, 24); \
+INSERT OR IGNORE INTO rate_limit_config (endpoint, max_requests, window_hours) VALUES ('subscribe', 10, 1); \
+INSERT OR IGNORE INTO rate_limit_config (endpoint, max_requests, window_hours) VALUES ('verify', 20, 1); \
+INSERT OR IGNORE INTO rate_limit_config (endpoint, max_requests, window_hours) VALUES ('unsubscribe', 20, 1); \
+INSERT OR IGNORE INTO rate_limit_config (endpoint, max_requests, window_hours) VALUES ('send', 5, 1); \
+INSERT OR IGNORE INTO rate_limit_config (endpoint, max_requests, window_hours) VALUES ('admin', 30, 1);" || {
+  echo "Error: Failed to seed default configuration."
+  exit 1
+}
+
+echo ""
 
 # --- Deploy worker (R13) ---
 
