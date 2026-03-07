@@ -108,10 +108,6 @@ sed -i '' 's/^pattern = /# pattern = /' wrangler.prod.toml
 sed -i '' 's/^zone_name = /# zone_name = /' wrangler.prod.toml
 
 echo "  Created wrangler.prod.toml"
-
-# Update package.json deploy/migrate scripts to use the correct database name
-sed -i '' "s/wrangler d1 migrations apply feedmail --remote/wrangler d1 migrations apply $WORKER_NAME --remote/g" package.json
-
 echo ""
 
 # --- Collect secrets (R11a) ---

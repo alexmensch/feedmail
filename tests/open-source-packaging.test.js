@@ -147,6 +147,11 @@ describe("package.json deploy scripts use wrangler.prod.toml", () => {
     expect(scripts.deploy).toContain("--config wrangler.prod.toml");
   });
 
+  it("deploy and db:migrate scripts use binding name DB (not hardcoded database name)", () => {
+    expect(scripts.deploy).toMatch(/migrations apply DB\b/);
+    expect(scripts["db:migrate"]).toMatch(/migrations apply DB\b/);
+  });
+
   it("build:check script uses default wrangler.toml (no --config flag)", () => {
     expect(scripts["build:check"]).toContain("--dry-run");
     expect(scripts["build:check"]).not.toContain("--config wrangler.prod.toml");
