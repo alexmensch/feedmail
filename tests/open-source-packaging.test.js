@@ -189,7 +189,7 @@ describe("install.sh structure and content", () => {
 
   it("passes bash -n syntax check", () => {
     expect(() => {
-      execSync(`bash -n ${resolve(ROOT, scriptPath)}`, {
+      execFileSync("bash", ["-n", resolve(ROOT, scriptPath)], {
         encoding: "utf-8",
         stdio: "pipe",
       });
