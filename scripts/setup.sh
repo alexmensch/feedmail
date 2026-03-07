@@ -10,6 +10,9 @@
 
 set -euo pipefail
 
+# Ensure we're running from the repo root
+cd "$(dirname "$0")/.."
+
 WRANGLER="pnpm exec wrangler"
 
 # --- Verify wrangler is available and authenticated ---
