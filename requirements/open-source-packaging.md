@@ -44,3 +44,100 @@ Enable anyone to self-host feedmail by separating personal deployment config fro
 - GitHub Actions or CI/CD pipeline integration
 - GitHub Template Repository configuration
 - Upgrade path for existing deployers (covered by the db-backed-config migration script)
+
+## Technical Specification
+
+### Summary
+
+This feature prepares the feedmail repository for public self-hosting by removing personal deployment configuration from `wrangler.toml`, gitignoring a private `wrangler.prod.toml`, updating deploy/build scripts to use the private config file, creating a curl-installable bootstrap script (`scripts/install.sh`) and an interactive setup wizard (`scripts/setup.sh`), and rewriting the README to present the automated installer as the primary path with manual setup as a secondary option.
+
+### Requirements Table
+
+| # | Requirement | Description | Acceptance Criteria | Edge Cases / Error Conditions |
+|---|-------------|-------------|---------------------|-------------------------------|
+| 1 | Sanitise `wrangler.toml` | Remove `account_id` entirely. Replace `database_id` value with `YOUR_DATABASE_ID`, worker `name` value with `feedmail`, route `pattern` and `zone_name` with placeholder values, and `DOMAIN` value with `YOUR_DOMAIN`. No `CHANNELS`, `VERIFY_MAX_ATTEMPTS`, or `VERIFY_WINDOW_HOURS` vars. Keep `[build]`, `[triggers]`, `[[d1_databases]]` binding/database_name, `[observability.logs]`, secrets comment, `main`, `compatibility_date`, `compatibility_flags`, and `upload_source_maps` intact. | `account_id` line is absent. `database_id` is `"YOUR_DATABASE_ID"`. `name` is `"feedmail"`. `DOMAIN` is `"YOUR_DOMAIN"`. Route pattern is `"YOUR_DOMAIN/api/*"` and zone_name is `"YOUR_DOMAIN"`. No `CHANNELS` or `VERIFY_` vars anywhere in the file. All structural sections (`[build]`, `[triggers]`, `[[d1_databases]]`, `[observability.logs]`) remain. | -- |
+| 2 | Gitignore `wrangler.prod.toml` | Add `wrangler.prod.toml` to `.gitignore`. | `git check-ignore -v wrangler.prod.toml` exits 0 when run from project root. Existing `.gitignore` entries are preserved and unmodified. | -- |
+| 3 | Update deploy and build:check scripts | The `deploy` script in `package.json` must pass `--config wrangler.prod.toml` to both the `wrangler d1 migrations apply` and `wrangler deploy` commands. The `build:check` script must pass `--config wrangler.prod.toml` to `wrangler deploy --dry-run`. The `db:migrate` script must pass `--config wrangler.prod.toml` to `wrangler d1 migrations apply`. | `deploy` script is `"wrangler d1 migrations apply feedmail --remote --config wrangler.prod.toml && wrangler deploy --config wrangler.prod.toml"`. `build:check` script is `"wrangler deploy --dry-run --outdir dist --config wrangler.prod.toml"`. `db:migrate` script is `"wrangler d1 migrations apply feedmail --remote --config wrangler.prod.toml"`. `dev`, `dev:test`, `db:migrate:local`, `db:reset:local`, `db:seed:local` and all test scripts remain unchanged. | `wrangler.prod.toml` does not exist: wrangler itself prints an error and exits non-zero; the scripts do not need to guard against this separately. |
+| 4 | `install.sh` prerequisite checks | Check that `git`, `node` (v18+), `pnpm`, and `wrangler` are installed and on PATH. Check that `wrangler whoami` succeeds (authenticated). Each check prints a status line. Any failure prints the tool name, a one-line install/login hint, and exits 1. | Running with all tools present and wrangler authenticated: prints all-pass status and continues. Missing `git`: prints hint to install git, exits 1. `node` below v18: prints version requirement, exits 1. Missing `pnpm`: prints pnpm install hint, exits 1. Missing `wrangler`: prints wrangler install hint, exits 1. `wrangler whoami` fails: prints hint to run `wrangler login`, exits 1. | `node --version` outputs formats like `v18.0.0` or `v22.5.1`; parse the major version from the leading `v`. |
+| 5 | `install.sh` clone repository | Prompt for target directory with default `./feedmail`. Clone the repo via `git clone` into that path. Run `pnpm install` inside the cloned directory. | Cloned repo exists at chosen path with `.git` directory. `node_modules` directory exists after `pnpm install`. | Target directory already exists: print error message, exit 1, no modifications to existing directory. `git clone` failure: exit 1. `pnpm install` failure: exit 1. |
+| 6 | `install.sh` hand off to `setup.sh` | After successful `pnpm install`, `cd` into the cloned repo directory and execute `bash scripts/setup.sh`. | `setup.sh` executes with working directory set to the cloned repo root. Exit code from `setup.sh` is propagated as `install.sh` exit code. | -- |
+| 7 | `setup.sh` existing config guard | If `wrangler.prod.toml` exists in the working directory, prompt `"wrangler.prod.toml already exists. Overwrite? [y/N]"`. Default is N (empty input or anything other than y/Y). | Answering N or pressing Enter: script exits 0, `wrangler.prod.toml` is not modified. Answering y or Y: script continues past this check. If `wrangler.prod.toml` does not exist: no prompt, script continues. | -- |
+| 8 | `setup.sh` collect infrastructure config | Prompt for worker name (default: `feedmail`) and domain. Domain must be a bare hostname with no protocol prefix, no path segments, and no trailing slash. | Worker name prompt shows default `feedmail`; empty input uses default. Domain prompt rejects blank input and re-prompts. Domain containing `://` is rejected with an explanation and re-prompted. Domain ending with `/` is rejected with an explanation and re-prompted. Domain containing `/` (path segment) is rejected with an explanation and re-prompted. | Validation mirrors the rules in `validateDomain()` in `src/lib/config.js`. |
+| 9 | `setup.sh` create D1 database | Run `wrangler d1 create <worker-name>` and parse the `database_id` from stdout output. | `database_id` is captured as a non-empty string and available for subsequent TOML generation. | `wrangler d1 create` fails (e.g., name already taken): print the wrangler error output and exit 1 with guidance to delete the existing database or choose a different worker name. |
+| 10 | `setup.sh` write `wrangler.prod.toml` | Generate a complete, standalone `wrangler.prod.toml` with: worker `name`, `main`, `compatibility_date`, `compatibility_flags`, `upload_source_maps`, `[build]` command, `[triggers]` cron, `DOMAIN` env var, `[[d1_databases]]` binding with `database_name` and `database_id`, `[observability.logs]`, secrets comment, and a commented-out `[[routes]]` example section. No `CHANNELS` or `VERIFY_` vars. | Syntactically valid TOML. All required fields present matching the structure of the sanitised `wrangler.toml`. `database_name` matches the worker name used in `wrangler d1 create`. Routes section is entirely commented out. File is a complete wrangler config (not an overlay). | -- |
+| 11 | `setup.sh` set secrets | Prompt for `RESEND_API_KEY` and `ADMIN_API_KEY` with echo disabled (using `read -rs`). Pipe each value to `wrangler secret put <name> --config wrangler.prod.toml`. Retain the `ADMIN_API_KEY` value in a shell variable for the later channel creation API call. User is not prompted for the key again. | Both secrets are set via wrangler without error. The `ADMIN_API_KEY` value remains accessible in the shell for requirement 18. Neither secret value is printed to stdout. | Either `wrangler secret put` command fails: print the wrangler error output and exit 1. |
+| 12 | `setup.sh` run migrations | Run `wrangler d1 migrations apply <db-name> --remote --config wrangler.prod.toml`. | Migrations complete without error. The database has all 5 migration tables applied (verified by wrangler exit code 0). | Migration failure: print wrangler output and exit 1. |
+| 13 | `setup.sh` deploy worker | Run `wrangler deploy --config wrangler.prod.toml`. Parse the workers.dev URL from stdout. Print the deployment URL to the user. | Worker is deployed. workers.dev URL is extracted from output and stored in a shell variable. | Deploy failure: print wrangler output and exit 1. If workers.dev URL cannot be parsed from output (e.g., workers.dev routes disabled): proceed to the API URL prompt (requirement 14) with no pre-filled default. |
+| 14 | `setup.sh` confirm API URL | Prompt: `"API base URL for channel setup [<workers-dev-url>]:"` with the parsed workers.dev URL as default if available. Empty input accepts the default. If no default was parsed, empty input re-prompts. Strip any trailing slash from the entered/accepted URL. | The resulting URL is used for all subsequent API calls. URL has no trailing slash. | No workers.dev URL was parsed and user enters empty input: re-prompt instead of proceeding with an empty URL. |
+| 15 | `setup.sh` collect required channel config | Prompt for: channel ID, site name, site URL, from-user (email local part), from-name, feed name, feed URL. Each prompt includes a brief description of the field. Empty input re-prompts (all fields are required). | All seven values are collected as non-empty strings. | `from-user` containing `@` or whitespace: reject and re-prompt with explanation (mirrors `validateChannelFields()` check in `src/lib/config.js`). |
+| 16 | `setup.sh` collect optional channel config | Prompt for reply-to email, company name, and company address. Each prompt is marked as optional. Pressing Enter skips. | Skipped fields are entirely absent from the JSON payload sent to the admin API (not sent as empty strings or null). Present fields are included as string values. | -- |
+| 17 | `setup.sh` derive CORS origin | Extract the origin (scheme + host + port if non-standard) from the site URL. Present as the default for `corsOrigins`. User can accept or override. | `https://example.com/writing` produces default `https://example.com`. `http://localhost:8888` produces default `http://localhost:8888`. `https://example.com:8443/path` produces default `https://example.com:8443`. | Site URL without a scheme (no `://` found): warn the user and re-prompt for the site URL field (requirement 15), not for CORS origin. |
+| 18 | `setup.sh` create channel via API | POST channel config and a single feed to `<api-url>/api/admin/channels` using `curl` with `Authorization: Bearer <ADMIN_API_KEY>` header and `Content-Type: application/json`. The JSON payload includes `id`, `siteName`, `siteUrl`, `fromUser`, `fromName`, `corsOrigins` (as a JSON array), and `feeds` (array with one object containing `name` and `url`). Optional fields (`replyTo`, `companyName`, `companyAddress`) are included only if the user provided them. | HTTP 201 response: print confirmation message including the channel ID. | Non-2xx response: print the response status code and response body, then exit 1. `curl` command failure (e.g., network error): exit 1. |
+| 19 | README: curl install as primary path | The README Quick Start section opens with a `curl \| bash` command as the recommended installation path. The URL points to the raw GitHub content URL for `scripts/install.sh` on the `master` branch. | The curl command is the first actionable instruction in the Quick Start section. The URL is `https://raw.githubusercontent.com/alexmensch/feedmail/master/scripts/install.sh`. | -- |
+| 20 | README: manual setup as secondary path | Manual setup steps are moved to a section titled "Manual Setup". Steps are updated to reflect the `wrangler.prod.toml` workflow: creating `wrangler.prod.toml` manually, setting secrets with `--config wrangler.prod.toml`, running migrations with `--config wrangler.prod.toml`, deploying with `pnpm run deploy`, and creating a channel via `curl` to the admin API. No references to `CHANNELS` env var. | Section references `wrangler.prod.toml` throughout. Includes a `curl` example for creating a channel via `POST /api/admin/channels`. No `CHANNELS`, `VERIFY_MAX_ATTEMPTS`, or `VERIFY_WINDOW_HOURS` env var references anywhere in the README. | -- |
+| 21 | README: Resend domain verification note | The Prerequisites section notes that Resend requires domain verification before sending from a custom domain, with a link to Resend documentation. | Note is present in the Prerequisites area. Includes a hyperlink to Resend's domain verification docs. | -- |
+| 22 | README: updating feedmail section | A new "Updating" section provides the update workflow: `git pull origin master`, `pnpm install`, `pnpm run deploy`. Notes that `wrangler.prod.toml` is gitignored and preserved across updates. | Section is present with the three commands in order. Mentions that `wrangler.prod.toml` is gitignored so it is not overwritten by pulls. | -- |
+
+### Implementation Notes
+
+#### Requirement 1 — Sanitise `wrangler.toml`
+
+Current contents that need changing:
+- `name = "newsletter-alxm-me"` → `name = "feedmail"`
+- `account_id = "ecd2a3d65ecc1018f93da07542223581"` → remove entire line
+- `database_id = "5a427f97-0e66-499c-85e3-687980dab09c"` → `database_id = "YOUR_DATABASE_ID"`
+- `[[routes]]` section: replace pattern with `"YOUR_DOMAIN/api/*"` and zone_name with `"YOUR_DOMAIN"`
+- `DOMAIN = "newsletter.alxm.me"` → `DOMAIN = "YOUR_DOMAIN"`
+
+Everything else remains unchanged.
+
+#### Requirement 3 — Update deploy scripts
+
+Three scripts need `--config wrangler.prod.toml`:
+- `deploy`: both `wrangler d1 migrations apply` and `wrangler deploy`
+- `build:check`: `wrangler deploy --dry-run`
+- `db:migrate`: `wrangler d1 migrations apply`
+
+#### Requirements 4-6 — `install.sh`
+
+Uses `#!/usr/bin/env bash` and `set -euo pipefail` (matching `test-local.sh` conventions). HTTPS clone URL. Node version check parses major from `v<major>.<minor>.<patch>`.
+
+#### Requirements 7-18 — `setup.sh`
+
+Uses `#!/usr/bin/env bash` and `set -euo pipefail`.
+
+Key details:
+- **TOML generation (req 10):** Must be a complete standalone file — wrangler's `--config` completely replaces, doesn't merge
+- **Secret piping (req 11):** `echo "$SECRET_VALUE" | wrangler secret put <name> --config wrangler.prod.toml`
+- **Workers.dev URL parsing (req 13):** Regex for `https://` URL containing `workers.dev`
+- **CORS origin derivation (req 17):** Extract `scheme://host[:port]` from siteUrl
+- **JSON construction (req 18):** Build without `jq` dependency; `corsOrigins` as JSON array, `feeds` as array
+
+#### Requirements 19-22 — README rewrite
+
+Curl command: `curl -fsSL https://raw.githubusercontent.com/alexmensch/feedmail/master/scripts/install.sh | bash`
+
+### Ambiguities Resolved
+
+1. `wrangler.prod.toml` is standalone (not overlay) — wrangler `--config` completely replaces
+2. `account_id` omitted from generated TOML — wrangler infers from auth session
+3. `database_name` = worker name — matches what `wrangler d1 create` produces
+
+### Out of Scope
+
+- Multi-channel config in `setup.sh`
+- Multiple feeds per channel in `setup.sh`
+- Windows / PowerShell support
+- Automatic `[[routes]]` configuration
+- GitHub Actions / CI/CD
+- No changes to any runtime source code in `src/`
+
+## Out-of-spec changes
+
+| # | Change | Description | Rationale |
+|---|--------|-------------|-----------|
+| 1 | `build:check` uses default `wrangler.toml` | Reverted to not pass `--config wrangler.prod.toml` | `wrangler.prod.toml` is gitignored; CI runs `build:check` and would fail. The dry-run works fine with placeholder values in `wrangler.toml`. |
+| 2 | `setup.sh` TOML generation via `cp + sed` | Replaced heredoc with `cp wrangler.toml wrangler.prod.toml` followed by `sed` replacements | Eliminates duplication of the entire TOML structure between `wrangler.toml` and `setup.sh`. Single source of truth for config structure. |
+| 3 | `setup.sh` JSON payload via `python3` | Replaced string concatenation with `python3 json.dumps` for safe escaping | Prevents malformed JSON when user input contains quotes, backslashes, or other special characters. `python3` is available on macOS and Linux. |
+| 4 | `wrangler.test.toml` sanitised | Synced `compatibility_date` to `2026-02-27`, replaced real `database_id` with `local-test-db`, replaced real domain with `localhost` | Pre-existing config drift and real identifiers in checked-in test config. |
+| 5 | `scripts/migrate-env-to-db.mjs` removed | Deleted one-time env-to-DB migration script and its `db:seed:local` npm script | No longer needed after open-source packaging; new deployers use the admin API for channel creation. |

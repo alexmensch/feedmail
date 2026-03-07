@@ -1,8 +1,7 @@
-name = "newsletter-alxm-me"
+name = "feedmail"
 main = "src/index.js"
 compatibility_date = "2026-02-27"
 compatibility_flags = ["nodejs_compat"]
-account_id = "ecd2a3d65ecc1018f93da07542223581"
 upload_source_maps = true
 
 [build]
@@ -14,14 +13,14 @@ crons = ["0 */6 * * *"]
 [[d1_databases]]
 binding = "DB"
 database_name = "feedmail"
-database_id = "5a427f97-0e66-499c-85e3-687980dab09c"
+database_id = "YOUR_DATABASE_ID"
 
 [[routes]]
-pattern = "newsletter.alxm.me/api/*"
-zone_name = "alxm.me"
+pattern = "YOUR_DOMAIN/api/*"
+zone_name = "YOUR_DOMAIN"
 
 [vars]
-DOMAIN = "newsletter.alxm.me"
+DOMAIN = "YOUR_DOMAIN"
 
 # Secrets (set via `wrangler secret put`):
 # RESEND_API_KEY
