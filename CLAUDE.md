@@ -15,6 +15,10 @@ pnpm run db:reset:local   # Clear all local D1 tables
 pnpm run test             # Run all tests (vitest)
 pnpm run test:coverage    # Run tests with coverage report
 pnpm run build:check      # Dry-run deploy to verify build (uses default wrangler.toml)
+pnpm run lint             # Run ESLint
+pnpm run lint:fix         # Run ESLint with auto-fix
+pnpm run format           # Format all files with Prettier
+pnpm run format:check     # Check formatting without writing
 ```
 
 ## Architecture
@@ -85,6 +89,7 @@ scripts/
 `wrangler.test.toml` provides a separate config for local testing with a test channel that has all optional fields populated (companyName, companyAddress, replyTo) and feeds pointing to local fixtures. This avoids putting test config in production.
 
 To test the full email flow locally:
+
 1. `pnpm run dev:feed` — serves RSS and Atom fixtures on port 8888
 2. `pnpm run dev:test` — starts wrangler with the test config on port 8787
 3. `./scripts/test-local.sh <your-email>` — walks through subscribe → verify → send
@@ -111,6 +116,7 @@ To test the full email flow locally:
 ### D1 Schema (9 tables)
 
 **Subscriber & delivery tables:**
+
 - `subscribers` — email, channel_id, status (pending/verified/unsubscribed), verify_token, unsubscribe_token. UNIQUE(email, channel_id).
 - `verification_attempts` — subscriber_id, sent_at. Used for rolling window rate limiting.
 - `sent_items` — item_id, feed_url, title, recipient_count. UNIQUE(item_id, feed_url). Tracks both seeded (bootstrapped) and actually-sent items. Only inserted when all subscribers have been reached.
@@ -118,6 +124,7 @@ To test the full email flow locally:
 - `rate_limits` — ip, endpoint, requested_at. Indexed on (ip, endpoint, requested_at) for efficient rolling window queries. Expired rows are cleaned up on each check.
 
 **Configuration tables (migration 0005):**
+
 - `site_config` — key, value. Stores site-level settings (verify_max_attempts, verify_window_hours).
 - `rate_limit_config` — endpoint (PK), max_requests, window_hours. Per-endpoint rate limit overrides.
 - `channels` — id (PK), site_name, site_url, from_user, from_name, reply_to, company_name, company_address, cors_origins (JSON array). DB uses snake_case; `db.js` helpers convert to camelCase.
@@ -126,11 +133,13 @@ To test the full email flow locally:
 ### API Routes
 
 **Public (CORS-enabled for configured origins):**
+
 - `POST /api/subscribe` — `{email, channelId}` (only these two fields accepted; extra fields are rejected)
 - `GET /api/verify?token=` — Returns HTML page
 - `GET|POST /api/unsubscribe?token=` — GET returns HTML, POST is RFC 8058 one-click
 
 **Authenticated (Bearer token via `ADMIN_API_KEY`):**
+
 - `POST /api/send` — Manual feed check + send, optional `{channelId}` filter
 - `GET /api/admin/stats?channelId=` — Subscriber counts + sent item stats
 - `GET /api/admin/subscribers?channelId=&status=` — Subscriber list with optional status filter
@@ -156,19 +165,23 @@ Requests pass through these checks in order:
 **`wrangler.toml`** is a template with placeholder values (`YOUR_DOMAIN`, `YOUR_DATABASE_ID`). The setup wizard (`scripts/setup.sh`) generates `wrangler.prod.toml` from it with real values. `wrangler.prod.toml` is gitignored since it contains deployer-specific config. The `deploy` and `db:migrate` scripts use `--config wrangler.prod.toml`; `build:check` uses the default `wrangler.toml` (dry-run works with placeholders).
 
 **`wrangler.toml` / `wrangler.prod.toml` vars:**
+
 - `DOMAIN` — Domain name of the service (e.g. `feedmail.cc`). Used to construct all URLs as `https://{DOMAIN}/api/...` and from-email as `{fromUser}@{DOMAIN}`. Must not include protocol, trailing slash, or path segments. This is the only config that remains as an env var.
 
 **D1 database (managed via admin API):**
+
 - **Channels** — id, siteName, siteUrl, fromUser, fromName, replyTo, companyName, companyAddress, corsOrigins
 - **Feeds** — name, url (per channel, with auto-increment integer PK)
 - **Site config** — verify_max_attempts (default 3), verify_window_hours (default 24)
 - **Rate limits** — Per-endpoint max_requests and window_hours overrides
 
 **Secrets (set via `wrangler secret put`):**
+
 - `RESEND_API_KEY`
 - `ADMIN_API_KEY`
 
 **Local dev secrets** go in `.dev.vars` (gitignored):
+
 ```
 RESEND_API_KEY=re_xxxxxxxxx
 ADMIN_API_KEY=any-test-value

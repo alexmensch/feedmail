@@ -7,7 +7,7 @@ import {
   getSiteConfig,
   upsertSiteConfig,
   getRateLimitConfigs,
-  upsertRateLimitConfig,
+  upsertRateLimitConfig
 } from "../lib/db.js";
 import { RATE_LIMIT_DEFAULTS } from "../lib/config.js";
 import { jsonResponse } from "../lib/response.js";
@@ -37,13 +37,14 @@ async function getConfig(env) {
   // Merge DB rate limits with defaults
   const rateLimits = {};
   for (const endpoint of VALID_ENDPOINTS) {
-    rateLimits[endpoint] = dbRateLimits[endpoint] || RATE_LIMIT_DEFAULTS[endpoint];
+    rateLimits[endpoint] =
+      dbRateLimits[endpoint] || RATE_LIMIT_DEFAULTS[endpoint];
   }
 
   return jsonResponse(200, {
     verifyMaxAttempts: siteConfig?.verifyMaxAttempts ?? 3,
     verifyWindowHours: siteConfig?.verifyWindowHours ?? 24,
-    rateLimits,
+    rateLimits
   });
 }
 
@@ -56,24 +57,42 @@ async function updateConfig(request, env) {
   }
 
   // Validate and apply verify settings
-  if (body.verifyMaxAttempts !== undefined || body.verifyWindowHours !== undefined) {
+  if (
+    body.verifyMaxAttempts !== undefined ||
+    body.verifyWindowHours !== undefined
+  ) {
     const currentSiteConfig = await getSiteConfig(env.DB);
 
     if (body.verifyMaxAttempts !== undefined) {
-      if (!Number.isInteger(body.verifyMaxAttempts) || body.verifyMaxAttempts <= 0) {
-        return jsonResponse(400, { error: "verifyMaxAttempts must be a positive integer" });
+      if (
+        !Number.isInteger(body.verifyMaxAttempts) ||
+        body.verifyMaxAttempts <= 0
+      ) {
+        return jsonResponse(400, {
+          error: "verifyMaxAttempts must be a positive integer"
+        });
       }
     }
     if (body.verifyWindowHours !== undefined) {
-      if (typeof body.verifyWindowHours !== "number" || body.verifyWindowHours <= 0) {
-        return jsonResponse(400, { error: "verifyWindowHours must be a positive number" });
+      if (
+        typeof body.verifyWindowHours !== "number" ||
+        body.verifyWindowHours <= 0
+      ) {
+        return jsonResponse(400, {
+          error: "verifyWindowHours must be a positive number"
+        });
       }
     }
 
-    const maxAttempts = body.verifyMaxAttempts ?? currentSiteConfig?.verifyMaxAttempts ?? 3;
-    const windowHours = body.verifyWindowHours ?? currentSiteConfig?.verifyWindowHours ?? 24;
+    const maxAttempts =
+      body.verifyMaxAttempts ?? currentSiteConfig?.verifyMaxAttempts ?? 3;
+    const windowHours =
+      body.verifyWindowHours ?? currentSiteConfig?.verifyWindowHours ?? 24;
 
-    await upsertSiteConfig(env.DB, { verifyMaxAttempts: maxAttempts, verifyWindowHours: windowHours });
+    await upsertSiteConfig(env.DB, {
+      verifyMaxAttempts: maxAttempts,
+      verifyWindowHours: windowHours
+    });
   }
 
   // Validate and apply rate limit settings
@@ -84,15 +103,19 @@ async function updateConfig(request, env) {
       }
 
       if (typeof config.maxRequests !== "number" || config.maxRequests <= 0) {
-        return jsonResponse(400, { error: `rateLimits.${endpoint}.maxRequests must be a positive number` });
+        return jsonResponse(400, {
+          error: `rateLimits.${endpoint}.maxRequests must be a positive number`
+        });
       }
       if (typeof config.windowHours !== "number" || config.windowHours <= 0) {
-        return jsonResponse(400, { error: `rateLimits.${endpoint}.windowHours must be a positive number` });
+        return jsonResponse(400, {
+          error: `rateLimits.${endpoint}.windowHours must be a positive number`
+        });
       }
 
       await upsertRateLimitConfig(env.DB, endpoint, {
         windowHours: config.windowHours,
-        maxRequests: config.maxRequests,
+        maxRequests: config.maxRequests
       });
     }
   }

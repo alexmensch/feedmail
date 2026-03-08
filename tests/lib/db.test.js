@@ -35,7 +35,7 @@ import {
   getFeedById,
   insertFeed,
   updateFeed,
-  deleteFeed,
+  deleteFeed
 } from "../../src/lib/db.js";
 
 /**
@@ -46,11 +46,11 @@ function mockDb(returnValue) {
     bind: vi.fn().mockReturnThis(),
     first: vi.fn().mockResolvedValue(returnValue),
     all: vi.fn().mockResolvedValue(returnValue),
-    run: vi.fn().mockResolvedValue(returnValue),
+    run: vi.fn().mockResolvedValue(returnValue)
   };
   return {
     prepare: vi.fn().mockReturnValue(chainable),
-    _chain: chainable,
+    _chain: chainable
   };
 }
 
@@ -65,7 +65,7 @@ describe("db", () => {
 
         expect(result).toEqual(subscriber);
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("WHERE email = ? AND channel_id = ?"),
+          expect.stringContaining("WHERE email = ? AND channel_id = ?")
         );
         expect(db._chain.bind).toHaveBeenCalledWith("a@b.com", "site1");
         expect(db._chain.first).toHaveBeenCalled();
@@ -83,17 +83,17 @@ describe("db", () => {
         const subscriber = {
           id: 1,
           verify_token: "tok",
-          status: "pending",
+          status: "pending"
         };
         const db = mockDb(subscriber);
 
         const result = await getSubscriberByVerifyToken(db, "tok");
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("verify_token = ?"),
+          expect.stringContaining("verify_token = ?")
         );
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("status = 'pending'"),
+          expect.stringContaining("status = 'pending'")
         );
         expect(db._chain.bind).toHaveBeenCalledWith("tok");
         expect(result).toEqual(subscriber);
@@ -114,11 +114,11 @@ describe("db", () => {
         const result = await getSubscriberByUnsubscribeToken(db, "unsub-tok");
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("unsubscribe_token = ?"),
+          expect.stringContaining("unsubscribe_token = ?")
         );
         // Should NOT filter by status
         expect(db.prepare).not.toHaveBeenCalledWith(
-          expect.stringContaining("status ="),
+          expect.stringContaining("status =")
         );
         expect(result).toEqual(subscriber);
       });
@@ -128,7 +128,7 @@ describe("db", () => {
       it("returns array of verified subscribers", async () => {
         const subscribers = [
           { id: 1, email: "a@b.com" },
-          { id: 2, email: "c@d.com" },
+          { id: 2, email: "c@d.com" }
         ];
         const db = mockDb({ results: subscribers });
 
@@ -136,7 +136,7 @@ describe("db", () => {
 
         expect(result).toEqual(subscribers);
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("status = 'verified'"),
+          expect.stringContaining("status = 'verified'")
         );
         expect(db._chain.bind).toHaveBeenCalledWith("site1");
       });
@@ -156,20 +156,20 @@ describe("db", () => {
           channelId: "site1",
           email: "new@test.com",
           verifyToken: "vtok",
-          unsubscribeToken: "utok",
+          unsubscribeToken: "utok"
         });
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("INSERT INTO subscribers"),
+          expect.stringContaining("INSERT INTO subscribers")
         );
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("'pending'"),
+          expect.stringContaining("'pending'")
         );
         expect(db._chain.bind).toHaveBeenCalledWith(
           "site1",
           "new@test.com",
           "vtok",
-          "utok",
+          "utok"
         );
         expect(db._chain.run).toHaveBeenCalled();
       });
@@ -182,13 +182,13 @@ describe("db", () => {
         await resetSubscriberToPending(db, 42, "new-token");
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("SET status = 'pending'"),
+          expect.stringContaining("SET status = 'pending'")
         );
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("verified_at = NULL"),
+          expect.stringContaining("verified_at = NULL")
         );
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("unsubscribed_at = NULL"),
+          expect.stringContaining("unsubscribed_at = NULL")
         );
         expect(db._chain.bind).toHaveBeenCalledWith("new-token", 42);
       });
@@ -201,10 +201,10 @@ describe("db", () => {
         await updateVerifyToken(db, 42, "updated-token");
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("SET verify_token = ?"),
+          expect.stringContaining("SET verify_token = ?")
         );
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("created_at = datetime('now')"),
+          expect.stringContaining("created_at = datetime('now')")
         );
         expect(db._chain.bind).toHaveBeenCalledWith("updated-token", 42);
       });
@@ -217,10 +217,10 @@ describe("db", () => {
         await markSubscriberVerified(db, 42);
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("status = 'verified'"),
+          expect.stringContaining("status = 'verified'")
         );
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("verify_token = NULL"),
+          expect.stringContaining("verify_token = NULL")
         );
         expect(db._chain.bind).toHaveBeenCalledWith(42);
       });
@@ -233,7 +233,7 @@ describe("db", () => {
         await markSubscriberUnsubscribed(db, 42);
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("status = 'unsubscribed'"),
+          expect.stringContaining("status = 'unsubscribed'")
         );
         expect(db._chain.bind).toHaveBeenCalledWith(42);
       });
@@ -283,9 +283,7 @@ describe("db", () => {
         await insertVerificationAttempt(db, 42);
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining(
-            "INSERT INTO verification_attempts",
-          ),
+          expect.stringContaining("INSERT INTO verification_attempts")
         );
         expect(db._chain.bind).toHaveBeenCalledWith(42);
       });
@@ -298,9 +296,7 @@ describe("db", () => {
         await clearVerificationAttempts(db, 42);
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining(
-            "DELETE FROM verification_attempts",
-          ),
+          expect.stringContaining("DELETE FROM verification_attempts")
         );
         expect(db._chain.bind).toHaveBeenCalledWith(42);
       });
@@ -315,9 +311,7 @@ describe("db", () => {
         const result = await isFeedSeeded(db, "https://example.com/feed");
 
         expect(result).toBe(true);
-        expect(db._chain.bind).toHaveBeenCalledWith(
-          "https://example.com/feed",
-        );
+        expect(db._chain.bind).toHaveBeenCalledWith("https://example.com/feed");
       });
 
       it("returns false when feed has no items", async () => {
@@ -346,7 +340,7 @@ describe("db", () => {
         expect(result).toBe(true);
         expect(db._chain.bind).toHaveBeenCalledWith(
           "item-1",
-          "https://feed.com",
+          "https://feed.com"
         );
       });
 
@@ -367,17 +361,17 @@ describe("db", () => {
           itemId: "item-1",
           feedUrl: "https://feed.com",
           title: "My Post",
-          recipientCount: 5,
+          recipientCount: 5
         });
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("INSERT OR IGNORE INTO sent_items"),
+          expect.stringContaining("INSERT OR IGNORE INTO sent_items")
         );
         expect(db._chain.bind).toHaveBeenCalledWith(
           "item-1",
           "https://feed.com",
           "My Post",
-          5,
+          5
         );
       });
 
@@ -388,14 +382,14 @@ describe("db", () => {
           itemId: "item-1",
           feedUrl: "https://feed.com",
           title: null,
-          recipientCount: 0,
+          recipientCount: 0
         });
 
         expect(db._chain.bind).toHaveBeenCalledWith(
           "item-1",
           "https://feed.com",
           "",
-          0,
+          0
         );
       });
 
@@ -406,14 +400,14 @@ describe("db", () => {
           itemId: "item-1",
           feedUrl: "https://feed.com",
           title: undefined,
-          recipientCount: 0,
+          recipientCount: 0
         });
 
         expect(db._chain.bind).toHaveBeenCalledWith(
           "item-1",
           "https://feed.com",
           "",
-          0,
+          0
         );
       });
     });
@@ -428,14 +422,14 @@ describe("db", () => {
           db,
           42,
           "item-1",
-          "https://feed.com",
+          "https://feed.com"
         );
 
         expect(result).toBe(true);
         expect(db._chain.bind).toHaveBeenCalledWith(
           42,
           "item-1",
-          "https://feed.com",
+          "https://feed.com"
         );
       });
 
@@ -446,7 +440,7 @@ describe("db", () => {
           db,
           42,
           "item-1",
-          "https://feed.com",
+          "https://feed.com"
         );
 
         expect(result).toBe(false);
@@ -460,14 +454,12 @@ describe("db", () => {
         await insertSubscriberSend(db, 42, "item-1", "https://feed.com");
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining(
-            "INSERT OR IGNORE INTO subscriber_sends",
-          ),
+          expect.stringContaining("INSERT OR IGNORE INTO subscriber_sends")
         );
         expect(db._chain.bind).toHaveBeenCalledWith(
           42,
           "item-1",
-          "https://feed.com",
+          "https://feed.com"
         );
       });
     });
@@ -479,11 +471,11 @@ describe("db", () => {
         await deleteSubscriberSends(db, "item-1", "https://feed.com");
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("DELETE FROM subscriber_sends"),
+          expect.stringContaining("DELETE FROM subscriber_sends")
         );
         expect(db._chain.bind).toHaveBeenCalledWith(
           "item-1",
-          "https://feed.com",
+          "https://feed.com"
         );
       });
     });
@@ -496,8 +488,8 @@ describe("db", () => {
           results: [
             { status: "verified", count: 10 },
             { status: "pending", count: 3 },
-            { status: "unsubscribed", count: 2 },
-          ],
+            { status: "unsubscribed", count: 2 }
+          ]
         });
 
         const stats = await getSubscriberStats(db, "site1");
@@ -506,7 +498,7 @@ describe("db", () => {
           total: 15,
           verified: 10,
           pending: 3,
-          unsubscribed: 2,
+          unsubscribed: 2
         });
       });
 
@@ -519,13 +511,13 @@ describe("db", () => {
           total: 0,
           verified: 0,
           pending: 0,
-          unsubscribed: 0,
+          unsubscribed: 0
         });
       });
 
       it("handles partial status results", async () => {
         const db = mockDb({
-          results: [{ status: "verified", count: 5 }],
+          results: [{ status: "verified", count: 5 }]
         });
 
         const stats = await getSubscriberStats(db, "site1");
@@ -534,7 +526,7 @@ describe("db", () => {
           total: 5,
           verified: 5,
           pending: 0,
-          unsubscribed: 0,
+          unsubscribed: 0
         });
       });
     });
@@ -543,21 +535,21 @@ describe("db", () => {
       it("returns total and lastSentAt", async () => {
         const db = mockDb({
           total: 42,
-          lastSentAt: "2025-01-15 10:00:00",
+          lastSentAt: "2025-01-15 10:00:00"
         });
 
         const stats = await getSentItemStats(db, [
           "https://feed1.com",
-          "https://feed2.com",
+          "https://feed2.com"
         ]);
 
         expect(stats).toEqual({
           total: 42,
-          lastSentAt: "2025-01-15 10:00:00",
+          lastSentAt: "2025-01-15 10:00:00"
         });
         expect(db._chain.bind).toHaveBeenCalledWith(
           "https://feed1.com",
-          "https://feed2.com",
+          "https://feed2.com"
         );
       });
 
@@ -575,7 +567,7 @@ describe("db", () => {
         await getSentItemStats(db, ["a", "b", "c"]);
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("IN (?, ?, ?)"),
+          expect.stringContaining("IN (?, ?, ?)")
         );
       });
 
@@ -585,7 +577,7 @@ describe("db", () => {
         await getSentItemStats(db, ["https://feed.com"]);
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("IN (?)"),
+          expect.stringContaining("IN (?)")
         );
       });
     });
@@ -594,7 +586,7 @@ describe("db", () => {
       it("returns subscribers ordered by created_at DESC", async () => {
         const subscribers = [
           { email: "b@test.com", status: "verified" },
-          { email: "a@test.com", status: "pending" },
+          { email: "a@test.com", status: "pending" }
         ];
         const db = mockDb({ results: subscribers });
 
@@ -602,7 +594,7 @@ describe("db", () => {
 
         expect(result).toEqual(subscribers);
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("ORDER BY created_at DESC"),
+          expect.stringContaining("ORDER BY created_at DESC")
         );
         expect(db._chain.bind).toHaveBeenCalledWith("site1");
       });
@@ -613,7 +605,7 @@ describe("db", () => {
         await getSubscriberList(db, "site1", "verified");
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("AND status = ?"),
+          expect.stringContaining("AND status = ?")
         );
         expect(db._chain.bind).toHaveBeenCalledWith("site1", "verified");
       });
@@ -624,7 +616,7 @@ describe("db", () => {
         await getSubscriberList(db, "site1", null);
 
         expect(db.prepare).not.toHaveBeenCalledWith(
-          expect.stringContaining("AND status = ?"),
+          expect.stringContaining("AND status = ?")
         );
         expect(db._chain.bind).toHaveBeenCalledWith("site1");
       });
@@ -638,14 +630,14 @@ describe("db", () => {
       it("queries site_config table for single row", async () => {
         const config = {
           verify_max_attempts: 5,
-          verify_window_hours: 48,
+          verify_window_hours: 48
         };
         const db = mockDb(config);
 
         const result = await getSiteConfig(db);
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("site_config"),
+          expect.stringContaining("site_config")
         );
         expect(db._chain.first).toHaveBeenCalled();
         expect(result).toBeDefined();
@@ -662,7 +654,7 @@ describe("db", () => {
       it("returns verify settings in camelCase", async () => {
         const db = mockDb({
           verify_max_attempts: 10,
-          verify_window_hours: 72,
+          verify_window_hours: 72
         });
 
         const result = await getSiteConfig(db);
@@ -678,11 +670,11 @@ describe("db", () => {
 
         await upsertSiteConfig(db, {
           verifyMaxAttempts: 5,
-          verifyWindowHours: 48,
+          verifyWindowHours: 48
         });
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("site_config"),
+          expect.stringContaining("site_config")
         );
         expect(db._chain.run).toHaveBeenCalled();
       });
@@ -692,12 +684,12 @@ describe("db", () => {
 
         await upsertSiteConfig(db, {
           verifyMaxAttempts: 10,
-          verifyWindowHours: 24,
+          verifyWindowHours: 24
         });
 
         expect(db._chain.bind).toHaveBeenCalledWith(
           expect.anything(),
-          expect.anything(),
+          expect.anything()
         );
       });
     });
@@ -709,14 +701,14 @@ describe("db", () => {
         const db = mockDb({
           results: [
             { endpoint: "subscribe", window_hours: 1, max_requests: 10 },
-            { endpoint: "verify", window_hours: 1, max_requests: 20 },
-          ],
+            { endpoint: "verify", window_hours: 1, max_requests: 20 }
+          ]
         });
 
         const result = await getRateLimitConfigs(db);
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("rate_limit_config"),
+          expect.stringContaining("rate_limit_config")
         );
         expect(result).toBeDefined();
       });
@@ -725,8 +717,8 @@ describe("db", () => {
         const db = mockDb({
           results: [
             { endpoint: "subscribe", window_hours: 1, max_requests: 10 },
-            { endpoint: "admin", window_hours: 1, max_requests: 30 },
-          ],
+            { endpoint: "admin", window_hours: 1, max_requests: 30 }
+          ]
         });
 
         const result = await getRateLimitConfigs(db);
@@ -735,7 +727,7 @@ describe("db", () => {
         expect(result).toHaveProperty("admin");
         expect(result.subscribe).toEqual({
           windowHours: 1,
-          maxRequests: 10,
+          maxRequests: 10
         });
       });
 
@@ -750,8 +742,8 @@ describe("db", () => {
       it("converts snake_case columns to camelCase", async () => {
         const db = mockDb({
           results: [
-            { endpoint: "subscribe", window_hours: 2, max_requests: 50 },
-          ],
+            { endpoint: "subscribe", window_hours: 2, max_requests: 50 }
+          ]
         });
 
         const result = await getRateLimitConfigs(db);
@@ -767,16 +759,16 @@ describe("db", () => {
 
         await upsertRateLimitConfig(db, "subscribe", {
           windowHours: 2,
-          maxRequests: 50,
+          maxRequests: 50
         });
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("rate_limit_config"),
+          expect.stringContaining("rate_limit_config")
         );
         expect(db._chain.bind).toHaveBeenCalledWith(
           expect.anything(),
           expect.anything(),
-          expect.anything(),
+          expect.anything()
         );
         expect(db._chain.run).toHaveBeenCalled();
       });
@@ -788,14 +780,14 @@ describe("db", () => {
       it("queries channels table", async () => {
         const channels = [
           { id: "ch1", site_name: "Site 1", cors_origins: '["https://a.com"]' },
-          { id: "ch2", site_name: "Site 2", cors_origins: '["https://b.com"]' },
+          { id: "ch2", site_name: "Site 2", cors_origins: '["https://b.com"]' }
         ];
         const db = mockDb({ results: channels });
 
-        const result = await getAllChannels(db);
+        await getAllChannels(db);
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("channels"),
+          expect.stringContaining("channels")
         );
         expect(db._chain.all).toHaveBeenCalled();
       });
@@ -820,9 +812,9 @@ describe("db", () => {
               reply_to: null,
               company_name: null,
               company_address: null,
-              cors_origins: '["https://a.com"]',
-            },
-          ],
+              cors_origins: '["https://a.com"]'
+            }
+          ]
         });
 
         const result = await getAllChannels(db);
@@ -842,16 +834,16 @@ describe("db", () => {
               site_url: "https://a.com",
               from_user: "hello",
               from_name: "Sender",
-              cors_origins: '["https://a.com","https://b.com"]',
-            },
-          ],
+              cors_origins: '["https://a.com","https://b.com"]'
+            }
+          ]
         });
 
         const result = await getAllChannels(db);
 
         expect(result[0].corsOrigins).toEqual([
           "https://a.com",
-          "https://b.com",
+          "https://b.com"
         ]);
       });
     });
@@ -861,11 +853,11 @@ describe("db", () => {
         const channel = {
           id: "ch1",
           site_name: "Site 1",
-          cors_origins: '["https://a.com"]',
+          cors_origins: '["https://a.com"]'
         };
         const db = mockDb(channel);
 
-        const result = await getChannelById(db, "ch1");
+        await getChannelById(db, "ch1");
 
         expect(db._chain.bind).toHaveBeenCalledWith("ch1");
         expect(db._chain.first).toHaveBeenCalled();
@@ -890,11 +882,11 @@ describe("db", () => {
           siteUrl: "https://new.example.com",
           fromUser: "hello",
           fromName: "Sender",
-          corsOrigins: ["https://new.example.com"],
+          corsOrigins: ["https://new.example.com"]
         });
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("INSERT INTO channels"),
+          expect.stringContaining("INSERT INTO channels")
         );
         expect(db._chain.run).toHaveBeenCalled();
       });
@@ -908,19 +900,16 @@ describe("db", () => {
           siteUrl: "https://new.example.com",
           fromUser: "hello",
           fromName: "Sender",
-          corsOrigins: ["https://a.com", "https://b.com"],
+          corsOrigins: ["https://a.com", "https://b.com"]
         });
 
         // corsOrigins should be serialized
         const bindArgs = db._chain.bind.mock.calls[0];
         const corsArg = bindArgs.find(
-          (arg) => typeof arg === "string" && arg.startsWith("["),
+          (arg) => typeof arg === "string" && arg.startsWith("[")
         );
         expect(corsArg).toBeDefined();
-        expect(JSON.parse(corsArg)).toEqual([
-          "https://a.com",
-          "https://b.com",
-        ]);
+        expect(JSON.parse(corsArg)).toEqual(["https://a.com", "https://b.com"]);
       });
 
       it("includes optional fields when provided", async () => {
@@ -935,7 +924,7 @@ describe("db", () => {
           replyTo: "reply@example.com",
           companyName: "Acme",
           companyAddress: "123 Main St",
-          corsOrigins: ["https://new.example.com"],
+          corsOrigins: ["https://new.example.com"]
         });
 
         expect(db._chain.run).toHaveBeenCalled();
@@ -951,11 +940,11 @@ describe("db", () => {
           siteUrl: "https://updated.example.com",
           fromUser: "updated",
           fromName: "Updated Sender",
-          corsOrigins: ["https://updated.example.com"],
+          corsOrigins: ["https://updated.example.com"]
         });
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("UPDATE channels"),
+          expect.stringContaining("UPDATE channels")
         );
         expect(db._chain.run).toHaveBeenCalled();
       });
@@ -970,12 +959,12 @@ describe("db", () => {
               bind: vi.fn().mockReturnThis(),
               run: vi.fn().mockResolvedValue({}),
               first: vi.fn().mockResolvedValue(null),
-              all: vi.fn().mockResolvedValue({ results: [] }),
+              all: vi.fn().mockResolvedValue({ results: [] })
             };
             stmts.push(stmt);
             return stmt;
           }),
-          batch: vi.fn().mockResolvedValue([]),
+          batch: vi.fn().mockResolvedValue([])
         };
 
         await deleteChannel(db, "ch1");
@@ -994,12 +983,12 @@ describe("db", () => {
               bind: vi.fn().mockReturnThis(),
               run: vi.fn().mockResolvedValue({}),
               first: vi.fn().mockResolvedValue(null),
-              all: vi.fn().mockResolvedValue({ results: [] }),
+              all: vi.fn().mockResolvedValue({ results: [] })
             };
             stmts.push(stmt);
             return stmt;
           }),
-          batch: vi.fn().mockResolvedValue([]),
+          batch: vi.fn().mockResolvedValue([])
         };
 
         await deleteChannel(db, "test-channel");
@@ -1008,7 +997,7 @@ describe("db", () => {
         const boundWithChannelId = stmts.some(
           (s) =>
             s.bind.mock.calls.length > 0 &&
-            s.bind.mock.calls.some((args) => args.includes("test-channel")),
+            s.bind.mock.calls.some((args) => args.includes("test-channel"))
         );
         expect(boundWithChannelId).toBe(true);
       });
@@ -1019,15 +1008,25 @@ describe("db", () => {
     describe("getFeedsByChannelId", () => {
       it("queries feeds by channel_id", async () => {
         const feeds = [
-          { id: 1, channel_id: "ch1", name: "Feed A", url: "https://a.com/feed" },
-          { id: 2, channel_id: "ch1", name: "Feed B", url: "https://b.com/feed" },
+          {
+            id: 1,
+            channel_id: "ch1",
+            name: "Feed A",
+            url: "https://a.com/feed"
+          },
+          {
+            id: 2,
+            channel_id: "ch1",
+            name: "Feed B",
+            url: "https://b.com/feed"
+          }
         ];
         const db = mockDb({ results: feeds });
 
-        const result = await getFeedsByChannelId(db, "ch1");
+        await getFeedsByChannelId(db, "ch1");
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("feeds"),
+          expect.stringContaining("feeds")
         );
         expect(db._chain.bind).toHaveBeenCalledWith("ch1");
         expect(db._chain.all).toHaveBeenCalled();
@@ -1044,8 +1043,8 @@ describe("db", () => {
       it("returns feeds with integer auto-increment IDs", async () => {
         const db = mockDb({
           results: [
-            { id: 1, channel_id: "ch1", name: "Feed A", url: "https://a.com" },
-          ],
+            { id: 1, channel_id: "ch1", name: "Feed A", url: "https://a.com" }
+          ]
         });
 
         const result = await getFeedsByChannelId(db, "ch1");
@@ -1056,7 +1055,12 @@ describe("db", () => {
 
     describe("getFeedById", () => {
       it("queries feed by id", async () => {
-        const feed = { id: 1, channel_id: "ch1", name: "Feed", url: "https://a.com" };
+        const feed = {
+          id: 1,
+          channel_id: "ch1",
+          name: "Feed",
+          url: "https://a.com"
+        };
         const db = mockDb(feed);
 
         const result = await getFeedById(db, 1);
@@ -1081,16 +1085,16 @@ describe("db", () => {
 
         await insertFeed(db, "ch1", {
           name: "New Feed",
-          url: "https://new.example.com/feed.xml",
+          url: "https://new.example.com/feed.xml"
         });
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("INSERT INTO feeds"),
+          expect.stringContaining("INSERT INTO feeds")
         );
         expect(db._chain.bind).toHaveBeenCalledWith(
           "ch1",
           "New Feed",
-          "https://new.example.com/feed.xml",
+          "https://new.example.com/feed.xml"
         );
         expect(db._chain.run).toHaveBeenCalled();
       });
@@ -1100,12 +1104,12 @@ describe("db", () => {
 
         await insertFeed(db, "ch1", {
           name: "Feed",
-          url: "https://example.com/feed.xml",
+          url: "https://example.com/feed.xml"
         });
 
         // The SQL should reference the feeds table which has UNIQUE(channel_id, url)
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("feeds"),
+          expect.stringContaining("feeds")
         );
       });
     });
@@ -1116,11 +1120,11 @@ describe("db", () => {
 
         await updateFeed(db, 1, {
           name: "Updated Feed",
-          url: "https://updated.example.com/feed.xml",
+          url: "https://updated.example.com/feed.xml"
         });
 
         expect(db.prepare).toHaveBeenCalledWith(
-          expect.stringContaining("UPDATE feeds"),
+          expect.stringContaining("UPDATE feeds")
         );
         expect(db._chain.run).toHaveBeenCalled();
       });
@@ -1130,7 +1134,7 @@ describe("db", () => {
 
         await updateFeed(db, 42, {
           name: "Feed",
-          url: "https://example.com/feed.xml",
+          url: "https://example.com/feed.xml"
         });
 
         // The bind should include the feed id for the WHERE clause
@@ -1148,12 +1152,12 @@ describe("db", () => {
               bind: vi.fn().mockReturnThis(),
               run: vi.fn().mockResolvedValue({}),
               first: vi.fn().mockResolvedValue(null),
-              all: vi.fn().mockResolvedValue({ results: [] }),
+              all: vi.fn().mockResolvedValue({ results: [] })
             };
             stmts.push(stmt);
             return stmt;
           }),
-          batch: vi.fn().mockResolvedValue([]),
+          batch: vi.fn().mockResolvedValue([])
         };
 
         await deleteFeed(db, 1);
@@ -1170,12 +1174,12 @@ describe("db", () => {
               bind: vi.fn().mockReturnThis(),
               run: vi.fn().mockResolvedValue({}),
               first: vi.fn().mockResolvedValue(null),
-              all: vi.fn().mockResolvedValue({ results: [] }),
+              all: vi.fn().mockResolvedValue({ results: [] })
             };
             stmts.push(stmt);
             return stmt;
           }),
-          batch: vi.fn().mockResolvedValue([]),
+          batch: vi.fn().mockResolvedValue([])
         };
 
         await deleteFeed(db, 42);
@@ -1184,7 +1188,7 @@ describe("db", () => {
         const boundWithFeedId = stmts.some(
           (s) =>
             s.bind.mock.calls.length > 0 &&
-            s.bind.mock.calls.some((args) => args.includes(42)),
+            s.bind.mock.calls.some((args) => args.includes(42))
         );
         expect(boundWithFeedId).toBe(true);
       });

@@ -2,31 +2,31 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Mock all route handlers and cors
 vi.mock("../src/routes/subscribe.js", () => ({
-  handleSubscribe: vi.fn(),
+  handleSubscribe: vi.fn()
 }));
 vi.mock("../src/routes/verify.js", () => ({
-  handleVerify: vi.fn(),
+  handleVerify: vi.fn()
 }));
 vi.mock("../src/routes/unsubscribe.js", () => ({
-  handleUnsubscribe: vi.fn(),
+  handleUnsubscribe: vi.fn()
 }));
 vi.mock("../src/routes/send.js", () => ({
   handleSend: vi.fn(),
-  checkFeedsAndSend: vi.fn(),
+  checkFeedsAndSend: vi.fn()
 }));
 vi.mock("../src/routes/admin.js", () => ({
-  handleAdmin: vi.fn(),
+  handleAdmin: vi.fn()
 }));
 vi.mock("../src/lib/cors.js", () => ({
   handleCORSPreflight: vi.fn(),
-  withCORS: vi.fn(),
+  withCORS: vi.fn()
 }));
 vi.mock("../src/lib/config.js", () => ({
-  getRateLimitConfig: vi.fn(),
+  getRateLimitConfig: vi.fn()
 }));
 vi.mock("../src/lib/rate-limit.js", () => ({
   checkRateLimit: vi.fn(),
-  getEndpointName: vi.fn(),
+  getEndpointName: vi.fn()
 }));
 
 import app from "../src/index.js";
@@ -44,17 +44,20 @@ const RATE_LIMITS = {
   verify: { maxRequests: 20, windowSeconds: 3600 },
   unsubscribe: { maxRequests: 20, windowSeconds: 3600 },
   send: { maxRequests: 5, windowSeconds: 3600 },
-  admin: { maxRequests: 30, windowSeconds: 3600 },
+  admin: { maxRequests: 30, windowSeconds: 3600 }
 };
 
 const env = {
   ADMIN_API_KEY: "test-admin-key",
-  DB: {},
+  DB: {}
 };
 
 function makeRequest(method, path, headers = {}) {
   const reqHeaders = new Headers(headers);
-  return new Request(`https://feedmail.cc${path}`, { method, headers: reqHeaders });
+  return new Request(`https://feedmail.cc${path}`, {
+    method,
+    headers: reqHeaders
+  });
 }
 
 describe("index.js — fetch handler", () => {
@@ -74,11 +77,21 @@ describe("index.js — fetch handler", () => {
     getRateLimitConfig.mockResolvedValue(RATE_LIMITS);
     checkRateLimit.mockResolvedValue({ allowed: true });
     getEndpointName.mockImplementation((pathname) => {
-      if (pathname === "/api/subscribe") return "subscribe";
-      if (pathname === "/api/verify") return "verify";
-      if (pathname === "/api/unsubscribe") return "unsubscribe";
-      if (pathname === "/api/send") return "send";
-      if (pathname.startsWith("/api/admin/")) return "admin";
+      if (pathname === "/api/subscribe") {
+        return "subscribe";
+      }
+      if (pathname === "/api/verify") {
+        return "verify";
+      }
+      if (pathname === "/api/unsubscribe") {
+        return "unsubscribe";
+      }
+      if (pathname === "/api/send") {
+        return "send";
+      }
+      if (pathname.startsWith("/api/admin/")) {
+        return "admin";
+      }
       return null;
     });
   });
@@ -143,14 +156,11 @@ describe("index.js — fetch handler", () => {
     });
 
     it("passes url to handleUnsubscribe", async () => {
-      await app.fetch(
-        makeRequest("GET", "/api/unsubscribe?token=xyz"),
-        env,
-      );
+      await app.fetch(makeRequest("GET", "/api/unsubscribe?token=xyz"), env);
       expect(handleUnsubscribe).toHaveBeenCalledWith(
         expect.any(Request),
         env,
-        expect.any(URL),
+        expect.any(URL)
       );
     });
   });
@@ -158,7 +168,7 @@ describe("index.js — fetch handler", () => {
   describe("POST /api/send (authenticated)", () => {
     it("delegates to handleSend with valid auth", async () => {
       const request = makeRequest("POST", "/api/send", {
-        Authorization: "Bearer test-admin-key",
+        Authorization: "Bearer test-admin-key"
       });
 
       await app.fetch(request, env);
@@ -178,9 +188,9 @@ describe("index.js — fetch handler", () => {
     it("returns 401 with wrong API key", async () => {
       const response = await app.fetch(
         makeRequest("POST", "/api/send", {
-          Authorization: "Bearer wrong-key",
+          Authorization: "Bearer wrong-key"
         }),
-        env,
+        env
       );
 
       expect(response.status).toBe(401);
@@ -191,7 +201,7 @@ describe("index.js — fetch handler", () => {
   describe("/api/admin/* (authenticated)", () => {
     it("delegates to handleAdmin with valid auth", async () => {
       const request = makeRequest("GET", "/api/admin/stats?siteId=test", {
-        Authorization: "Bearer test-admin-key",
+        Authorization: "Bearer test-admin-key"
       });
 
       await app.fetch(request, env);
@@ -202,7 +212,7 @@ describe("index.js — fetch handler", () => {
     it("returns 401 without auth for admin routes", async () => {
       const response = await app.fetch(
         makeRequest("GET", "/api/admin/stats"),
-        env,
+        env
       );
 
       expect(response.status).toBe(401);
@@ -212,9 +222,9 @@ describe("index.js — fetch handler", () => {
     it("delegates to handleAdmin for /api/admin/subscribers", async () => {
       await app.fetch(
         makeRequest("GET", "/api/admin/subscribers?siteId=test", {
-          Authorization: "Bearer test-admin-key",
+          Authorization: "Bearer test-admin-key"
         }),
-        env,
+        env
       );
 
       expect(handleAdmin).toHaveBeenCalled();
@@ -223,9 +233,9 @@ describe("index.js — fetch handler", () => {
     it("handles case-insensitive Bearer prefix", async () => {
       await app.fetch(
         makeRequest("GET", "/api/admin/stats?siteId=test", {
-          Authorization: "bearer test-admin-key",
+          Authorization: "bearer test-admin-key"
         }),
-        env,
+        env
       );
 
       expect(handleAdmin).toHaveBeenCalled();
@@ -234,9 +244,9 @@ describe("index.js — fetch handler", () => {
     it("handles Bearer with extra whitespace", async () => {
       await app.fetch(
         makeRequest("GET", "/api/admin/stats?siteId=test", {
-          Authorization: "Bearer   test-admin-key",
+          Authorization: "Bearer   test-admin-key"
         }),
-        env,
+        env
       );
 
       expect(handleAdmin).toHaveBeenCalled();
@@ -265,9 +275,9 @@ describe("index.js — fetch handler", () => {
     it("returns 404 for unknown /api/admin subpaths", async () => {
       const response = await app.fetch(
         makeRequest("GET", "/api/admin/anything", {
-          Authorization: "Bearer test-admin-key",
+          Authorization: "Bearer test-admin-key"
         }),
-        env,
+        env
       );
       expect(response.status).toBe(404);
       expect(handleAdmin).not.toHaveBeenCalled();
@@ -277,10 +287,12 @@ describe("index.js — fetch handler", () => {
       vi.useFakeTimers();
 
       let resolved = false;
-      const responsePromise = app.fetch(
-        makeRequest("GET", "/api/unknown"),
-        env,
-      ).then((r) => { resolved = true; return r; });
+      const responsePromise = app
+        .fetch(makeRequest("GET", "/api/unknown"), env)
+        .then((r) => {
+          resolved = true;
+          return r;
+        });
 
       // Advance just 1ms — far less than the 10s timeout delay
       await vi.advanceTimersByTimeAsync(1);
@@ -305,7 +317,7 @@ describe("index.js — fetch handler", () => {
     it("times out for GET on /api/subscribe (only POST allowed)", async () => {
       const responsePromise = app.fetch(
         makeRequest("GET", "/api/subscribe"),
-        env,
+        env
       );
       await vi.advanceTimersByTimeAsync(10_000);
       const response = await responsePromise;
@@ -318,7 +330,7 @@ describe("index.js — fetch handler", () => {
     it("times out for DELETE on /api/subscribe", async () => {
       const responsePromise = app.fetch(
         makeRequest("DELETE", "/api/subscribe"),
-        env,
+        env
       );
       await vi.advanceTimersByTimeAsync(10_000);
       const response = await responsePromise;
@@ -330,7 +342,7 @@ describe("index.js — fetch handler", () => {
     it("times out for POST on /api/verify (only GET allowed)", async () => {
       const responsePromise = app.fetch(
         makeRequest("POST", "/api/verify"),
-        env,
+        env
       );
       await vi.advanceTimersByTimeAsync(10_000);
       const response = await responsePromise;
@@ -342,7 +354,7 @@ describe("index.js — fetch handler", () => {
     it("times out for PUT on /api/unsubscribe (only GET and POST allowed)", async () => {
       const responsePromise = app.fetch(
         makeRequest("PUT", "/api/unsubscribe?token=abc"),
-        env,
+        env
       );
       await vi.advanceTimersByTimeAsync(10_000);
       const response = await responsePromise;
@@ -354,7 +366,7 @@ describe("index.js — fetch handler", () => {
     it("times out for DELETE on /api/unsubscribe", async () => {
       const responsePromise = app.fetch(
         makeRequest("DELETE", "/api/unsubscribe?token=abc"),
-        env,
+        env
       );
       await vi.advanceTimersByTimeAsync(10_000);
       const response = await responsePromise;
@@ -366,9 +378,9 @@ describe("index.js — fetch handler", () => {
     it("times out for GET on /api/send (only POST allowed)", async () => {
       const responsePromise = app.fetch(
         makeRequest("GET", "/api/send", {
-          Authorization: "Bearer test-admin-key",
+          Authorization: "Bearer test-admin-key"
         }),
-        env,
+        env
       );
       await vi.advanceTimersByTimeAsync(10_000);
       const response = await responsePromise;
@@ -380,9 +392,9 @@ describe("index.js — fetch handler", () => {
     it("times out for POST on /api/admin/stats (only GET allowed)", async () => {
       const responsePromise = app.fetch(
         makeRequest("POST", "/api/admin/stats", {
-          Authorization: "Bearer test-admin-key",
+          Authorization: "Bearer test-admin-key"
         }),
-        env,
+        env
       );
       await vi.advanceTimersByTimeAsync(10_000);
       const response = await responsePromise;
@@ -393,10 +405,12 @@ describe("index.js — fetch handler", () => {
 
     it("does not resolve before the delay elapses", async () => {
       let resolved = false;
-      const responsePromise = app.fetch(
-        makeRequest("GET", "/api/subscribe"),
-        env,
-      ).then((r) => { resolved = true; return r; });
+      const responsePromise = app
+        .fetch(makeRequest("GET", "/api/subscribe"), env)
+        .then((r) => {
+          resolved = true;
+          return r;
+        });
 
       // Advance to just before the timeout
       await vi.advanceTimersByTimeAsync(9_999);
@@ -416,9 +430,9 @@ describe("index.js — fetch handler", () => {
 
       const response = await app.fetch(
         makeRequest("POST", "/api/subscribe", {
-          "CF-Connecting-IP": "1.2.3.4",
+          "CF-Connecting-IP": "1.2.3.4"
         }),
-        env,
+        env
       );
 
       expect(response.status).toBe(429);
@@ -430,9 +444,9 @@ describe("index.js — fetch handler", () => {
 
       const response = await app.fetch(
         makeRequest("POST", "/api/subscribe", {
-          "CF-Connecting-IP": "1.2.3.4",
+          "CF-Connecting-IP": "1.2.3.4"
         }),
-        env,
+        env
       );
       const body = await response.json();
 
@@ -444,9 +458,9 @@ describe("index.js — fetch handler", () => {
 
       await app.fetch(
         makeRequest("POST", "/api/subscribe", {
-          "CF-Connecting-IP": "1.2.3.4",
+          "CF-Connecting-IP": "1.2.3.4"
         }),
-        env,
+        env
       );
 
       expect(handleSubscribe).toHaveBeenCalled();
@@ -455,9 +469,9 @@ describe("index.js — fetch handler", () => {
     it("passes correct IP from CF-Connecting-IP to checkRateLimit", async () => {
       await app.fetch(
         makeRequest("POST", "/api/subscribe", {
-          "CF-Connecting-IP": "10.0.0.1",
+          "CF-Connecting-IP": "10.0.0.1"
         }),
-        env,
+        env
       );
 
       expect(checkRateLimit).toHaveBeenCalledWith(
@@ -465,7 +479,7 @@ describe("index.js — fetch handler", () => {
         "10.0.0.1",
         "subscribe",
         10,
-        3600,
+        3600
       );
     });
 
@@ -477,7 +491,7 @@ describe("index.js — fetch handler", () => {
         "unknown",
         "subscribe",
         expect.any(Number),
-        expect.any(Number),
+        expect.any(Number)
       );
     });
 
@@ -486,9 +500,9 @@ describe("index.js — fetch handler", () => {
 
       const response = await app.fetch(
         makeRequest("GET", "/api/verify?token=abc", {
-          "CF-Connecting-IP": "1.2.3.4",
+          "CF-Connecting-IP": "1.2.3.4"
         }),
-        env,
+        env
       );
 
       expect(response.status).toBe(429);
@@ -500,9 +514,9 @@ describe("index.js — fetch handler", () => {
 
       const response = await app.fetch(
         makeRequest("GET", "/api/unsubscribe?token=abc", {
-          "CF-Connecting-IP": "1.2.3.4",
+          "CF-Connecting-IP": "1.2.3.4"
         }),
-        env,
+        env
       );
 
       expect(response.status).toBe(429);
@@ -515,9 +529,9 @@ describe("index.js — fetch handler", () => {
       const response = await app.fetch(
         makeRequest("POST", "/api/send", {
           "CF-Connecting-IP": "1.2.3.4",
-          Authorization: "Bearer test-admin-key",
+          Authorization: "Bearer test-admin-key"
         }),
-        env,
+        env
       );
 
       expect(response.status).toBe(429);
@@ -530,9 +544,9 @@ describe("index.js — fetch handler", () => {
       const response = await app.fetch(
         makeRequest("GET", "/api/admin/stats", {
           "CF-Connecting-IP": "1.2.3.4",
-          Authorization: "Bearer test-admin-key",
+          Authorization: "Bearer test-admin-key"
         }),
-        env,
+        env
       );
 
       expect(response.status).toBe(429);
@@ -542,9 +556,9 @@ describe("index.js — fetch handler", () => {
     it("does not rate limit OPTIONS requests", async () => {
       await app.fetch(
         makeRequest("OPTIONS", "/api/subscribe", {
-          "CF-Connecting-IP": "1.2.3.4",
+          "CF-Connecting-IP": "1.2.3.4"
         }),
-        env,
+        env
       );
 
       expect(checkRateLimit).not.toHaveBeenCalled();
@@ -553,9 +567,9 @@ describe("index.js — fetch handler", () => {
     it("does not rate limit non-API paths", async () => {
       await app.fetch(
         makeRequest("GET", "/", {
-          "CF-Connecting-IP": "1.2.3.4",
+          "CF-Connecting-IP": "1.2.3.4"
         }),
-        env,
+        env
       );
 
       expect(checkRateLimit).not.toHaveBeenCalled();
@@ -568,7 +582,7 @@ describe("index.js — fetch handler", () => {
 
       const response = await app.fetch(
         makeRequest("POST", "/api/subscribe"),
-        env,
+        env
       );
       const body = await response.json();
 
@@ -581,7 +595,7 @@ describe("index.js — fetch handler", () => {
 
       const response = await app.fetch(
         makeRequest("POST", "/api/subscribe"),
-        env,
+        env
       );
 
       expect(response.headers.get("Content-Type")).toBe("application/json");

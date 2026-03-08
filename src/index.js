@@ -24,7 +24,7 @@ const ROUTE_METHODS = {
   "/api/send": ["POST"],
   "/api/admin/stats": ["GET"],
   "/api/admin/subscribers": ["GET"],
-  "/api/admin/config": ["GET", "PATCH"],
+  "/api/admin/config": ["GET", "PATCH"]
 };
 
 /** Delay duration (ms) for timeout responses on invalid method/path. */
@@ -49,7 +49,7 @@ function isAuthorized(request, env) {
 function unauthorizedResponse() {
   return new Response(JSON.stringify({ error: "Unauthorized" }), {
     status: 401,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" }
   });
 }
 
@@ -72,10 +72,14 @@ async function timeoutResponse() {
 function isMethodAllowed(method, pathname) {
   // Exact match for public/send routes
   const methods = ROUTE_METHODS[pathname];
-  if (methods) return methods.includes(method);
+  if (methods) {
+    return methods.includes(method);
+  }
 
   // Prefix match for admin channel/feed routes (parameterized paths handled by handleAdmin)
-  if (pathname.startsWith("/api/admin/channels")) return true;
+  if (pathname.startsWith("/api/admin/channels")) {
+    return true;
+  }
 
   return null;
 }
@@ -115,19 +119,16 @@ export default {
         ip,
         endpointName,
         limits.maxRequests,
-        limits.windowSeconds,
+        limits.windowSeconds
       );
       if (!result.allowed) {
-        return new Response(
-          JSON.stringify({ error: "Too Many Requests" }),
-          {
-            status: 429,
-            headers: {
-              "Content-Type": "application/json",
-              "Retry-After": String(result.retryAfter),
-            },
-          },
-        );
+        return new Response(JSON.stringify({ error: "Too Many Requests" }), {
+          status: 429,
+          headers: {
+            "Content-Type": "application/json",
+            "Retry-After": String(result.retryAfter)
+          }
+        });
       }
     }
 
@@ -148,12 +149,16 @@ export default {
 
       // Authenticated routes
       if (url.pathname === "/api/send") {
-        if (!isAuthorized(request, env)) return unauthorizedResponse();
+        if (!isAuthorized(request, env)) {
+          return unauthorizedResponse();
+        }
         return handleSend(request, env);
       }
 
       if (url.pathname.startsWith("/api/admin/")) {
-        if (!isAuthorized(request, env)) return unauthorizedResponse();
+        if (!isAuthorized(request, env)) {
+          return unauthorizedResponse();
+        }
         return handleAdmin(request, env, url);
       }
 
@@ -163,7 +168,7 @@ export default {
       console.error("Unhandled error:", err);
       return new Response(JSON.stringify({ error: "Internal Server Error" }), {
         status: 500,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" }
       });
     }
   },
@@ -176,5 +181,5 @@ export default {
    */
   async scheduled(event, env, ctx) {
     ctx.waitUntil(checkFeedsAndSend(env));
-  },
+  }
 };

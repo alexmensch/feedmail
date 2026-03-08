@@ -18,7 +18,7 @@ describe("sendEmail", () => {
     to: "user@test.com",
     subject: "Test Subject",
     html: "<p>Hello</p>",
-    text: "Hello",
+    text: "Hello"
   };
 
   it("sends email successfully and returns success", async () => {
@@ -84,14 +84,14 @@ describe("sendEmail", () => {
       ...baseOptions,
       headers: {
         "List-Unsubscribe": "<https://example.com/unsub>",
-        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-      },
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"
+      }
     });
 
     const body = JSON.parse(fetch.mock.calls[0][1].body);
     expect(body.headers).toEqual({
       "List-Unsubscribe": "<https://example.com/unsub>",
-      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"
     });
   });
 
@@ -128,7 +128,7 @@ describe("sendEmail", () => {
         .mockResolvedValueOnce({
           ok: false,
           status: 429,
-          headers: new Headers({ "retry-after": "2" }),
+          headers: new Headers({ "retry-after": "2" })
         })
         .mockResolvedValueOnce({ ok: true });
 
@@ -147,7 +147,7 @@ describe("sendEmail", () => {
         ok: false,
         status: 429,
         headers: new Headers({ "retry-after": "120" }),
-        text: () => Promise.resolve("Rate limit exceeded"),
+        text: () => Promise.resolve("Rate limit exceeded")
       });
 
       const result = await sendEmail("api-key", baseOptions);
@@ -163,7 +163,7 @@ describe("sendEmail", () => {
         ok: false,
         status: 429,
         headers: new Headers({ "retry-after": "1" }),
-        text: () => Promise.resolve("Rate limited"),
+        text: () => Promise.resolve("Rate limited")
       });
 
       const resultPromise = sendEmail("api-key", baseOptions);
@@ -186,7 +186,7 @@ describe("sendEmail", () => {
         .mockResolvedValueOnce({
           ok: false,
           status: 429,
-          headers: new Headers(), // no retry-after
+          headers: new Headers() // no retry-after
         })
         .mockResolvedValueOnce({ ok: true });
 
@@ -202,7 +202,7 @@ describe("sendEmail", () => {
         .mockResolvedValueOnce({
           ok: false,
           status: 429,
-          headers: new Headers({ "retry-after": "0" }),
+          headers: new Headers({ "retry-after": "0" })
         })
         .mockResolvedValueOnce({ ok: true });
 
@@ -219,7 +219,7 @@ describe("sendEmail", () => {
       fetch.mockResolvedValue({
         ok: false,
         status: 400,
-        text: () => Promise.resolve("Invalid email"),
+        text: () => Promise.resolve("Invalid email")
       });
 
       const result = await sendEmail("api-key", baseOptions);
@@ -234,7 +234,7 @@ describe("sendEmail", () => {
       fetch.mockResolvedValue({
         ok: false,
         status: 401,
-        text: () => Promise.resolve("Unauthorized"),
+        text: () => Promise.resolve("Unauthorized")
       });
 
       const result = await sendEmail("api-key", baseOptions);
@@ -248,7 +248,7 @@ describe("sendEmail", () => {
       fetch.mockResolvedValue({
         ok: false,
         status: 500,
-        text: () => Promise.resolve("Server error"),
+        text: () => Promise.resolve("Server error")
       });
 
       const result = await sendEmail("api-key", baseOptions);
@@ -302,7 +302,7 @@ describe("sendEmail", () => {
         .mockResolvedValueOnce({
           ok: false,
           status: 429,
-          headers: new Headers({ "retry-after": futureDate }),
+          headers: new Headers({ "retry-after": futureDate })
         })
         .mockResolvedValueOnce({ ok: true });
 
@@ -318,7 +318,7 @@ describe("sendEmail", () => {
         .mockResolvedValueOnce({
           ok: false,
           status: 429,
-          headers: new Headers({ "retry-after": "-5" }),
+          headers: new Headers({ "retry-after": "-5" })
         })
         .mockResolvedValueOnce({ ok: true });
 
@@ -334,7 +334,7 @@ describe("sendEmail", () => {
         .mockResolvedValueOnce({
           ok: false,
           status: 429,
-          headers: new Headers({ "retry-after": "garbage" }),
+          headers: new Headers({ "retry-after": "garbage" })
         })
         .mockResolvedValueOnce({ ok: true });
 

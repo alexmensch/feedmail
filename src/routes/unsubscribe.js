@@ -7,7 +7,7 @@ import { getChannelById } from "../lib/config.js";
 import { render, renderErrorPage } from "../lib/templates.js";
 import {
   getSubscriberByUnsubscribeToken,
-  markSubscriberUnsubscribed,
+  markSubscriberUnsubscribed
 } from "../lib/db.js";
 
 /**
@@ -45,11 +45,11 @@ export async function handleUnsubscribe(request, env, url) {
   // GET requests render the confirmation page
   const html = render("unsubscribePage", {
     siteName: channel?.siteName || "the newsletter",
-    siteUrl: channel?.siteUrl || "/",
+    siteUrl: channel?.siteUrl || "/"
   });
 
   return new Response(html, {
     status: 200,
-    headers: { "Content-Type": "text/html; charset=utf-8" },
+    headers: { "Content-Type": "text/html; charset=utf-8" }
   });
 }

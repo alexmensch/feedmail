@@ -1,20 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../../src/lib/config.js", () => ({
-  getChannelById: vi.fn(),
+  getChannelById: vi.fn()
 }));
 vi.mock("../../src/lib/templates.js", () => ({
   render: vi.fn().mockReturnValue("<html>rendered</html>"),
-  renderErrorPage: vi.fn().mockImplementation(() =>
-    new Response("<html>error</html>", {
-      status: 200,
-      headers: { "Content-Type": "text/html; charset=utf-8" },
-    }),
-  ),
+  renderErrorPage: vi.fn().mockImplementation(
+    () =>
+      new Response("<html>error</html>", {
+        status: 200,
+        headers: { "Content-Type": "text/html; charset=utf-8" }
+      })
+  )
 }));
 vi.mock("../../src/lib/db.js", () => ({
   getSubscriberByUnsubscribeToken: vi.fn(),
-  markSubscriberUnsubscribed: vi.fn(),
+  markSubscriberUnsubscribed: vi.fn()
 }));
 
 import { handleUnsubscribe } from "../../src/routes/unsubscribe.js";
@@ -22,20 +23,22 @@ import { getChannelById } from "../../src/lib/config.js";
 import { render, renderErrorPage } from "../../src/lib/templates.js";
 import {
   getSubscriberByUnsubscribeToken,
-  markSubscriberUnsubscribed,
+  markSubscriberUnsubscribed
 } from "../../src/lib/db.js";
 
 const CHANNEL = {
   id: "test-site",
   siteName: "Test Site",
-  siteUrl: "https://example.com",
+  siteUrl: "https://example.com"
 };
 
 const env = { DB: {} };
 
 function makeUrl(token) {
   const url = new URL("https://test.example.com/api/unsubscribe");
-  if (token !== undefined) url.searchParams.set("token", token);
+  if (token !== undefined) {
+    url.searchParams.set("token", token);
+  }
   return url;
 }
 
@@ -59,7 +62,7 @@ describe("handleUnsubscribe", () => {
       expect(renderErrorPage).toHaveBeenCalledWith(
         env,
         null,
-        "Invalid unsubscribe link.",
+        "Invalid unsubscribe link."
       );
     });
 
@@ -69,14 +72,14 @@ describe("handleUnsubscribe", () => {
       const response = await handleUnsubscribe(
         makeRequest(),
         env,
-        makeUrl("invalid-token"),
+        makeUrl("invalid-token")
       );
 
       expect(response.status).toBe(200);
       expect(renderErrorPage).toHaveBeenCalledWith(
         env,
         null,
-        "Invalid unsubscribe link.",
+        "Invalid unsubscribe link."
       );
     });
 
@@ -84,13 +87,13 @@ describe("handleUnsubscribe", () => {
       await handleUnsubscribe(
         makeRequest(),
         env,
-        new URL("https://test.example.com/api/unsubscribe"),
+        new URL("https://test.example.com/api/unsubscribe")
       );
 
       expect(renderErrorPage).toHaveBeenCalledWith(
         env,
         null,
-        "Invalid unsubscribe link.",
+        "Invalid unsubscribe link."
       );
     });
   });
@@ -99,7 +102,7 @@ describe("handleUnsubscribe", () => {
     const subscriber = {
       id: 42,
       status: "verified",
-      channel_id: "test-site",
+      channel_id: "test-site"
     };
 
     it("marks verified subscriber as unsubscribed", async () => {
@@ -113,7 +116,7 @@ describe("handleUnsubscribe", () => {
     it("marks pending subscriber as unsubscribed", async () => {
       getSubscriberByUnsubscribeToken.mockResolvedValue({
         ...subscriber,
-        status: "pending",
+        status: "pending"
       });
 
       await handleUnsubscribe(makeRequest(), env, makeUrl("valid-token"));
@@ -124,7 +127,7 @@ describe("handleUnsubscribe", () => {
     it("is idempotent — does not call DB for already-unsubscribed", async () => {
       getSubscriberByUnsubscribeToken.mockResolvedValue({
         ...subscriber,
-        status: "unsubscribed",
+        status: "unsubscribed"
       });
 
       await handleUnsubscribe(makeRequest(), env, makeUrl("valid-token"));
@@ -138,22 +141,22 @@ describe("handleUnsubscribe", () => {
       getSubscriberByUnsubscribeToken.mockResolvedValue({
         id: 42,
         status: "verified",
-        channel_id: "test-site",
+        channel_id: "test-site"
       });
 
       const response = await handleUnsubscribe(
         makeRequest("GET"),
         env,
-        makeUrl("valid-token"),
+        makeUrl("valid-token")
       );
 
       expect(response.status).toBe(200);
       expect(response.headers.get("Content-Type")).toBe(
-        "text/html; charset=utf-8",
+        "text/html; charset=utf-8"
       );
       expect(render).toHaveBeenCalledWith("unsubscribePage", {
         siteName: "Test Site",
-        siteUrl: "https://example.com",
+        siteUrl: "https://example.com"
       });
     });
   });
@@ -163,13 +166,13 @@ describe("handleUnsubscribe", () => {
       getSubscriberByUnsubscribeToken.mockResolvedValue({
         id: 42,
         status: "verified",
-        channel_id: "test-site",
+        channel_id: "test-site"
       });
 
       const response = await handleUnsubscribe(
         makeRequest("POST"),
         env,
-        makeUrl("valid-token"),
+        makeUrl("valid-token")
       );
       const text = await response.text();
 
@@ -181,14 +184,10 @@ describe("handleUnsubscribe", () => {
       getSubscriberByUnsubscribeToken.mockResolvedValue({
         id: 42,
         status: "verified",
-        channel_id: "test-site",
+        channel_id: "test-site"
       });
 
-      await handleUnsubscribe(
-        makeRequest("POST"),
-        env,
-        makeUrl("valid-token"),
-      );
+      await handleUnsubscribe(makeRequest("POST"), env, makeUrl("valid-token"));
 
       expect(markSubscriberUnsubscribed).toHaveBeenCalledWith(env.DB, 42);
     });
@@ -200,18 +199,14 @@ describe("handleUnsubscribe", () => {
       getSubscriberByUnsubscribeToken.mockResolvedValue({
         id: 42,
         status: "verified",
-        channel_id: "unknown-site",
+        channel_id: "unknown-site"
       });
 
-      await handleUnsubscribe(
-        makeRequest("GET"),
-        env,
-        makeUrl("valid-token"),
-      );
+      await handleUnsubscribe(makeRequest("GET"), env, makeUrl("valid-token"));
 
       expect(render).toHaveBeenCalledWith("unsubscribePage", {
         siteName: "the newsletter",
-        siteUrl: "/",
+        siteUrl: "/"
       });
     });
   });
@@ -221,18 +216,20 @@ describe("handleUnsubscribe", () => {
       getSubscriberByUnsubscribeToken.mockResolvedValue({
         id: 42,
         status: "verified",
-        channel_id: "test-site",
+        channel_id: "test-site"
       });
 
       const response = await handleUnsubscribe(
-        new Request("https://test.example.com/api/unsubscribe", { method: "PUT" }),
+        new Request("https://test.example.com/api/unsubscribe", {
+          method: "PUT"
+        }),
         env,
-        makeUrl("valid-token"),
+        makeUrl("valid-token")
       );
 
       expect(response.status).toBe(200);
       expect(response.headers.get("Content-Type")).toBe(
-        "text/html; charset=utf-8",
+        "text/html; charset=utf-8"
       );
     });
   });

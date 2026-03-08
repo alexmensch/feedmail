@@ -82,6 +82,7 @@ cp wrangler.toml wrangler.prod.toml
 ```
 
 Edit `wrangler.prod.toml` to set:
+
 - `name` — your worker name
 - `database_id` — the ID from step 2
 - `DOMAIN` — your domain (bare hostname, no protocol or path)
@@ -123,15 +124,15 @@ curl -X POST https://your-worker.workers.dev/api/admin/channels \
 
 Each channel requires:
 
-| Field | Description |
-|---|---|
-| `id` | Unique identifier (sent by the subscribe form) |
-| `siteUrl` | Site URL (used in templates) |
-| `siteName` | Display name (used in email subjects and templates) |
-| `fromUser` | Email local part (e.g. `"hello"`); combined with DOMAIN to form the from-email |
-| `fromName` | Sender display name |
-| `corsOrigins` | Allowed origins for the subscribe endpoint |
-| `feeds` | Array of feed objects, each with `name` and `url` |
+| Field         | Description                                                                    |
+| ------------- | ------------------------------------------------------------------------------ |
+| `id`          | Unique identifier (sent by the subscribe form)                                 |
+| `siteUrl`     | Site URL (used in templates)                                                   |
+| `siteName`    | Display name (used in email subjects and templates)                            |
+| `fromUser`    | Email local part (e.g. `"hello"`); combined with DOMAIN to form the from-email |
+| `fromName`    | Sender display name                                                            |
+| `corsOrigins` | Allowed origins for the subscribe endpoint                                     |
+| `feeds`       | Array of feed objects, each with `name` and `url`                              |
 
 Optional fields: `replyTo`, `companyName`, `companyAddress`.
 
@@ -151,30 +152,30 @@ Your `wrangler.prod.toml` is gitignored, so it won't be overwritten by pulls.
 
 ### Environment variables (`wrangler.prod.toml [vars]`)
 
-| Variable | Default | Description |
-|---|---|---|
-| `DOMAIN` | — | Domain name (e.g. `feedmail.cc`). No protocol, trailing slash, or path. (required) |
+| Variable | Default | Description                                                                        |
+| -------- | ------- | ---------------------------------------------------------------------------------- |
+| `DOMAIN` | —       | Domain name (e.g. `feedmail.cc`). No protocol, trailing slash, or path. (required) |
 
 All other configuration (channels, feeds, verification limits, rate limits) is stored in D1 and managed via the admin API.
 
 ### Secrets (`wrangler secret put`)
 
-| Secret | Description |
-|---|---|
-| `RESEND_API_KEY` | Resend API key for sending emails |
-| `ADMIN_API_KEY` | Bearer token for admin and send endpoints |
+| Secret           | Description                               |
+| ---------------- | ----------------------------------------- |
+| `RESEND_API_KEY` | Resend API key for sending emails         |
+| `ADMIN_API_KEY`  | Bearer token for admin and send endpoints |
 
 ### IP Rate Limits
 
 Default rate limits per endpoint (configurable via `PATCH /api/admin/config`):
 
-| Endpoint | Limit | Window |
-|---|---|---|
-| `/api/subscribe` | 10 requests | 1 hour |
-| `/api/verify` | 20 requests | 1 hour |
+| Endpoint           | Limit       | Window |
+| ------------------ | ----------- | ------ |
+| `/api/subscribe`   | 10 requests | 1 hour |
+| `/api/verify`      | 20 requests | 1 hour |
 | `/api/unsubscribe` | 20 requests | 1 hour |
-| `/api/send` | 5 requests | 1 hour |
-| `/api/admin/*` | 30 requests | 1 hour |
+| `/api/send`        | 5 requests  | 1 hour |
+| `/api/admin/*`     | 30 requests | 1 hour |
 
 When rate limited, the API returns `429 Too Many Requests` with a `Retry-After` header indicating when the next request will be accepted (with random jitter to prevent thundering herd retries).
 
@@ -260,9 +261,14 @@ Get subscriber and sent item statistics for a channel.
 ```json
 {
   "channelId": "my-channel",
-  "subscribers": { "total": 50, "verified": 45, "pending": 3, "unsubscribed": 2 },
+  "subscribers": {
+    "total": 50,
+    "verified": 45,
+    "pending": 3,
+    "unsubscribed": 2
+  },
   "sentItems": { "total": 12, "lastSentAt": "2026-02-27T10:00:00Z" },
-  "feeds": [{"name": "Blog", "url": "https://example.com/feed.xml"}]
+  "feeds": [{ "name": "Blog", "url": "https://example.com/feed.xml" }]
 }
 ```
 
@@ -346,14 +352,14 @@ feedmail runs on a configurable cron schedule (default: every 6 hours). On each 
 
 Email and page templates use [Handlebars](https://handlebarsjs.com/) and are located in `src/templates/`:
 
-| Template | Purpose |
-|---|---|
-| `newsletter.hbs` | HTML email for new feed items |
-| `newsletter.txt.hbs` | Plain text email for new feed items |
-| `verification-email.hbs` | Verification email sent on subscribe |
-| `verify-page.hbs` | "You're subscribed" confirmation page |
-| `unsubscribe-page.hbs` | "You've been unsubscribed" confirmation page |
-| `error-page.hbs` | Error page (invalid/expired tokens) |
+| Template                    | Purpose                                                    |
+| --------------------------- | ---------------------------------------------------------- |
+| `newsletter.hbs`            | HTML email for new feed items                              |
+| `newsletter.txt.hbs`        | Plain text email for new feed items                        |
+| `verification-email.hbs`    | Verification email sent on subscribe                       |
+| `verify-page.hbs`           | "You're subscribed" confirmation page                      |
+| `unsubscribe-page.hbs`      | "You've been unsubscribed" confirmation page               |
+| `error-page.hbs`            | Error page (invalid/expired tokens)                        |
 | `partials/email-footer.hbs` | Shared email footer (copyright, unsubscribe, company info) |
 
 Customize these files before deploying to match your branding.
@@ -371,35 +377,46 @@ Add a subscribe form to your website that POSTs to the feedmail API. The form sh
 <form id="subscribe-form">
   <input type="email" name="email" placeholder="Your email" required />
   <!-- Honeypot field: hidden from real users, bots will fill it -->
-  <input type="text" name="website" style="display: none" tabindex="-1" autocomplete="off" />
+  <input
+    type="text"
+    name="website"
+    style="display: none"
+    tabindex="-1"
+    autocomplete="off"
+  />
   <button type="submit">Subscribe</button>
   <p id="subscribe-message" aria-live="polite"></p>
 </form>
 
 <script>
-  document.getElementById('subscribe-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target;
-    const msg = document.getElementById('subscribe-message');
+  document
+    .getElementById("subscribe-form")
+    .addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const msg = document.getElementById("subscribe-message");
 
-    // If honeypot field is filled, silently "succeed" without submitting
-    if (form.website.value) {
-      msg.textContent = 'Check your email to confirm your subscription.';
-      return;
-    }
+      // If honeypot field is filled, silently "succeed" without submitting
+      if (form.website.value) {
+        msg.textContent = "Check your email to confirm your subscription.";
+        return;
+      }
 
-    const response = await fetch('https://your-feedmail-domain/api/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: form.email.value,
-        channelId: 'your-channel-id',
-      }),
+      const response = await fetch(
+        "https://your-feedmail-domain/api/subscribe",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: form.email.value,
+            channelId: "your-channel-id"
+          })
+        }
+      );
+
+      const data = await response.json();
+      msg.textContent = data.message;
     });
-
-    const data = await response.json();
-    msg.textContent = data.message;
-  });
 </script>
 ```
 

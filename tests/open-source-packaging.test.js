@@ -95,7 +95,9 @@ describe("wrangler.toml sanitisation", () => {
 
   it("does not contain any real Cloudflare account or database IDs", () => {
     // Real IDs are hex strings of 32+ characters or UUID format
-    expect(toml).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+    expect(toml).not.toMatch(
+      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
+    );
     expect(toml).not.toMatch(/[0-9a-f]{32}/i);
   });
 
@@ -123,7 +125,7 @@ describe(".gitignore includes wrangler.prod.toml", () => {
   it("git check-ignore recognises wrangler.prod.toml", () => {
     const result = execSync("git check-ignore -v wrangler.prod.toml", {
       cwd: ROOT,
-      encoding: "utf-8",
+      encoding: "utf-8"
     });
     expect(result).toContain("wrangler.prod.toml");
   });
@@ -170,11 +172,15 @@ describe("package.json deploy scripts use wrangler.prod.toml", () => {
   });
 
   it("db:migrate:local script does NOT include --config wrangler.prod.toml", () => {
-    expect(scripts["db:migrate:local"]).not.toContain("--config wrangler.prod.toml");
+    expect(scripts["db:migrate:local"]).not.toContain(
+      "--config wrangler.prod.toml"
+    );
   });
 
   it("db:reset:local script does NOT include --config wrangler.prod.toml", () => {
-    expect(scripts["db:reset:local"]).not.toContain("--config wrangler.prod.toml");
+    expect(scripts["db:reset:local"]).not.toContain(
+      "--config wrangler.prod.toml"
+    );
   });
 });
 
@@ -204,7 +210,7 @@ describe("install.sh structure and content", () => {
     expect(() => {
       execFileSync("bash", ["-n", resolve(ROOT, scriptPath)], {
         encoding: "utf-8",
-        stdio: "pipe",
+        stdio: "pipe"
       });
     }).not.toThrow();
   });
@@ -220,15 +226,21 @@ describe("install.sh structure and content", () => {
   it("checks for git prerequisite", () => {
     expect(content).toMatch(/git/);
     // May use a reusable function (check_command git) or literal (command -v git)
-    expect(content).toMatch(/check_command\s+git|command\s+-v\s+git|which\s+git|type\s+git/);
+    expect(content).toMatch(
+      /check_command\s+git|command\s+-v\s+git|which\s+git|type\s+git/
+    );
   });
 
   it("checks for node prerequisite", () => {
-    expect(content).toMatch(/check_command\s+node|command\s+-v\s+node|which\s+node|type\s+node/);
+    expect(content).toMatch(
+      /check_command\s+node|command\s+-v\s+node|which\s+node|type\s+node/
+    );
   });
 
   it("checks for pnpm prerequisite", () => {
-    expect(content).toMatch(/check_command\s+pnpm|command\s+-v\s+pnpm|which\s+pnpm|type\s+pnpm/);
+    expect(content).toMatch(
+      /check_command\s+pnpm|command\s+-v\s+pnpm|which\s+pnpm|type\s+pnpm/
+    );
   });
 
   it("does not check for wrangler prerequisite (installed via pnpm install)", () => {
@@ -277,7 +289,7 @@ describe("setup.sh structure and content", () => {
     expect(() => {
       execFileSync("bash", ["-n", resolve(ROOT, scriptPath)], {
         encoding: "utf-8",
-        stdio: "pipe",
+        stdio: "pipe"
       });
     }).not.toThrow();
   });
@@ -375,11 +387,15 @@ describe("setup.sh structure and content", () => {
 
   describe("secret setting", () => {
     it("sets RESEND_API_KEY via wrangler secret put", () => {
-      expect(content).toMatch(/(wrangler|\$WRANGLER)\s+secret\s+put\s+RESEND_API_KEY/);
+      expect(content).toMatch(
+        /(wrangler|\$WRANGLER)\s+secret\s+put\s+RESEND_API_KEY/
+      );
     });
 
     it("sets ADMIN_API_KEY via wrangler secret put", () => {
-      expect(content).toMatch(/(wrangler|\$WRANGLER)\s+secret\s+put\s+ADMIN_API_KEY/);
+      expect(content).toMatch(
+        /(wrangler|\$WRANGLER)\s+secret\s+put\s+ADMIN_API_KEY/
+      );
     });
 
     it("uses echo-disabled input for secret prompting", () => {
@@ -393,11 +409,15 @@ describe("setup.sh structure and content", () => {
 
   describe("migrations", () => {
     it("runs D1 migrations with prod config", () => {
-      expect(content).toMatch(/(wrangler|\$WRANGLER)\s+d1\s+migrations\s+apply/);
+      expect(content).toMatch(
+        /(wrangler|\$WRANGLER)\s+d1\s+migrations\s+apply/
+      );
     });
 
     it("passes --config wrangler.prod.toml to migrations", () => {
-      expect(content).toMatch(/migrations\s+apply.*--config\s+wrangler\.prod\.toml/);
+      expect(content).toMatch(
+        /migrations\s+apply.*--config\s+wrangler\.prod\.toml/
+      );
     });
   });
 
@@ -407,7 +427,9 @@ describe("setup.sh structure and content", () => {
     });
 
     it("passes --config wrangler.prod.toml to deploy", () => {
-      expect(content).toMatch(/(wrangler|\$WRANGLER)\s+deploy.*--config\s+wrangler\.prod\.toml/);
+      expect(content).toMatch(
+        /(wrangler|\$WRANGLER)\s+deploy.*--config\s+wrangler\.prod\.toml/
+      );
     });
   });
 
@@ -455,7 +477,7 @@ describe("README.md content", () => {
 
     it("curl command points to raw GitHub URL of install.sh", () => {
       expect(readme).toMatch(
-        /raw\.githubusercontent\.com\/alexmensch\/feedmail\/.*\/scripts\/install\.sh/,
+        /raw\.githubusercontent\.com\/alexmensch\/feedmail\/.*\/scripts\/install\.sh/
       );
     });
 
@@ -495,7 +517,9 @@ describe("README.md content", () => {
 
   describe("Resend domain verification note", () => {
     it("mentions Resend domain verification", () => {
-      expect(readme).toMatch(/[Rr]esend.*domain.*verif|domain.*verif.*[Rr]esend/i);
+      expect(readme).toMatch(
+        /[Rr]esend.*domain.*verif|domain.*verif.*[Rr]esend/i
+      );
     });
 
     it("includes a link to Resend documentation", () => {
@@ -513,21 +537,29 @@ describe("README.md content", () => {
     });
 
     it("includes pnpm install command", () => {
-      const updateMatch = readme.match(/##[#]*\s*[Uu]pdat[\s\S]*?(?=\n##[^#]|\n$|$)/);
+      const updateMatch = readme.match(
+        /##[#]*\s*[Uu]pdat[\s\S]*?(?=\n##[^#]|\n$|$)/
+      );
       expect(updateMatch).not.toBeNull();
       expect(updateMatch[0]).toContain("pnpm install");
     });
 
     it("includes pnpm run deploy command", () => {
-      const updateMatch = readme.match(/##[#]*\s*[Uu]pdat[\s\S]*?(?=\n##[^#]|\n$|$)/);
+      const updateMatch = readme.match(
+        /##[#]*\s*[Uu]pdat[\s\S]*?(?=\n##[^#]|\n$|$)/
+      );
       expect(updateMatch).not.toBeNull();
       expect(updateMatch[0]).toMatch(/pnpm\s+run\s+deploy/);
     });
 
     it("notes that wrangler.prod.toml is gitignored", () => {
-      const updateMatch = readme.match(/##[#]*\s*[Uu]pdat[\s\S]*?(?=\n##[^#]|\n$|$)/);
+      const updateMatch = readme.match(
+        /##[#]*\s*[Uu]pdat[\s\S]*?(?=\n##[^#]|\n$|$)/
+      );
       expect(updateMatch).not.toBeNull();
-      expect(updateMatch[0]).toMatch(/wrangler\.prod\.toml.*gitignore|gitignore.*wrangler\.prod\.toml/i);
+      expect(updateMatch[0]).toMatch(
+        /wrangler\.prod\.toml.*gitignore|gitignore.*wrangler\.prod\.toml/i
+      );
     });
   });
 });

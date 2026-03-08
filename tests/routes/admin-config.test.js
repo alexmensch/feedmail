@@ -4,7 +4,7 @@ vi.mock("../../src/lib/db.js", () => ({
   getSiteConfig: vi.fn(),
   upsertSiteConfig: vi.fn(),
   getRateLimitConfigs: vi.fn(),
-  upsertRateLimitConfig: vi.fn(),
+  upsertRateLimitConfig: vi.fn()
 }));
 
 import { handleAdminConfig } from "../../src/routes/admin-config.js";
@@ -12,7 +12,7 @@ import {
   getSiteConfig,
   upsertSiteConfig,
   getRateLimitConfigs,
-  upsertRateLimitConfig,
+  upsertRateLimitConfig
 } from "../../src/lib/db.js";
 
 const env = { DB: {} };
@@ -20,7 +20,7 @@ const env = { DB: {} };
 function makeRequest(method, body = null) {
   const options = {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" }
   };
   if (body) {
     options.body = JSON.stringify(body);
@@ -33,14 +33,14 @@ describe("handleAdminConfig", () => {
     vi.clearAllMocks();
     getSiteConfig.mockResolvedValue({
       verifyMaxAttempts: 3,
-      verifyWindowHours: 24,
+      verifyWindowHours: 24
     });
     getRateLimitConfigs.mockResolvedValue({
       subscribe: { windowHours: 1, maxRequests: 10 },
       verify: { windowHours: 1, maxRequests: 20 },
       unsubscribe: { windowHours: 1, maxRequests: 20 },
       send: { windowHours: 1, maxRequests: 5 },
-      admin: { windowHours: 1, maxRequests: 30 },
+      admin: { windowHours: 1, maxRequests: 30 }
     });
   });
 
@@ -66,7 +66,10 @@ describe("handleAdminConfig", () => {
       expect(body.rateLimits).toHaveProperty("unsubscribe");
       expect(body.rateLimits).toHaveProperty("send");
       expect(body.rateLimits).toHaveProperty("admin");
-      expect(body.rateLimits.subscribe).toEqual({ windowHours: 1, maxRequests: 10 });
+      expect(body.rateLimits.subscribe).toEqual({
+        windowHours: 1,
+        maxRequests: 10
+      });
     });
 
     it("reads site config from the database", async () => {
@@ -113,7 +116,7 @@ describe("handleAdminConfig", () => {
       upsertSiteConfig.mockResolvedValue({});
       getSiteConfig.mockResolvedValue({
         verifyMaxAttempts: 5,
-        verifyWindowHours: 24,
+        verifyWindowHours: 24
       });
 
       const request = makeRequest("PATCH", { verifyMaxAttempts: 5 });
@@ -129,7 +132,7 @@ describe("handleAdminConfig", () => {
       upsertSiteConfig.mockResolvedValue({});
       getSiteConfig.mockResolvedValue({
         verifyMaxAttempts: 3,
-        verifyWindowHours: 48,
+        verifyWindowHours: 48
       });
 
       const request = makeRequest("PATCH", { verifyWindowHours: 48 });
@@ -144,12 +147,12 @@ describe("handleAdminConfig", () => {
       upsertSiteConfig.mockResolvedValue({});
       getSiteConfig.mockResolvedValue({
         verifyMaxAttempts: 10,
-        verifyWindowHours: 48,
+        verifyWindowHours: 48
       });
 
       const request = makeRequest("PATCH", {
         verifyMaxAttempts: 10,
-        verifyWindowHours: 48,
+        verifyWindowHours: 48
       });
       const response = await handleAdminConfig(request, env);
       const body = await response.json();
@@ -164,8 +167,8 @@ describe("handleAdminConfig", () => {
 
       const request = makeRequest("PATCH", {
         rateLimits: {
-          subscribe: { windowHours: 2, maxRequests: 20 },
-        },
+          subscribe: { windowHours: 2, maxRequests: 20 }
+        }
       });
       const response = await handleAdminConfig(request, env);
 
@@ -173,7 +176,7 @@ describe("handleAdminConfig", () => {
       expect(upsertRateLimitConfig).toHaveBeenCalledWith(
         env.DB,
         "subscribe",
-        expect.objectContaining({ windowHours: 2, maxRequests: 20 }),
+        expect.objectContaining({ windowHours: 2, maxRequests: 20 })
       );
     });
 
@@ -183,8 +186,8 @@ describe("handleAdminConfig", () => {
       const request = makeRequest("PATCH", {
         rateLimits: {
           subscribe: { windowHours: 2, maxRequests: 20 },
-          admin: { windowHours: 0.5, maxRequests: 60 },
-        },
+          admin: { windowHours: 0.5, maxRequests: 60 }
+        }
       });
       const response = await handleAdminConfig(request, env);
 
@@ -196,14 +199,14 @@ describe("handleAdminConfig", () => {
       upsertSiteConfig.mockResolvedValue({});
       getSiteConfig.mockResolvedValue({
         verifyMaxAttempts: 5,
-        verifyWindowHours: 24,
+        verifyWindowHours: 24
       });
       getRateLimitConfigs.mockResolvedValue({
         subscribe: { windowHours: 1, maxRequests: 10 },
         verify: { windowHours: 1, maxRequests: 20 },
         unsubscribe: { windowHours: 1, maxRequests: 20 },
         send: { windowHours: 1, maxRequests: 5 },
-        admin: { windowHours: 1, maxRequests: 30 },
+        admin: { windowHours: 1, maxRequests: 30 }
       });
 
       const request = makeRequest("PATCH", { verifyMaxAttempts: 5 });
@@ -270,7 +273,7 @@ describe("handleAdminConfig", () => {
         upsertSiteConfig.mockResolvedValue({});
         getSiteConfig.mockResolvedValue({
           verifyMaxAttempts: 3,
-          verifyWindowHours: 0.5,
+          verifyWindowHours: 0.5
         });
 
         const request = makeRequest("PATCH", { verifyWindowHours: 0.5 });
@@ -282,8 +285,8 @@ describe("handleAdminConfig", () => {
       it("rejects non-numeric rate limit maxRequests", async () => {
         const request = makeRequest("PATCH", {
           rateLimits: {
-            subscribe: { windowHours: 1, maxRequests: "many" },
-          },
+            subscribe: { windowHours: 1, maxRequests: "many" }
+          }
         });
         const response = await handleAdminConfig(request, env);
 
@@ -293,8 +296,8 @@ describe("handleAdminConfig", () => {
       it("rejects zero rate limit maxRequests", async () => {
         const request = makeRequest("PATCH", {
           rateLimits: {
-            subscribe: { windowHours: 1, maxRequests: 0 },
-          },
+            subscribe: { windowHours: 1, maxRequests: 0 }
+          }
         });
         const response = await handleAdminConfig(request, env);
 
@@ -304,8 +307,8 @@ describe("handleAdminConfig", () => {
       it("rejects negative rate limit maxRequests", async () => {
         const request = makeRequest("PATCH", {
           rateLimits: {
-            subscribe: { windowHours: 1, maxRequests: -5 },
-          },
+            subscribe: { windowHours: 1, maxRequests: -5 }
+          }
         });
         const response = await handleAdminConfig(request, env);
 
@@ -315,8 +318,8 @@ describe("handleAdminConfig", () => {
       it("rejects non-numeric rate limit windowHours", async () => {
         const request = makeRequest("PATCH", {
           rateLimits: {
-            subscribe: { windowHours: "forever", maxRequests: 10 },
-          },
+            subscribe: { windowHours: "forever", maxRequests: 10 }
+          }
         });
         const response = await handleAdminConfig(request, env);
 
@@ -326,8 +329,8 @@ describe("handleAdminConfig", () => {
       it("rejects zero rate limit windowHours", async () => {
         const request = makeRequest("PATCH", {
           rateLimits: {
-            subscribe: { windowHours: 0, maxRequests: 10 },
-          },
+            subscribe: { windowHours: 0, maxRequests: 10 }
+          }
         });
         const response = await handleAdminConfig(request, env);
 
@@ -337,8 +340,8 @@ describe("handleAdminConfig", () => {
       it("rejects negative rate limit windowHours", async () => {
         const request = makeRequest("PATCH", {
           rateLimits: {
-            subscribe: { windowHours: -1, maxRequests: 10 },
-          },
+            subscribe: { windowHours: -1, maxRequests: 10 }
+          }
         });
         const response = await handleAdminConfig(request, env);
 
@@ -348,8 +351,8 @@ describe("handleAdminConfig", () => {
       it("rejects unknown endpoint name in rate limits", async () => {
         const request = makeRequest("PATCH", {
           rateLimits: {
-            nonexistent: { windowHours: 1, maxRequests: 10 },
-          },
+            nonexistent: { windowHours: 1, maxRequests: 10 }
+          }
         });
         const response = await handleAdminConfig(request, env);
 
@@ -359,7 +362,7 @@ describe("handleAdminConfig", () => {
       it("rejects invalid JSON body", async () => {
         const request = new Request("https://feedmail.cc/api/admin/config", {
           method: "PATCH",
-          body: "not json",
+          body: "not json"
         });
         const response = await handleAdminConfig(request, env);
 

@@ -4,7 +4,7 @@
  */
 
 import pkg from "../../package.json" with { type: "json" };
-import { getChannels, getChannelById } from "../lib/config.js";
+import { getChannels } from "../lib/config.js";
 import { fetchAndParseFeed } from "../lib/feed-parser.js";
 import { sendEmail } from "../lib/email.js";
 import { htmlToText, constrainImages } from "../lib/html-to-text.js";
@@ -16,7 +16,7 @@ import {
   getVerifiedSubscribers,
   isItemSentToSubscriber,
   insertSubscriberSend,
-  deleteSubscriberSends,
+  deleteSubscriberSends
 } from "../lib/db.js";
 
 const USER_AGENT = `feedmail/${pkg.version}`;
@@ -41,7 +41,7 @@ export async function handleSend(request, env) {
 
   return new Response(JSON.stringify(result), {
     status: 200,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" }
   });
 }
 
@@ -57,7 +57,9 @@ export async function checkFeedsAndSend(env, targetChannelId = null) {
   const summary = { sent: 0, items: [], seeded: false };
 
   for (const channel of channels) {
-    if (targetChannelId && channel.id !== targetChannelId) continue;
+    if (targetChannelId && channel.id !== targetChannelId) {
+      continue;
+    }
 
     try {
       await processChannelFeeds(env, channel, summary);
@@ -73,7 +75,9 @@ export async function checkFeedsAndSend(env, targetChannelId = null) {
  * Process all feeds for a single channel.
  */
 async function processChannelFeeds(env, channel, summary) {
-  if (!channel.feeds || channel.feeds.length === 0) return;
+  if (!channel.feeds || channel.feeds.length === 0) {
+    return;
+  }
 
   const unseenItems = [];
 
@@ -86,14 +90,14 @@ async function processChannelFeeds(env, channel, summary) {
       const seeded = await isFeedSeeded(env.DB, feedUrl);
       if (!seeded) {
         console.log(
-          `Seeding ${items.length} existing items for ${feedUrl}. No emails sent.`,
+          `Seeding ${items.length} existing items for ${feedUrl}. No emails sent.`
         );
         for (const item of items) {
           await insertSentItem(env.DB, {
             itemId: item.id,
             feedUrl,
             title: item.title,
-            recipientCount: 0,
+            recipientCount: 0
           });
         }
         summary.seeded = true;
@@ -112,7 +116,9 @@ async function processChannelFeeds(env, channel, summary) {
     }
   }
 
-  if (unseenItems.length === 0) return;
+  if (unseenItems.length === 0) {
+    return;
+  }
 
   // Get verified subscribers for this channel
   const subscribers = await getVerifiedSubscribers(env.DB, channel.id);
@@ -124,23 +130,18 @@ async function processChannelFeeds(env, channel, summary) {
         itemId: item.id,
         feedUrl: item.feedUrl,
         title: item.title,
-        recipientCount: 0,
+        recipientCount: 0
       });
     }
     console.log(
-      `No subscribers for ${channel.id}. Marked ${unseenItems.length} items as sent.`,
+      `No subscribers for ${channel.id}. Marked ${unseenItems.length} items as sent.`
     );
     return;
   }
 
   // Send each unseen item to all subscribers
   for (const item of unseenItems) {
-    const result = await sendItemToSubscribers(
-      env,
-      channel,
-      item,
-      subscribers,
-    );
+    const result = await sendItemToSubscribers(env, channel, item, subscribers);
 
     // Only mark the item as fully sent if all subscribers were reached
     // (no quota interruption). This ensures the next run retries any
@@ -150,7 +151,7 @@ async function processChannelFeeds(env, channel, summary) {
         itemId: item.id,
         feedUrl: item.feedUrl,
         title: item.title,
-        recipientCount: result.sent,
+        recipientCount: result.sent
       });
       // Clean up per-subscriber tracking rows — no longer needed once the
       // item is recorded in sent_items (isItemSent will skip it from now on).
@@ -162,17 +163,20 @@ async function processChannelFeeds(env, channel, summary) {
       title: item.title,
       recipients: result.sent,
       complete: result.complete,
-      channelId: channel.id,
+      channelId: channel.id
     });
 
     console.log(
-      `Sent "${item.title}" to ${result.sent} subscribers for ${channel.id}` +
-        (result.complete ? "" : " (incomplete — quota exhausted, will retry)"),
+      `Sent "${item.title}" to ${result.sent} subscribers for ${channel.id}${
+        result.complete ? "" : " (incomplete — quota exhausted, will retry)"
+      }`
     );
 
     // If quota was exhausted, stop processing further items for this channel —
     // all subsequent sends would fail too.
-    if (!result.complete) break;
+    if (!result.complete) {
+      break;
+    }
   }
 }
 
@@ -207,7 +211,7 @@ async function sendItemToSubscribers(env, channel, item, subscribers) {
     companyName: channel.companyName,
     companyAddress: channel.companyAddress,
     // unsubscribeUrl is replaced per-subscriber below
-    unsubscribeUrl: "%%UNSUBSCRIBE_URL%%",
+    unsubscribeUrl: "%%UNSUBSCRIBE_URL%%"
   });
 
   const emailText = render("newsletterText", {
@@ -219,7 +223,7 @@ async function sendItemToSubscribers(env, channel, item, subscribers) {
     companyName: channel.companyName,
     companyAddress: channel.companyAddress,
     // unsubscribeUrl is replaced per-subscriber below
-    unsubscribeUrl: "%%UNSUBSCRIBE_URL%%",
+    unsubscribeUrl: "%%UNSUBSCRIBE_URL%%"
   });
 
   let sent = 0;
@@ -231,19 +235,21 @@ async function sendItemToSubscribers(env, channel, item, subscribers) {
       env.DB,
       subscriber.id,
       item.id,
-      item.feedUrl,
+      item.feedUrl
     );
-    if (alreadySent) continue;
+    if (alreadySent) {
+      continue;
+    }
 
     const unsubscribeUrl = `https://${env.DOMAIN}/api/unsubscribe?token=${subscriber.unsubscribe_token}`;
 
     const personalizedHtml = emailHtml.replace(
       /%%UNSUBSCRIBE_URL%%/g,
-      unsubscribeUrl,
+      unsubscribeUrl
     );
     const personalizedText = emailText.replace(
       /%%UNSUBSCRIBE_URL%%/g,
-      unsubscribeUrl,
+      unsubscribeUrl
     );
 
     const result = await sendEmail(env.RESEND_API_KEY, {
@@ -256,8 +262,8 @@ async function sendItemToSubscribers(env, channel, item, subscribers) {
       text: personalizedText,
       headers: {
         "List-Unsubscribe": `<${unsubscribeUrl}>`,
-        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-      },
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"
+      }
     });
 
     if (result.success) {
@@ -268,15 +274,13 @@ async function sendItemToSubscribers(env, channel, item, subscribers) {
       // Don't mark the item as sent so the next run retries the remaining
       // subscribers.
       console.error(
-        `Quota exhausted sending to ${subscriber.email}: ${result.error}`,
+        `Quota exhausted sending to ${subscriber.email}: ${result.error}`
       );
       return { sent, complete: false };
     } else {
       // Permanent failure (bad address, validation error, etc.) —
       // log and continue to the next subscriber.
-      console.error(
-        `Failed to send to ${subscriber.email}: ${result.error}`,
-      );
+      console.error(`Failed to send to ${subscriber.email}: ${result.error}`);
     }
   }
 

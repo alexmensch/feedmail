@@ -8,7 +8,7 @@ import {
   getChannelById as dbGetChannelById,
   getFeedsByChannelId,
   getSiteConfig,
-  getRateLimitConfigs,
+  getRateLimitConfigs
 } from "./db.js";
 
 export const RATE_LIMIT_DEFAULTS = {
@@ -16,7 +16,7 @@ export const RATE_LIMIT_DEFAULTS = {
   verify: { windowHours: 1, maxRequests: 20 },
   unsubscribe: { windowHours: 1, maxRequests: 20 },
   send: { windowHours: 1, maxRequests: 5 },
-  admin: { windowHours: 1, maxRequests: 30 },
+  admin: { windowHours: 1, maxRequests: 30 }
 };
 
 // ─── Validation ─────────────────────────────────────────────────────────────
@@ -30,7 +30,9 @@ export function validateDomain(domain) {
     throw new Error("DOMAIN is required but missing or empty");
   }
   if (domain.includes("://")) {
-    throw new Error("DOMAIN must not include protocol (e.g., remove 'https://')");
+    throw new Error(
+      "DOMAIN must not include protocol (e.g., remove 'https://')"
+    );
   }
   if (domain.endsWith("/")) {
     throw new Error("DOMAIN must not end with a trailing slash");
@@ -47,7 +49,14 @@ export function validateDomain(domain) {
  * @param {boolean} [options.requireFeeds] - Whether feeds are required (true for create)
  */
 export function validateChannelFields(data, { requireFeeds = false } = {}) {
-  const requiredFields = ["id", "siteName", "siteUrl", "fromUser", "fromName", "corsOrigins"];
+  const requiredFields = [
+    "id",
+    "siteName",
+    "siteUrl",
+    "fromUser",
+    "fromName",
+    "corsOrigins"
+  ];
 
   for (const field of requiredFields) {
     if (!data[field]) {
@@ -126,7 +135,9 @@ export async function getChannels(env) {
  */
 export async function getChannelById(env, channelId) {
   const channel = await dbGetChannelById(env.DB, channelId);
-  if (!channel) return null;
+  if (!channel) {
+    return null;
+  }
   const feeds = (await getFeedsByChannelId(env.DB, channel.id)) || [];
   channel.feeds = feeds.map((f) => ({ id: f.id, name: f.name, url: f.url }));
   return channel;
@@ -141,7 +152,7 @@ export async function getVerifyLimits(env) {
   const config = await getSiteConfig(env.DB);
   return {
     maxAttempts: config?.verifyMaxAttempts ?? 3,
-    windowHours: config?.verifyWindowHours ?? 24,
+    windowHours: config?.verifyWindowHours ?? 24
   };
 }
 
@@ -176,7 +187,7 @@ export async function getRateLimitConfig(env) {
     const entry = dbConfig[endpoint] || RATE_LIMIT_DEFAULTS[endpoint];
     config[endpoint] = {
       ...entry,
-      windowSeconds: entry.windowHours * 3600,
+      windowSeconds: entry.windowHours * 3600
     };
   }
   return config;

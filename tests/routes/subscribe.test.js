@@ -3,13 +3,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mock all dependencies
 vi.mock("../../src/lib/config.js", () => ({
   getChannelById: vi.fn(),
-  getVerifyLimits: vi.fn(),
+  getVerifyLimits: vi.fn()
 }));
 vi.mock("../../src/lib/email.js", () => ({
-  sendEmail: vi.fn(),
+  sendEmail: vi.fn()
 }));
 vi.mock("../../src/lib/templates.js", () => ({
-  render: vi.fn().mockReturnValue("<html>verification</html>"),
+  render: vi.fn().mockReturnValue("<html>verification</html>")
 }));
 vi.mock("../../src/lib/db.js", () => ({
   getSubscriberByEmail: vi.fn(),
@@ -17,7 +17,7 @@ vi.mock("../../src/lib/db.js", () => ({
   resetSubscriberToPending: vi.fn(),
   updateVerifyToken: vi.fn(),
   countRecentVerificationAttempts: vi.fn(),
-  insertVerificationAttempt: vi.fn(),
+  insertVerificationAttempt: vi.fn()
 }));
 
 import { handleSubscribe } from "../../src/routes/subscribe.js";
@@ -30,7 +30,7 @@ import {
   resetSubscriberToPending,
   updateVerifyToken,
   countRecentVerificationAttempts,
-  insertVerificationAttempt,
+  insertVerificationAttempt
 } from "../../src/lib/db.js";
 
 const CHANNEL = {
@@ -41,14 +41,14 @@ const CHANNEL = {
   fromName: "Test",
   replyTo: "reply@example.com",
   corsOrigins: ["https://example.com"],
-  feeds: [{ name: "Main Feed", url: "https://example.com/feed" }],
+  feeds: [{ name: "Main Feed", url: "https://example.com/feed" }]
 };
 
 const env = {
   DB: {},
   RESEND_API_KEY: "re_test",
   DOMAIN: "test.example.com",
-  CHANNELS: JSON.stringify([CHANNEL]),
+  CHANNELS: JSON.stringify([CHANNEL])
 };
 
 function makeRequest(body) {
@@ -56,9 +56,9 @@ function makeRequest(body) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "CF-Connecting-IP": "1.2.3.4",
+      "CF-Connecting-IP": "1.2.3.4"
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(body)
   });
 }
 
@@ -67,7 +67,7 @@ describe("handleSubscribe", () => {
     vi.clearAllMocks();
     // Stub crypto.randomUUID
     vi.stubGlobal("crypto", {
-      randomUUID: vi.fn().mockReturnValue("test-uuid"),
+      randomUUID: vi.fn().mockReturnValue("test-uuid")
     });
 
     getChannelById.mockReturnValue(CHANNEL);
@@ -75,7 +75,7 @@ describe("handleSubscribe", () => {
     sendEmail.mockResolvedValue({ success: true });
     countRecentVerificationAttempts.mockResolvedValue(0);
     insertSubscriber.mockResolvedValue({
-      meta: { last_row_id: 1 },
+      meta: { last_row_id: 1 }
     });
   });
 
@@ -83,7 +83,7 @@ describe("handleSubscribe", () => {
     it("returns 400 for invalid JSON body", async () => {
       const request = new Request("https://test.example.com/api/subscribe", {
         method: "POST",
-        body: "not json",
+        body: "not json"
       });
 
       const response = await handleSubscribe(request, env);
@@ -97,7 +97,7 @@ describe("handleSubscribe", () => {
     it("returns 400 for missing siteId", async () => {
       const response = await handleSubscribe(
         makeRequest({ email: "a@b.com" }),
-        env,
+        env
       );
       const body = await response.json();
 
@@ -111,9 +111,9 @@ describe("handleSubscribe", () => {
       const response = await handleSubscribe(
         makeRequest({
           email: "a@b.com",
-          channelId: "unknown",
+          channelId: "unknown"
         }),
-        env,
+        env
       );
       const body = await response.json();
 
@@ -124,7 +124,7 @@ describe("handleSubscribe", () => {
     it("returns 400 for missing email", async () => {
       const response = await handleSubscribe(
         makeRequest({ channelId: "test-site" }),
-        env,
+        env
       );
       const body = await response.json();
 
@@ -139,13 +139,13 @@ describe("handleSubscribe", () => {
         "user@",
         "user@domain",
         "user @domain.com",
-        "",
+        ""
       ];
 
       for (const email of invalidEmails) {
         const response = await handleSubscribe(
           makeRequest({ email, channelId: "test-site" }),
-          env,
+          env
         );
         const body = await response.json();
         expect(response.status).toBe(400);
@@ -159,13 +159,13 @@ describe("handleSubscribe", () => {
       const validEmails = [
         "user@domain.com",
         "user+tag@domain.com",
-        "first.last@domain.co.uk",
+        "first.last@domain.co.uk"
       ];
 
       for (const email of validEmails) {
         const response = await handleSubscribe(
           makeRequest({ email, channelId: "test-site" }),
-          env,
+          env
         );
         const body = await response.json();
         expect(response.status).toBe(200);
@@ -180,9 +180,9 @@ describe("handleSubscribe", () => {
         makeRequest({
           email: "a@b.com",
           channelId: "test-site",
-          honeypot: "gotcha",
+          honeypot: "gotcha"
         }),
-        env,
+        env
       );
       const body = await response.json();
 
@@ -197,9 +197,9 @@ describe("handleSubscribe", () => {
           email: "a@b.com",
           channelId: "test-site",
           name: "Bot",
-          phone: "123",
+          phone: "123"
         }),
-        env,
+        env
       );
       const body = await response.json();
 
@@ -212,7 +212,7 @@ describe("handleSubscribe", () => {
 
       const response = await handleSubscribe(
         makeRequest({ email: "a@b.com", channelId: "test-site" }),
-        env,
+        env
       );
       const body = await response.json();
 
@@ -225,9 +225,9 @@ describe("handleSubscribe", () => {
         makeRequest({
           email: "a@b.com",
           channelId: "test-site",
-          honeypot: "filled",
+          honeypot: "filled"
         }),
-        env,
+        env
       );
 
       expect(getSubscriberByEmail).not.toHaveBeenCalled();
@@ -241,15 +241,15 @@ describe("handleSubscribe", () => {
         id: 1,
         status: "verified",
         email: "a@b.com",
-        unsubscribe_token: "existing-unsub-token",
+        unsubscribe_token: "existing-unsub-token"
       });
 
       const response = await handleSubscribe(
         makeRequest({
           email: "a@b.com",
-          channelId: "test-site",
+          channelId: "test-site"
         }),
-        env,
+        env
       );
       const body = await response.json();
 
@@ -264,25 +264,21 @@ describe("handleSubscribe", () => {
         id: 1,
         status: "pending",
         email: "a@b.com",
-        unsubscribe_token: "existing-unsub-token",
+        unsubscribe_token: "existing-unsub-token"
       });
 
       const response = await handleSubscribe(
         makeRequest({
           email: "a@b.com",
-          channelId: "test-site",
+          channelId: "test-site"
         }),
-        env,
+        env
       );
       const body = await response.json();
 
       expect(response.status).toBe(200);
       expect(body.success).toBe(true);
-      expect(updateVerifyToken).toHaveBeenCalledWith(
-        env.DB,
-        1,
-        "test-uuid",
-      );
+      expect(updateVerifyToken).toHaveBeenCalledWith(env.DB, 1, "test-uuid");
       expect(sendEmail).toHaveBeenCalled();
     });
 
@@ -291,15 +287,15 @@ describe("handleSubscribe", () => {
         id: 1,
         status: "unsubscribed",
         email: "a@b.com",
-        unsubscribe_token: "existing-unsub-token",
+        unsubscribe_token: "existing-unsub-token"
       });
 
       const response = await handleSubscribe(
         makeRequest({
           email: "a@b.com",
-          channelId: "test-site",
+          channelId: "test-site"
         }),
-        env,
+        env
       );
       const body = await response.json();
 
@@ -308,17 +304,32 @@ describe("handleSubscribe", () => {
       expect(resetSubscriberToPending).toHaveBeenCalledWith(
         env.DB,
         1,
-        "test-uuid",
+        "test-uuid"
       );
       expect(sendEmail).toHaveBeenCalled();
     });
 
     it("all status responses are identical (no info leak)", async () => {
       const statuses = [
-        { id: 1, status: "verified", email: "a@b.com", unsubscribe_token: "unsub-tok" },
-        { id: 1, status: "pending", email: "a@b.com", unsubscribe_token: "unsub-tok" },
-        { id: 1, status: "unsubscribed", email: "a@b.com", unsubscribe_token: "unsub-tok" },
-        null, // new subscriber
+        {
+          id: 1,
+          status: "verified",
+          email: "a@b.com",
+          unsubscribe_token: "unsub-tok"
+        },
+        {
+          id: 1,
+          status: "pending",
+          email: "a@b.com",
+          unsubscribe_token: "unsub-tok"
+        },
+        {
+          id: 1,
+          status: "unsubscribed",
+          email: "a@b.com",
+          unsubscribe_token: "unsub-tok"
+        },
+        null // new subscriber
       ];
 
       const responses = [];
@@ -335,9 +346,9 @@ describe("handleSubscribe", () => {
         const response = await handleSubscribe(
           makeRequest({
             email: "a@b.com",
-            channelId: "test-site",
+            channelId: "test-site"
           }),
-          env,
+          env
         );
         const body = await response.json();
         responses.push({ status: response.status, body });
@@ -348,7 +359,7 @@ describe("handleSubscribe", () => {
         expect(r.status).toBe(200);
         expect(r.body.success).toBe(true);
         expect(r.body.message).toBe(
-          "Check your email to confirm your subscription",
+          "Check your email to confirm your subscription"
         );
       }
     });
@@ -361,9 +372,9 @@ describe("handleSubscribe", () => {
       const response = await handleSubscribe(
         makeRequest({
           email: "New@Example.COM",
-          channelId: "test-site",
+          channelId: "test-site"
         }),
-        env,
+        env
       );
       const body = await response.json();
 
@@ -375,7 +386,7 @@ describe("handleSubscribe", () => {
         channelId: "test-site",
         email: "new@example.com",
         verifyToken: "test-uuid",
-        unsubscribeToken: "test-uuid",
+        unsubscribeToken: "test-uuid"
       });
 
       expect(sendEmail).toHaveBeenCalled();
@@ -387,15 +398,15 @@ describe("handleSubscribe", () => {
       await handleSubscribe(
         makeRequest({
           email: "USER@DOMAIN.COM",
-          channelId: "test-site",
+          channelId: "test-site"
         }),
-        env,
+        env
       );
 
       expect(getSubscriberByEmail).toHaveBeenCalledWith(
         env.DB,
         "user@domain.com",
-        "test-site",
+        "test-site"
       );
     });
 
@@ -405,9 +416,9 @@ describe("handleSubscribe", () => {
       const response = await handleSubscribe(
         makeRequest({
           email: "  USER@DOMAIN.COM  ",
-          channelId: "test-site",
+          channelId: "test-site"
         }),
-        env,
+        env
       );
       const body = await response.json();
 
@@ -425,9 +436,9 @@ describe("handleSubscribe", () => {
       await handleSubscribe(
         makeRequest({
           email: "a@b.com",
-          channelId: "test-site",
+          channelId: "test-site"
         }),
-        env,
+        env
       );
 
       // Should have called getSubscriberByEmail twice
@@ -443,9 +454,9 @@ describe("handleSubscribe", () => {
       const response = await handleSubscribe(
         makeRequest({
           email: "a@b.com",
-          channelId: "test-site",
+          channelId: "test-site"
         }),
-        env,
+        env
       );
       const body = await response.json();
 
@@ -461,9 +472,9 @@ describe("handleSubscribe", () => {
       await handleSubscribe(
         makeRequest({
           email: "a@b.com",
-          channelId: "test-site",
+          channelId: "test-site"
         }),
-        env,
+        env
       );
 
       expect(sendEmail).toHaveBeenCalled();
@@ -475,9 +486,9 @@ describe("handleSubscribe", () => {
       await handleSubscribe(
         makeRequest({
           email: "a@b.com",
-          channelId: "test-site",
+          channelId: "test-site"
         }),
-        env,
+        env
       );
 
       expect(insertVerificationAttempt).toHaveBeenCalled();
@@ -487,15 +498,15 @@ describe("handleSubscribe", () => {
       getSubscriberByEmail.mockResolvedValue(null);
       sendEmail.mockResolvedValue({
         success: false,
-        error: "Send failed",
+        error: "Send failed"
       });
 
       await handleSubscribe(
         makeRequest({
           email: "a@b.com",
-          channelId: "test-site",
+          channelId: "test-site"
         }),
-        env,
+        env
       );
 
       expect(insertVerificationAttempt).not.toHaveBeenCalled();
@@ -509,9 +520,9 @@ describe("handleSubscribe", () => {
       await handleSubscribe(
         makeRequest({
           email: "a@b.com",
-          channelId: "test-site",
+          channelId: "test-site"
         }),
-        env,
+        env
       );
 
       // render call passes unsubscribeUrl in template data
@@ -519,7 +530,8 @@ describe("handleSubscribe", () => {
         siteName: "Test Site",
         siteUrl: "https://example.com",
         verifyUrl: "https://test.example.com/api/verify?token=test-uuid",
-        unsubscribeUrl: "https://test.example.com/api/unsubscribe?token=test-uuid",
+        unsubscribeUrl:
+          "https://test.example.com/api/unsubscribe?token=test-uuid"
       });
     });
 
@@ -529,9 +541,9 @@ describe("handleSubscribe", () => {
       await handleSubscribe(
         makeRequest({
           email: "user@test.com",
-          channelId: "test-site",
+          channelId: "test-site"
         }),
-        env,
+        env
       );
 
       // sendEmail call includes headers with both List-Unsubscribe headers
@@ -544,9 +556,10 @@ describe("handleSubscribe", () => {
         html: expect.any(String),
         text: expect.stringContaining("Confirm your subscription"),
         headers: {
-          "List-Unsubscribe": "<https://test.example.com/api/unsubscribe?token=test-uuid>",
-          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-        },
+          "List-Unsubscribe":
+            "<https://test.example.com/api/unsubscribe?token=test-uuid>",
+          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"
+        }
       });
     });
   });
@@ -557,13 +570,13 @@ describe("handleSubscribe", () => {
 
       await handleSubscribe(
         makeRequest({ email: "a@b.com", channelId: "test-site" }),
-        env,
+        env
       );
 
       const emailCall = sendEmail.mock.calls[0];
       expect(emailCall[1].headers).toBeDefined();
       expect(emailCall[1].headers["List-Unsubscribe"]).toBe(
-        "<https://test.example.com/api/unsubscribe?token=test-uuid>",
+        "<https://test.example.com/api/unsubscribe?token=test-uuid>"
       );
     });
 
@@ -572,12 +585,12 @@ describe("handleSubscribe", () => {
 
       await handleSubscribe(
         makeRequest({ email: "a@b.com", channelId: "test-site" }),
-        env,
+        env
       );
 
       const emailCall = sendEmail.mock.calls[0];
       expect(emailCall[1].headers["List-Unsubscribe-Post"]).toBe(
-        "List-Unsubscribe=One-Click",
+        "List-Unsubscribe=One-Click"
       );
     });
 
@@ -586,20 +599,20 @@ describe("handleSubscribe", () => {
         id: 1,
         status: "pending",
         email: "a@b.com",
-        unsubscribe_token: "existing-pending-token",
+        unsubscribe_token: "existing-pending-token"
       });
 
       await handleSubscribe(
         makeRequest({ email: "a@b.com", channelId: "test-site" }),
-        env,
+        env
       );
 
       const emailCall = sendEmail.mock.calls[0];
       expect(emailCall[1].headers["List-Unsubscribe"]).toBe(
-        "<https://test.example.com/api/unsubscribe?token=existing-pending-token>",
+        "<https://test.example.com/api/unsubscribe?token=existing-pending-token>"
       );
       expect(emailCall[1].headers["List-Unsubscribe-Post"]).toBe(
-        "List-Unsubscribe=One-Click",
+        "List-Unsubscribe=One-Click"
       );
     });
 
@@ -608,20 +621,20 @@ describe("handleSubscribe", () => {
         id: 1,
         status: "unsubscribed",
         email: "a@b.com",
-        unsubscribe_token: "existing-unsub-token",
+        unsubscribe_token: "existing-unsub-token"
       });
 
       await handleSubscribe(
         makeRequest({ email: "a@b.com", channelId: "test-site" }),
-        env,
+        env
       );
 
       const emailCall = sendEmail.mock.calls[0];
       expect(emailCall[1].headers["List-Unsubscribe"]).toBe(
-        "<https://test.example.com/api/unsubscribe?token=existing-unsub-token>",
+        "<https://test.example.com/api/unsubscribe?token=existing-unsub-token>"
       );
       expect(emailCall[1].headers["List-Unsubscribe-Post"]).toBe(
-        "List-Unsubscribe=One-Click",
+        "List-Unsubscribe=One-Click"
       );
     });
 
@@ -631,7 +644,7 @@ describe("handleSubscribe", () => {
 
       await handleSubscribe(
         makeRequest({ email: "a@b.com", channelId: "test-site" }),
-        env,
+        env
       );
 
       const emailCall = sendEmail.mock.calls[0];
@@ -639,7 +652,9 @@ describe("handleSubscribe", () => {
       // Must start with < and end with >
       expect(header).toMatch(/^<.+>$/);
       // Must contain the full unsubscribe URL
-      expect(header).toContain("https://test.example.com/api/unsubscribe?token=");
+      expect(header).toContain(
+        "https://test.example.com/api/unsubscribe?token="
+      );
     });
   });
 
@@ -649,7 +664,7 @@ describe("handleSubscribe", () => {
 
       await handleSubscribe(
         makeRequest({ email: "a@b.com", channelId: "test-site" }),
-        env,
+        env
       );
 
       // crypto.randomUUID returns "test-uuid" for all calls
@@ -657,8 +672,9 @@ describe("handleSubscribe", () => {
       expect(render).toHaveBeenCalledWith(
         "verificationEmail",
         expect.objectContaining({
-          unsubscribeUrl: "https://test.example.com/api/unsubscribe?token=test-uuid",
-        }),
+          unsubscribeUrl:
+            "https://test.example.com/api/unsubscribe?token=test-uuid"
+        })
       );
     });
 
@@ -667,19 +683,20 @@ describe("handleSubscribe", () => {
         id: 1,
         status: "pending",
         email: "a@b.com",
-        unsubscribe_token: "pending-unsub-tok",
+        unsubscribe_token: "pending-unsub-tok"
       });
 
       await handleSubscribe(
         makeRequest({ email: "a@b.com", channelId: "test-site" }),
-        env,
+        env
       );
 
       expect(render).toHaveBeenCalledWith(
         "verificationEmail",
         expect.objectContaining({
-          unsubscribeUrl: "https://test.example.com/api/unsubscribe?token=pending-unsub-tok",
-        }),
+          unsubscribeUrl:
+            "https://test.example.com/api/unsubscribe?token=pending-unsub-tok"
+        })
       );
     });
 
@@ -688,19 +705,20 @@ describe("handleSubscribe", () => {
         id: 1,
         status: "unsubscribed",
         email: "a@b.com",
-        unsubscribe_token: "resub-unsub-tok",
+        unsubscribe_token: "resub-unsub-tok"
       });
 
       await handleSubscribe(
         makeRequest({ email: "a@b.com", channelId: "test-site" }),
-        env,
+        env
       );
 
       expect(render).toHaveBeenCalledWith(
         "verificationEmail",
         expect.objectContaining({
-          unsubscribeUrl: "https://test.example.com/api/unsubscribe?token=resub-unsub-tok",
-        }),
+          unsubscribeUrl:
+            "https://test.example.com/api/unsubscribe?token=resub-unsub-tok"
+        })
       );
     });
 
@@ -709,14 +727,16 @@ describe("handleSubscribe", () => {
 
       await handleSubscribe(
         makeRequest({ email: "a@b.com", channelId: "test-site" }),
-        env,
+        env
       );
 
       const emailCall = sendEmail.mock.calls[0];
       const textBody = emailCall[1].text;
       // plain text includes "Unsubscribe: {url}"
       expect(textBody).toContain("Unsubscribe:");
-      expect(textBody).toContain("https://test.example.com/api/unsubscribe?token=test-uuid");
+      expect(textBody).toContain(
+        "https://test.example.com/api/unsubscribe?token=test-uuid"
+      );
     });
   });
 
@@ -727,7 +747,7 @@ describe("handleSubscribe", () => {
 
       const response = await handleSubscribe(
         makeRequest({ email: "a@b.com", channelId: "test-site" }),
-        env,
+        env
       );
       const body = await response.json();
 
@@ -740,14 +760,14 @@ describe("handleSubscribe", () => {
       const channelWithCompany = {
         ...CHANNEL,
         companyName: "Acme Corp",
-        companyAddress: "123 Main St, Springfield, IL 62701",
+        companyAddress: "123 Main St, Springfield, IL 62701"
       };
       getChannelById.mockReturnValue(channelWithCompany);
       getSubscriberByEmail.mockResolvedValue(null);
 
       const response = await handleSubscribe(
         makeRequest({ email: "a@b.com", channelId: "test-site" }),
-        env,
+        env
       );
       const body = await response.json();
 
@@ -760,14 +780,14 @@ describe("handleSubscribe", () => {
       const channelWithEmpty = {
         ...CHANNEL,
         companyName: "",
-        companyAddress: "",
+        companyAddress: ""
       };
       getChannelById.mockReturnValue(channelWithEmpty);
       getSubscriberByEmail.mockResolvedValue(null);
 
       const response = await handleSubscribe(
         makeRequest({ email: "a@b.com", channelId: "test-site" }),
-        env,
+        env
       );
       const body = await response.json();
 
@@ -781,22 +801,22 @@ describe("handleSubscribe", () => {
       const channelWithCompany = {
         ...CHANNEL,
         companyName: "Acme Corp",
-        companyAddress: "123 Main St, Springfield, IL 62701",
+        companyAddress: "123 Main St, Springfield, IL 62701"
       };
       getChannelById.mockReturnValue(channelWithCompany);
       getSubscriberByEmail.mockResolvedValue(null);
 
       await handleSubscribe(
         makeRequest({ email: "a@b.com", channelId: "test-site" }),
-        env,
+        env
       );
 
       expect(render).toHaveBeenCalledWith(
         "verificationEmail",
         expect.objectContaining({
           companyName: "Acme Corp",
-          companyAddress: "123 Main St, Springfield, IL 62701",
-        }),
+          companyAddress: "123 Main St, Springfield, IL 62701"
+        })
       );
     });
 
@@ -806,11 +826,9 @@ describe("handleSubscribe", () => {
 
       await handleSubscribe(
         makeRequest({ email: "a@b.com", channelId: "test-site" }),
-        env,
+        env
       );
 
-      const renderCall = render.mock.calls[0];
-      const templateData = renderCall[1];
       // When site config does not have these fields, they should still be
       // passed through (as undefined) or not present -- the important thing
       // is that the template handles it gracefully via {{#if}} blocks.
@@ -820,8 +838,8 @@ describe("handleSubscribe", () => {
         "verificationEmail",
         expect.objectContaining({
           companyName: undefined,
-          companyAddress: undefined,
-        }),
+          companyAddress: undefined
+        })
       );
     });
 
@@ -829,14 +847,14 @@ describe("handleSubscribe", () => {
       const channelWithEmpty = {
         ...CHANNEL,
         companyName: "",
-        companyAddress: "123 Main St",
+        companyAddress: "123 Main St"
       };
       getChannelById.mockReturnValue(channelWithEmpty);
       getSubscriberByEmail.mockResolvedValue(null);
 
       await handleSubscribe(
         makeRequest({ email: "a@b.com", channelId: "test-site" }),
-        env,
+        env
       );
 
       // Empty string companyName should be passed through (treated as falsy in Handlebars)
@@ -844,8 +862,8 @@ describe("handleSubscribe", () => {
         "verificationEmail",
         expect.objectContaining({
           companyName: "",
-          companyAddress: "123 Main St",
-        }),
+          companyAddress: "123 Main St"
+        })
       );
     });
 
@@ -853,14 +871,14 @@ describe("handleSubscribe", () => {
       const channelWithCompany = {
         ...CHANNEL,
         companyName: "Acme Corp",
-        companyAddress: "123 Main St, Springfield, IL 62701",
+        companyAddress: "123 Main St, Springfield, IL 62701"
       };
       getChannelById.mockReturnValue(channelWithCompany);
       getSubscriberByEmail.mockResolvedValue(null);
 
       await handleSubscribe(
         makeRequest({ email: "a@b.com", channelId: "test-site" }),
-        env,
+        env
       );
 
       const emailCall = sendEmail.mock.calls[0];
@@ -875,7 +893,7 @@ describe("handleSubscribe", () => {
 
       await handleSubscribe(
         makeRequest({ email: "a@b.com", channelId: "test-site" }),
-        env,
+        env
       );
 
       const emailCall = sendEmail.mock.calls[0];
@@ -890,14 +908,14 @@ describe("handleSubscribe", () => {
       const sitePartial = {
         ...CHANNEL,
         companyName: "",
-        companyAddress: "123 Main St",
+        companyAddress: "123 Main St"
       };
       getChannelById.mockReturnValue(sitePartial);
       getSubscriberByEmail.mockResolvedValue(null);
 
       await handleSubscribe(
         makeRequest({ email: "a@b.com", channelId: "test-site" }),
-        env,
+        env
       );
 
       const emailCall = sendEmail.mock.calls[0];

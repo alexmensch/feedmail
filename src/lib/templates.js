@@ -23,19 +23,24 @@ import errorPageSpec from "../templates/compiled/error-page.js";
 
 // Register Handlebars helpers
 Handlebars.registerHelper("formatDate", (dateStr) => {
-  if (!dateStr) return "";
+  if (!dateStr) {
+    return "";
+  }
   const date = new Date(dateStr);
   return date.toLocaleDateString("en-GB", {
     year: "numeric",
     month: "long",
-    day: "numeric",
+    day: "numeric"
   });
 });
 
 Handlebars.registerHelper("currentYear", () => new Date().getFullYear());
 
 // Register precompiled partials
-Handlebars.registerPartial("email-footer", Handlebars.template(emailFooterSpec));
+Handlebars.registerPartial(
+  "email-footer",
+  Handlebars.template(emailFooterSpec)
+);
 
 // Instantiate templates from precompiled specs
 const templates = {
@@ -44,7 +49,7 @@ const templates = {
   verificationEmail: Handlebars.template(verificationEmailSpec),
   verifyPage: Handlebars.template(verifyPageSpec),
   unsubscribePage: Handlebars.template(unsubscribePageSpec),
-  errorPage: Handlebars.template(errorPageSpec),
+  errorPage: Handlebars.template(errorPageSpec)
 };
 
 /**
@@ -74,11 +79,11 @@ export async function renderErrorPage(env, channelId, message) {
   const html = render("errorPage", {
     siteName: channel?.siteName || "feedmail",
     siteUrl: channel?.siteUrl || "/",
-    errorMessage: message,
+    errorMessage: message
   });
 
   return new Response(html, {
     status: 200,
-    headers: { "Content-Type": "text/html; charset=utf-8" },
+    headers: { "Content-Type": "text/html; charset=utf-8" }
   });
 }

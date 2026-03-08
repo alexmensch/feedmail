@@ -13,7 +13,7 @@ import {
   insertChannel,
   updateChannel,
   deleteChannel,
-  insertFeed,
+  insertFeed
 } from "../lib/db.js";
 
 /**
@@ -29,15 +29,25 @@ export async function handleAdminChannels(request, env, url) {
 
   if (!channelId) {
     // /api/admin/channels
-    if (request.method === "GET") return listChannels(env);
-    if (request.method === "POST") return createChannel(request, env);
+    if (request.method === "GET") {
+      return listChannels(env);
+    }
+    if (request.method === "POST") {
+      return createChannel(request, env);
+    }
     return jsonResponse(405, { error: "Method Not Allowed" });
   }
 
   // /api/admin/channels/{channelId}
-  if (request.method === "GET") return getChannelHandler(env, channelId);
-  if (request.method === "PUT") return updateChannelHandler(request, env, channelId);
-  if (request.method === "DELETE") return deleteChannelHandler(env, channelId);
+  if (request.method === "GET") {
+    return getChannelHandler(env, channelId);
+  }
+  if (request.method === "PUT") {
+    return updateChannelHandler(request, env, channelId);
+  }
+  if (request.method === "DELETE") {
+    return deleteChannelHandler(env, channelId);
+  }
   return jsonResponse(405, { error: "Method Not Allowed" });
 }
 

@@ -35,9 +35,7 @@ for (const file of partialFiles) {
 }
 
 // Get all .hbs files
-const files = fs
-  .readdirSync(TEMPLATES_DIR)
-  .filter((f) => f.endsWith(".hbs"));
+const files = fs.readdirSync(TEMPLATES_DIR).filter((f) => f.endsWith(".hbs"));
 
 let written = 0;
 
@@ -84,5 +82,5 @@ for (const file of files) {
 
 const totalCount = files.length + partialFiles.length;
 console.log(
-  `Precompiled ${totalCount} templates (${written} updated) to ${OUTPUT_DIR}`,
+  `Precompiled ${totalCount} templates (${written} updated) to ${OUTPUT_DIR}`
 );

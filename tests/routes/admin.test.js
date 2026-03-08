@@ -4,13 +4,13 @@ vi.mock("../../src/lib/config.js", async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
-    getChannelById: vi.fn(),
+    getChannelById: vi.fn()
   };
 });
 vi.mock("../../src/lib/db.js", () => ({
   getSubscriberStats: vi.fn(),
   getSentItemStats: vi.fn(),
-  getSubscriberList: vi.fn(),
+  getSubscriberList: vi.fn()
 }));
 
 import { handleAdmin } from "../../src/routes/admin.js";
@@ -18,14 +18,14 @@ import { getChannelById } from "../../src/lib/config.js";
 import {
   getSubscriberStats,
   getSentItemStats,
-  getSubscriberList,
+  getSubscriberList
 } from "../../src/lib/db.js";
 
 const CHANNEL = {
   id: "test-site",
   siteName: "Test Site",
   siteUrl: "https://example.com",
-  feeds: [{ name: "Main Feed", url: "https://example.com/feed.xml" }],
+  feeds: [{ name: "Main Feed", url: "https://example.com/feed.xml" }]
 };
 
 const env = { DB: {} };
@@ -37,7 +37,7 @@ function makeRequest(pathname, params = {}) {
   }
   return {
     request: new Request(url.toString(), { method: "GET" }),
-    url,
+    url
   };
 }
 
@@ -49,11 +49,11 @@ describe("handleAdmin", () => {
       total: 10,
       verified: 7,
       pending: 2,
-      unsubscribed: 1,
+      unsubscribed: 1
     });
     getSentItemStats.mockResolvedValue({
       total: 5,
-      lastSentAt: "2025-01-15 10:00:00",
+      lastSentAt: "2025-01-15 10:00:00"
     });
     getSubscriberList.mockResolvedValue([]);
   });
@@ -61,7 +61,7 @@ describe("handleAdmin", () => {
   describe("routing", () => {
     it("routes /api/admin/stats to stats handler", async () => {
       const { request, url } = makeRequest("/api/admin/stats", {
-        channelId: "test-site",
+        channelId: "test-site"
       });
 
       const response = await handleAdmin(request, env, url);
@@ -74,7 +74,7 @@ describe("handleAdmin", () => {
 
     it("routes /api/admin/subscribers to subscribers handler", async () => {
       const { request, url } = makeRequest("/api/admin/subscribers", {
-        channelId: "test-site",
+        channelId: "test-site"
       });
 
       const response = await handleAdmin(request, env, url);
@@ -110,7 +110,7 @@ describe("handleAdmin", () => {
     it("returns 404 for unknown site", async () => {
       getChannelById.mockReturnValue(null);
       const { request, url } = makeRequest("/api/admin/stats", {
-        channelId: "nonexistent",
+        channelId: "nonexistent"
       });
 
       const response = await handleAdmin(request, env, url);
@@ -122,7 +122,7 @@ describe("handleAdmin", () => {
 
     it("returns subscriber and sent item stats", async () => {
       const { request, url } = makeRequest("/api/admin/stats", {
-        channelId: "test-site",
+        channelId: "test-site"
       });
 
       const response = await handleAdmin(request, env, url);
@@ -134,25 +134,27 @@ describe("handleAdmin", () => {
         total: 10,
         verified: 7,
         pending: 2,
-        unsubscribed: 1,
+        unsubscribed: 1
       });
       expect(body.sentItems).toEqual({
         total: 5,
-        lastSentAt: "2025-01-15 10:00:00",
+        lastSentAt: "2025-01-15 10:00:00"
       });
-      expect(body.feeds).toEqual([{ name: "Main Feed", url: "https://example.com/feed.xml" }]);
+      expect(body.feeds).toEqual([
+        { name: "Main Feed", url: "https://example.com/feed.xml" }
+      ]);
     });
 
     it("calls getSubscriberStats and getSentItemStats in parallel", async () => {
       const { request, url } = makeRequest("/api/admin/stats", {
-        channelId: "test-site",
+        channelId: "test-site"
       });
 
       await handleAdmin(request, env, url);
 
       expect(getSubscriberStats).toHaveBeenCalledWith(env.DB, "test-site");
       expect(getSentItemStats).toHaveBeenCalledWith(env.DB, [
-        "https://example.com/feed.xml",
+        "https://example.com/feed.xml"
       ]);
     });
   });
@@ -171,7 +173,7 @@ describe("handleAdmin", () => {
     it("returns 404 for unknown site", async () => {
       getChannelById.mockReturnValue(null);
       const { request, url } = makeRequest("/api/admin/subscribers", {
-        channelId: "nonexistent",
+        channelId: "nonexistent"
       });
 
       const response = await handleAdmin(request, env, url);
@@ -184,12 +186,12 @@ describe("handleAdmin", () => {
     it("returns subscriber list without status filter", async () => {
       const subscribers = [
         { email: "a@b.com", status: "verified" },
-        { email: "c@d.com", status: "pending" },
+        { email: "c@d.com", status: "pending" }
       ];
       getSubscriberList.mockResolvedValue(subscribers);
 
       const { request, url } = makeRequest("/api/admin/subscribers", {
-        channelId: "test-site",
+        channelId: "test-site"
       });
 
       const response = await handleAdmin(request, env, url);
@@ -199,11 +201,7 @@ describe("handleAdmin", () => {
       expect(body.channelId).toBe("test-site");
       expect(body.count).toBe(2);
       expect(body.subscribers).toEqual(subscribers);
-      expect(getSubscriberList).toHaveBeenCalledWith(
-        env.DB,
-        "test-site",
-        null,
-      );
+      expect(getSubscriberList).toHaveBeenCalledWith(env.DB, "test-site", null);
     });
 
     it("passes status filter when provided", async () => {
@@ -211,7 +209,7 @@ describe("handleAdmin", () => {
 
       const { request, url } = makeRequest("/api/admin/subscribers", {
         channelId: "test-site",
-        status: "verified",
+        status: "verified"
       });
 
       await handleAdmin(request, env, url);
@@ -219,18 +217,18 @@ describe("handleAdmin", () => {
       expect(getSubscriberList).toHaveBeenCalledWith(
         env.DB,
         "test-site",
-        "verified",
+        "verified"
       );
     });
 
     it("returns correct count for filtered results", async () => {
       getSubscriberList.mockResolvedValue([
-        { email: "a@b.com", status: "verified" },
+        { email: "a@b.com", status: "verified" }
       ]);
 
       const { request, url } = makeRequest("/api/admin/subscribers", {
         channelId: "test-site",
-        status: "verified",
+        status: "verified"
       });
 
       const response = await handleAdmin(request, env, url);
@@ -243,7 +241,7 @@ describe("handleAdmin", () => {
       getSubscriberList.mockResolvedValue([]);
 
       const { request, url } = makeRequest("/api/admin/subscribers", {
-        channelId: "test-site",
+        channelId: "test-site"
       });
 
       const response = await handleAdmin(request, env, url);
