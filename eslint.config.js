@@ -1,5 +1,30 @@
 import js from "@eslint/js";
 import prettier from "eslint-config-prettier";
+import globals from "globals";
+
+const sharedRules = {
+  "no-unused-vars": [
+    "error",
+    { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }
+  ],
+  "no-prototype-builtins": "error",
+  "no-template-curly-in-string": "error",
+  eqeqeq: "error",
+  "no-eval": "error",
+  "no-implied-eval": "error",
+  curly: "error",
+  "prefer-const": "error",
+  "no-var": "error",
+  "object-shorthand": "error",
+  "prefer-arrow-callback": "error",
+  "prefer-template": "error"
+};
+
+const workersGlobals = {
+  ...globals.browser,
+  structuredClone: "readonly",
+  queueMicrotask: "readonly"
+};
 
 export default [
   js.configs.recommended,
@@ -9,46 +34,12 @@ export default [
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
-      globals: {
-        console: "readonly",
-        URL: "readonly",
-        Response: "readonly",
-        Headers: "readonly",
-        Request: "readonly",
-        fetch: "readonly",
-        crypto: "readonly",
-        TextEncoder: "readonly",
-        TextDecoder: "readonly",
-        AbortController: "readonly",
-        AbortSignal: "readonly",
-        structuredClone: "readonly",
-        atob: "readonly",
-        btoa: "readonly",
-        setTimeout: "readonly",
-        setInterval: "readonly",
-        clearTimeout: "readonly",
-        clearInterval: "readonly",
-        queueMicrotask: "readonly"
-      }
+      globals: workersGlobals
     },
     rules: {
-      "no-unused-vars": [
-        "error",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }
-      ],
-      "no-prototype-builtins": "error",
-      "no-template-curly-in-string": "error",
-      eqeqeq: "error",
-      "no-eval": "error",
-      "no-implied-eval": "error",
+      ...sharedRules,
       "consistent-return": "error",
-      curly: "error",
-      "prefer-promise-reject-errors": "error",
-      "prefer-const": "error",
-      "no-var": "error",
-      "object-shorthand": "error",
-      "prefer-arrow-callback": "error",
-      "prefer-template": "error"
+      "prefer-promise-reject-errors": "error"
     }
   },
   {
@@ -57,7 +48,7 @@ export default [
       ecmaVersion: "latest",
       sourceType: "module",
       globals: {
-        console: "readonly",
+        ...workersGlobals,
         describe: "readonly",
         it: "readonly",
         expect: "readonly",
@@ -65,36 +56,10 @@ export default [
         afterEach: "readonly",
         beforeAll: "readonly",
         afterAll: "readonly",
-        vi: "readonly",
-        URL: "readonly",
-        Response: "readonly",
-        Headers: "readonly",
-        Request: "readonly",
-        fetch: "readonly",
-        crypto: "readonly",
-        TextEncoder: "readonly",
-        TextDecoder: "readonly",
-        structuredClone: "readonly",
-        setTimeout: "readonly"
+        vi: "readonly"
       }
     },
-    rules: {
-      "no-unused-vars": [
-        "error",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }
-      ],
-      "no-prototype-builtins": "error",
-      "no-template-curly-in-string": "error",
-      eqeqeq: "error",
-      "no-eval": "error",
-      "no-implied-eval": "error",
-      curly: "error",
-      "prefer-const": "error",
-      "no-var": "error",
-      "object-shorthand": "error",
-      "prefer-arrow-callback": "error",
-      "prefer-template": "error"
-    }
+    rules: sharedRules
   },
   {
     ignores: [
