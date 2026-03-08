@@ -613,10 +613,7 @@ describe("index.js — fetch handler", () => {
       });
 
       it("handles GET /api/unsubscribe/ same as GET /api/unsubscribe", async () => {
-        await app.fetch(
-          makeRequest("GET", "/api/unsubscribe/?token=xyz"),
-          env
-        );
+        await app.fetch(makeRequest("GET", "/api/unsubscribe/?token=xyz"), env);
 
         expect(handleUnsubscribe).toHaveBeenCalledWith(
           expect.any(Request),
