@@ -10,7 +10,7 @@ The next priority is an admin console — a browser-based interface that gives o
 
 A key architectural principle governs how configuration is managed: all settings, credentials, and application state are stored in D1 and changeable at runtime through the admin UI. Only the `DOMAIN` env var remains as a Wrangler configuration item, since it is fundamental to URL construction, email addresses, and route patterns. API keys (Resend, admin), the admin email, channels, feeds, verification limits, and rate limits all live in the database. The setup script is being simplified to handle only what requires CLI access — D1 creation, config file generation, credential seeding, and worker deployment — with the admin console's first-time setup flow guiding operators through channel and feed creation after deployment.
 
-Features are sequenced so that each step delivers testable, working functionality: magic link auth provides a complete login system first, passkey support layers on top, the styled UI brings it all together, the first-time setup flow and script simplification make the self-hosting experience seamless, and enhancements add pagination, config editing, and credential management after the core console is usable.
+Features are sequenced so that each step delivers testable, working functionality: magic link auth provides a complete login system first, passkey support layers on top, the styled UI brings it all together, the first-time setup flow and script simplification make the self-hosting experience seamless, and enhancements add pagination, config editing, and credential management after the core console is usable. A final release collects lower-priority operational improvements — infrastructure hygiene tasks like expired session cleanup that keep the system tidy but don't change user-facing behaviour. This release grows over time as non-urgent enhancements are identified.
 
 ---
 
@@ -54,6 +54,14 @@ Paginated subscriber lists, in-browser site configuration editing, and credentia
 | #   | Feature                                                       | Description                                                                                                                                               | GUID                                   |
 | --- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | 6   | [admin-console-enhancements](./admin-console-enhancements.md) | Server-side subscriber list pagination, site config editing, admin email change with verification, admin API key regeneration, and Resend API key editing | `0921300D-83E6-4423-AE32-DFB5ED5BD88A` |
+
+### Release: Operational Improvements
+
+Lower-priority infrastructure hygiene and non-user-facing enhancements that keep the system tidy as it matures.
+
+| #   | Feature                                             | Description                                                                                                                     | GUID                                   |
+| --- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| 7   | [auth-session-cleanup](./auth-session-cleanup.md)   | Probabilistic cleanup of expired auth sessions and magic link tokens, with a shared utility that also refactors rate limit cleanup | `E63AC31A-2F95-410E-95CB-1F30D45C7B45` |
 
 ---
 
