@@ -15,7 +15,7 @@ database_name = "feedmail"
 database_id = "YOUR_DATABASE_ID"
 
 [[routes]]
-pattern = "YOUR_DOMAIN/admin/*"
+pattern = "YOUR_DOMAIN/admin*"
 zone_name = "YOUR_DOMAIN"
 
 [vars]

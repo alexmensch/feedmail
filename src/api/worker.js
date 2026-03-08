@@ -110,6 +110,11 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    // Trailing-slash normalization (before all processing)
+    if (url.pathname.length > 1 && url.pathname.endsWith("/")) {
+      url.pathname = url.pathname.replace(/\/+$/, "");
+    }
+
     // CORS preflight always handled immediately
     if (request.method === "OPTIONS") {
       return await handleCORSPreflight(request, env);

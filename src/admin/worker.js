@@ -33,6 +33,17 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    // Trailing-slash normalization (before rate limiting, session checks, routing)
+    if (url.pathname.length > 1 && url.pathname.endsWith("/")) {
+      url.pathname = url.pathname.replace(/\/+$/, "");
+      if (request.method === "GET") {
+        return new Response(null, {
+          status: 301,
+          headers: { Location: url.pathname + url.search }
+        });
+      }
+    }
+
     try {
       // Rate limiting on auth endpoints
       const endpointName = getEndpointName(url.pathname);
@@ -98,7 +109,7 @@ export default {
       }
 
       // Protected admin dashboard (placeholder)
-      if (url.pathname === "/admin" || url.pathname === "/admin/") {
+      if (url.pathname === "/admin") {
         if (request.method === "GET") {
           // Check if admin email is configured
           const adminEmail = await getCredential(env.DB, "admin_email");
