@@ -32,10 +32,11 @@ A reader who subscribes to receive feed updates via email. They interact with fe
 
 A browser-based admin console with passwordless authentication, giving operators a visual interface for managing channels, feeds, and subscribers without API calls.
 
-| #   | Feature                                       | Description                                                                                                           | GUID                                   |
-| --- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 1   | [admin-auth-passkey](./admin-auth-passkey.md) | Adds passkey (WebAuthn) authentication as the primary login method, with magic link as fallback                       | `FF8F870D-4FD8-491F-9DF2-A4D5E332BE22` |
-| 2   | [admin-console-ui](./admin-console-ui.md)     | Server-rendered admin UI with HTMX and CUBE CSS: dashboard, channel/feed CRUD, subscriber list, and styled auth pages | `D108788E-EB05-4EFC-B7AD-FB9840790A69` |
+| #   | Feature                                                             | Description                                                                                                           | GUID                                   |
+| --- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| 1   | [trailing-slash-normalization](./trailing-slash-normalization.md)    | Fixes routing failures from trailing slashes and bare `/admin` by normalizing paths early in both workers             | `718F6B2C-024C-4E3B-8C65-A75C078EDDD9` |
+| 2   | [admin-auth-passkey](./admin-auth-passkey.md)                       | Adds passkey (WebAuthn) authentication as the primary login method, with magic link as fallback                       | `FF8F870D-4FD8-491F-9DF2-A4D5E332BE22` |
+| 3   | [admin-console-ui](./admin-console-ui.md)                           | Server-rendered admin UI with HTMX and CUBE CSS: dashboard, channel/feed CRUD, subscriber list, and styled auth pages | `D108788E-EB05-4EFC-B7AD-FB9840790A69` |
 
 ### Release: Admin Console Setup
 
@@ -43,8 +44,8 @@ Streamlines the self-hosting experience by moving channel and feed creation into
 
 | #   | Feature                                             | Description                                                                                                                         | GUID                                   |
 | --- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 3   | [first-time-setup-flow](./first-time-setup-flow.md) | Dashboard empty state guides operators through first channel and feed creation entirely within the browser                          | `CFD3690C-0462-4FBB-BA94-4EB2F05B6402` |
-| 4   | [setup-simplification](./setup-simplification.md)   | Reduces setup.sh to infrastructure provisioning (D1, config, credential seeding, deploy) with channel creation deferred to admin UI | `9B3EBAC7-65E7-4F80-BB5C-279D25828FAB` |
+| 4   | [first-time-setup-flow](./first-time-setup-flow.md) | Dashboard empty state guides operators through first channel and feed creation entirely within the browser                          | `CFD3690C-0462-4FBB-BA94-4EB2F05B6402` |
+| 5   | [setup-simplification](./setup-simplification.md)   | Reduces setup.sh to infrastructure provisioning (D1, config, credential seeding, deploy) with channel creation deferred to admin UI | `9B3EBAC7-65E7-4F80-BB5C-279D25828FAB` |
 
 ### Release: Admin Console Enhancements
 
@@ -52,7 +53,7 @@ Paginated subscriber lists, in-browser site configuration editing, and credentia
 
 | #   | Feature                                                       | Description                                                                                                                                               | GUID                                   |
 | --- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 5   | [admin-console-enhancements](./admin-console-enhancements.md) | Server-side subscriber list pagination, site config editing, admin email change with verification, admin API key regeneration, and Resend API key editing | `0921300D-83E6-4423-AE32-DFB5ED5BD88A` |
+| 6   | [admin-console-enhancements](./admin-console-enhancements.md) | Server-side subscriber list pagination, site config editing, admin email change with verification, admin API key regeneration, and Resend API key editing | `0921300D-83E6-4423-AE32-DFB5ED5BD88A` |
 
 ### Release: Operational Improvements
 
@@ -60,8 +61,8 @@ Lower-priority infrastructure hygiene and non-user-facing enhancements that keep
 
 | #   | Feature                                                                 | Description                                                                                                                                                                       | GUID                                   |
 | --- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 6   | [auth-session-cleanup](./auth-session-cleanup.md)                       | Probabilistic cleanup of expired auth sessions and magic link tokens, with a shared utility that also refactors rate limit cleanup                                                | `E0AC5C7B-3792-44B4-89EB-FCC3B89050C4` |
-| 7   | [remove-credential-env-fallbacks](./remove-credential-env-fallbacks.md) | Removes env-var fallback for ADMIN_API_KEY and RESEND_API_KEY so the D1 credentials table is the single source of truth, with explicit error logging when credentials are missing | `5CBF07F1-6FFE-4FE0-9DF6-221398A0EFDC` |
+| 7   | [auth-session-cleanup](./auth-session-cleanup.md)                       | Probabilistic cleanup of expired auth sessions and magic link tokens, with a shared utility that also refactors rate limit cleanup                                                | `E0AC5C7B-3792-44B4-89EB-FCC3B89050C4` |
+| 8   | [remove-credential-env-fallbacks](./remove-credential-env-fallbacks.md) | Removes env-var fallback for ADMIN_API_KEY and RESEND_API_KEY so the D1 credentials table is the single source of truth, with explicit error logging when credentials are missing | `5CBF07F1-6FFE-4FE0-9DF6-221398A0EFDC` |
 
 ---
 
