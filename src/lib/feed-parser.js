@@ -11,7 +11,7 @@ const parser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: "@_",
   textNodeName: "#text",
-  isArray: (name) => ["entry", "item", "link"].includes(name),
+  isArray: (name) => ["entry", "item", "link"].includes(name)
 });
 
 /**
@@ -31,10 +31,20 @@ const parser = new XMLParser({
  * @returns {string|null}
  */
 function textValue(field) {
-  if (field == null) return null;
-  if (typeof field === "string") return field;
-  if (Array.isArray(field)) return textValue(field[0]);
-  if (typeof field === "object" && field["#text"] != null) {
+  if (field === null || field === undefined) {
+    return null;
+  }
+  if (typeof field === "string") {
+    return field;
+  }
+  if (Array.isArray(field)) {
+    return textValue(field[0]);
+  }
+  if (
+    typeof field === "object" &&
+    field["#text"] !== null &&
+    field["#text"] !== undefined
+  ) {
     return String(field["#text"]);
   }
   return null;
@@ -50,11 +60,15 @@ function textValue(field) {
  * @returns {string|null}
  */
 function resolveAtomLink(links) {
-  if (!links || !Array.isArray(links) || links.length === 0) return null;
+  if (!links || !Array.isArray(links) || links.length === 0) {
+    return null;
+  }
 
   // Find rel="alternate"
   for (const link of links) {
-    if (typeof link === "string") return link;
+    if (typeof link === "string") {
+      return link;
+    }
     if (link["@_rel"] === "alternate" && link["@_href"]) {
       return link["@_href"];
     }
@@ -84,9 +98,13 @@ function resolveAtomLink(links) {
  * @returns {string|null}
  */
 function toISOString(dateStr) {
-  if (!dateStr) return null;
+  if (!dateStr) {
+    return null;
+  }
   const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return null;
+  if (isNaN(d.getTime())) {
+    return null;
+  }
   return d.toISOString();
 }
 
@@ -107,7 +125,7 @@ function parseAtomEntries(feed) {
       link: link || "",
       date: toISOString(entry.updated) || toISOString(entry.published) || null,
       content: textValue(entry.content) || null,
-      summary: textValue(entry.summary) || null,
+      summary: textValue(entry.summary) || null
     };
   });
 }
@@ -127,10 +145,10 @@ function parseRssItems(channel) {
     return {
       id: guid || link || "",
       title: textValue(item.title) || "",
-      link: link,
+      link,
       date: toISOString(item.pubDate) || null,
       content: textValue(item["content:encoded"]) || null,
-      summary: textValue(item.description) || null,
+      summary: textValue(item.description) || null
     };
   });
 }
@@ -155,7 +173,7 @@ export function parseFeed(xmlString) {
   }
 
   throw new Error(
-    "Unrecognized feed format: expected Atom <feed> or RSS <rss> root element",
+    "Unrecognized feed format: expected Atom <feed> or RSS <rss> root element"
   );
 }
 
@@ -170,13 +188,13 @@ export function parseFeed(xmlString) {
 export async function fetchAndParseFeed(feedUrl, userAgent) {
   const response = await fetch(feedUrl, {
     headers: {
-      "User-Agent": userAgent,
-    },
+      "User-Agent": userAgent
+    }
   });
 
   if (!response.ok) {
     throw new Error(
-      `Failed to fetch feed: ${response.status} ${response.statusText}`,
+      `Failed to fetch feed: ${response.status} ${response.statusText}`
     );
   }
 

@@ -1,26 +1,26 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 // Mock the precompiled template imports since they require the build step
 vi.mock("../../src/templates/compiled/newsletter.js", () => ({
-  default: { compiler: [8, ">= 4.3.0"], main: () => "newsletter html" },
+  default: { compiler: [8, ">= 4.3.0"], main: () => "newsletter html" }
 }));
 vi.mock("../../src/templates/compiled/newsletter.txt.js", () => ({
-  default: { compiler: [8, ">= 4.3.0"], main: () => "newsletter text" },
+  default: { compiler: [8, ">= 4.3.0"], main: () => "newsletter text" }
 }));
 vi.mock("../../src/templates/compiled/verification-email.js", () => ({
-  default: { compiler: [8, ">= 4.3.0"], main: () => "verification html" },
+  default: { compiler: [8, ">= 4.3.0"], main: () => "verification html" }
 }));
 vi.mock("../../src/templates/compiled/verify-page.js", () => ({
-  default: { compiler: [8, ">= 4.3.0"], main: () => "verify page html" },
+  default: { compiler: [8, ">= 4.3.0"], main: () => "verify page html" }
 }));
 vi.mock("../../src/templates/compiled/unsubscribe-page.js", () => ({
-  default: { compiler: [8, ">= 4.3.0"], main: () => "unsubscribe page html" },
+  default: { compiler: [8, ">= 4.3.0"], main: () => "unsubscribe page html" }
 }));
 vi.mock("../../src/templates/compiled/error-page.js", () => ({
-  default: { compiler: [8, ">= 4.3.0"], main: () => "error page html" },
+  default: { compiler: [8, ">= 4.3.0"], main: () => "error page html" }
 }));
 vi.mock("../../src/templates/compiled/partials/email-footer.js", () => ({
-  default: { compiler: [8, ">= 4.3.0"], main: () => "email footer" },
+  default: { compiler: [8, ">= 4.3.0"], main: () => "email footer" }
 }));
 
 // Mock Handlebars runtime to capture template instantiation
@@ -41,8 +41,8 @@ vi.mock("handlebars/runtime.js", () => {
         helpers[name] = fn;
       },
       registerPartial: () => {},
-      _helpers: helpers,
-    },
+      _helpers: helpers
+    }
   };
 });
 
@@ -83,7 +83,7 @@ describe("templates", () => {
 
     it("throws for unknown template name", () => {
       expect(() => render("nonexistent", {})).toThrow(
-        "Unknown template: nonexistent",
+        "Unknown template: nonexistent"
       );
     });
 

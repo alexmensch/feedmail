@@ -9,7 +9,7 @@ import { jsonResponse } from "../lib/response.js";
 import {
   getSubscriberStats,
   getSentItemStats,
-  getSubscriberList,
+  getSubscriberList
 } from "../lib/db.js";
 import { handleAdminConfig } from "./admin-config.js";
 import { handleAdminChannels } from "./admin-channels.js";
@@ -26,12 +26,16 @@ export async function handleAdmin(request, env, url) {
   const path = url.pathname;
 
   if (path === "/api/admin/stats") {
-    if (request.method !== "GET") return methodNotAllowed();
+    if (request.method !== "GET") {
+      return methodNotAllowed();
+    }
     return handleStats(env, url);
   }
 
   if (path === "/api/admin/subscribers") {
-    if (request.method !== "GET") return methodNotAllowed();
+    if (request.method !== "GET") {
+      return methodNotAllowed();
+    }
     return handleSubscribers(env, url);
   }
 
@@ -40,7 +44,9 @@ export async function handleAdmin(request, env, url) {
   }
 
   // /api/admin/channels/* — delegate to channels or feeds handler
-  const channelsMatch = path.match(/^\/api\/admin\/channels(?:\/([^/]+)(?:\/feeds(?:\/(\d+))?)?)?$/);
+  const channelsMatch = path.match(
+    /^\/api\/admin\/channels(?:\/([^/]+)(?:\/feeds(?:\/(\d+))?)?)?$/
+  );
   if (channelsMatch) {
     const channelId = channelsMatch[1] || null;
     const hasFeedsSegment = channelId && path.includes("/feeds");
@@ -72,14 +78,16 @@ async function handleStats(env, url) {
   const feedUrls = channel.feeds.map((f) => f.url);
   const [subscribers, sentItems] = await Promise.all([
     getSubscriberStats(env.DB, channelId),
-    feedUrls.length > 0 ? getSentItemStats(env.DB, feedUrls) : { total: 0, lastSentAt: null },
+    feedUrls.length > 0
+      ? getSentItemStats(env.DB, feedUrls)
+      : { total: 0, lastSentAt: null }
   ]);
 
   return jsonResponse(200, {
     channelId,
     subscribers,
     sentItems,
-    feeds: channel.feeds,
+    feeds: channel.feeds
   });
 }
 
@@ -104,7 +112,7 @@ async function handleSubscribers(env, url) {
   return jsonResponse(200, {
     channelId,
     count: subscribers.length,
-    subscribers,
+    subscribers
   });
 }
 

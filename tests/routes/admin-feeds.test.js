@@ -6,7 +6,7 @@ vi.mock("../../src/lib/db.js", () => ({
   getFeedById: vi.fn(),
   insertFeed: vi.fn(),
   updateFeed: vi.fn(),
-  deleteFeed: vi.fn(),
+  deleteFeed: vi.fn()
 }));
 
 import { handleAdminFeeds } from "../../src/routes/admin-feeds.js";
@@ -16,7 +16,7 @@ import {
   getFeedById,
   insertFeed,
   updateFeed,
-  deleteFeed,
+  deleteFeed
 } from "../../src/lib/db.js";
 
 const CHANNEL = {
@@ -25,18 +25,28 @@ const CHANNEL = {
   siteUrl: "https://example.com",
   fromUser: "hello",
   fromName: "Test Sender",
-  corsOrigins: ["https://example.com"],
+  corsOrigins: ["https://example.com"]
 };
 
-const FEED_A = { id: 1, channelId: "test-channel", name: "Feed A", url: "https://example.com/a.xml" };
-const FEED_B = { id: 2, channelId: "test-channel", name: "Feed B", url: "https://example.com/b.xml" };
+const FEED_A = {
+  id: 1,
+  channelId: "test-channel",
+  name: "Feed A",
+  url: "https://example.com/a.xml"
+};
+const FEED_B = {
+  id: 2,
+  channelId: "test-channel",
+  name: "Feed B",
+  url: "https://example.com/b.xml"
+};
 
 const env = { DB: {} };
 
 function makeRequest(method, path, body = null) {
   const options = {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" }
   };
   if (body) {
     options.body = JSON.stringify(body);
@@ -60,7 +70,7 @@ describe("handleAdminFeeds", () => {
     it("returns array of feeds for a channel", async () => {
       const { request, url } = makeRequest(
         "GET",
-        "/api/admin/channels/test-channel/feeds",
+        "/api/admin/channels/test-channel/feeds"
       );
       const response = await handleAdminFeeds(request, env, url);
       const body = await response.json();
@@ -75,7 +85,7 @@ describe("handleAdminFeeds", () => {
 
       const { request, url } = makeRequest(
         "GET",
-        "/api/admin/channels/nonexistent/feeds",
+        "/api/admin/channels/nonexistent/feeds"
       );
       const response = await handleAdminFeeds(request, env, url);
       const body = await response.json();
@@ -89,7 +99,7 @@ describe("handleAdminFeeds", () => {
 
       const { request, url } = makeRequest(
         "GET",
-        "/api/admin/channels/test-channel/feeds",
+        "/api/admin/channels/test-channel/feeds"
       );
       const response = await handleAdminFeeds(request, env, url);
       const body = await response.json();
@@ -101,7 +111,7 @@ describe("handleAdminFeeds", () => {
     it("returns feeds with integer IDs", async () => {
       const { request, url } = makeRequest(
         "GET",
-        "/api/admin/channels/test-channel/feeds",
+        "/api/admin/channels/test-channel/feeds"
       );
       const response = await handleAdminFeeds(request, env, url);
       const body = await response.json();
@@ -119,7 +129,7 @@ describe("handleAdminFeeds", () => {
       const { request, url } = makeRequest(
         "POST",
         "/api/admin/channels/test-channel/feeds",
-        { name: "New Feed", url: "https://example.com/new.xml" },
+        { name: "New Feed", url: "https://example.com/new.xml" }
       );
       const response = await handleAdminFeeds(request, env, url);
 
@@ -129,8 +139,8 @@ describe("handleAdminFeeds", () => {
         "test-channel",
         expect.objectContaining({
           name: "New Feed",
-          url: "https://example.com/new.xml",
-        }),
+          url: "https://example.com/new.xml"
+        })
       );
     });
 
@@ -140,13 +150,13 @@ describe("handleAdminFeeds", () => {
         id: 3,
         channelId: "test-channel",
         name: "New Feed",
-        url: "https://example.com/new.xml",
+        url: "https://example.com/new.xml"
       });
 
       const { request, url } = makeRequest(
         "POST",
         "/api/admin/channels/test-channel/feeds",
-        { name: "New Feed", url: "https://example.com/new.xml" },
+        { name: "New Feed", url: "https://example.com/new.xml" }
       );
       const response = await handleAdminFeeds(request, env, url);
       const body = await response.json();
@@ -162,7 +172,7 @@ describe("handleAdminFeeds", () => {
       const { request, url } = makeRequest(
         "POST",
         "/api/admin/channels/nonexistent/feeds",
-        { name: "Feed", url: "https://example.com/feed.xml" },
+        { name: "Feed", url: "https://example.com/feed.xml" }
       );
       const response = await handleAdminFeeds(request, env, url);
 
@@ -175,7 +185,7 @@ describe("handleAdminFeeds", () => {
       const { request, url } = makeRequest(
         "POST",
         "/api/admin/channels/test-channel/feeds",
-        { name: "Different Name", url: FEED_A.url }, // same URL
+        { name: "Different Name", url: FEED_A.url } // same URL
       );
       const response = await handleAdminFeeds(request, env, url);
       const body = await response.json();
@@ -190,7 +200,7 @@ describe("handleAdminFeeds", () => {
       const { request, url } = makeRequest(
         "POST",
         "/api/admin/channels/test-channel/feeds",
-        { name: "feed a", url: "https://example.com/different.xml" }, // same name case-insensitive
+        { name: "feed a", url: "https://example.com/different.xml" } // same name case-insensitive
       );
       const response = await handleAdminFeeds(request, env, url);
       const body = await response.json();
@@ -205,7 +215,10 @@ describe("handleAdminFeeds", () => {
       const { request, url } = makeRequest(
         "POST",
         "/api/admin/channels/test-channel/feeds",
-        { name: "Cross-channel Feed", url: "https://other.example.com/feed.xml" },
+        {
+          name: "Cross-channel Feed",
+          url: "https://other.example.com/feed.xml"
+        }
       );
       const response = await handleAdminFeeds(request, env, url);
 
@@ -219,7 +232,7 @@ describe("handleAdminFeeds", () => {
         const { request, url } = makeRequest(
           "POST",
           "/api/admin/channels/test-channel/feeds",
-          { url: "https://example.com/feed.xml" },
+          { url: "https://example.com/feed.xml" }
         );
         const response = await handleAdminFeeds(request, env, url);
 
@@ -232,7 +245,7 @@ describe("handleAdminFeeds", () => {
         const { request, url } = makeRequest(
           "POST",
           "/api/admin/channels/test-channel/feeds",
-          { name: "", url: "https://example.com/feed.xml" },
+          { name: "", url: "https://example.com/feed.xml" }
         );
         const response = await handleAdminFeeds(request, env, url);
 
@@ -245,7 +258,7 @@ describe("handleAdminFeeds", () => {
         const { request, url } = makeRequest(
           "POST",
           "/api/admin/channels/test-channel/feeds",
-          { name: "Feed" },
+          { name: "Feed" }
         );
         const response = await handleAdminFeeds(request, env, url);
 
@@ -258,7 +271,7 @@ describe("handleAdminFeeds", () => {
         const { request, url } = makeRequest(
           "POST",
           "/api/admin/channels/test-channel/feeds",
-          { name: "Feed", url: "" },
+          { name: "Feed", url: "" }
         );
         const response = await handleAdminFeeds(request, env, url);
 
@@ -270,11 +283,11 @@ describe("handleAdminFeeds", () => {
           "https://feedmail.cc/api/admin/channels/test-channel/feeds",
           {
             method: "POST",
-            body: "not json",
-          },
+            body: "not json"
+          }
         );
         const url = new URL(
-          "https://feedmail.cc/api/admin/channels/test-channel/feeds",
+          "https://feedmail.cc/api/admin/channels/test-channel/feeds"
         );
         const response = await handleAdminFeeds(request, env, url);
 
@@ -292,7 +305,7 @@ describe("handleAdminFeeds", () => {
       const { request, url } = makeRequest(
         "POST",
         "/api/admin/channels/test-channel/feeds",
-        { name: "Brand New Feed", url: "https://example.com/brand-new.xml" },
+        { name: "Brand New Feed", url: "https://example.com/brand-new.xml" }
       );
       const response = await handleAdminFeeds(request, env, url);
 
@@ -309,7 +322,7 @@ describe("handleAdminFeeds", () => {
       const { request, url } = makeRequest(
         "PUT",
         "/api/admin/channels/test-channel/feeds/1",
-        { name: "Updated Feed", url: "https://example.com/updated.xml" },
+        { name: "Updated Feed", url: "https://example.com/updated.xml" }
       );
       const response = await handleAdminFeeds(request, env, url);
 
@@ -319,8 +332,8 @@ describe("handleAdminFeeds", () => {
         1,
         expect.objectContaining({
           name: "Updated Feed",
-          url: "https://example.com/updated.xml",
-        }),
+          url: "https://example.com/updated.xml"
+        })
       );
     });
 
@@ -330,7 +343,7 @@ describe("handleAdminFeeds", () => {
       const { request, url } = makeRequest(
         "PUT",
         "/api/admin/channels/test-channel/feeds/999",
-        { name: "Updated", url: "https://example.com/updated.xml" },
+        { name: "Updated", url: "https://example.com/updated.xml" }
       );
       const response = await handleAdminFeeds(request, env, url);
 
@@ -343,7 +356,7 @@ describe("handleAdminFeeds", () => {
       const { request, url } = makeRequest(
         "PUT",
         "/api/admin/channels/nonexistent/feeds/1",
-        { name: "Updated", url: "https://example.com/updated.xml" },
+        { name: "Updated", url: "https://example.com/updated.xml" }
       );
       const response = await handleAdminFeeds(request, env, url);
 
@@ -357,7 +370,7 @@ describe("handleAdminFeeds", () => {
       const { request, url } = makeRequest(
         "PUT",
         "/api/admin/channels/test-channel/feeds/1",
-        { name: "Feed A", url: FEED_B.url }, // URL matches Feed B
+        { name: "Feed A", url: FEED_B.url } // URL matches Feed B
       );
       const response = await handleAdminFeeds(request, env, url);
       const body = await response.json();
@@ -373,7 +386,7 @@ describe("handleAdminFeeds", () => {
       const { request, url } = makeRequest(
         "PUT",
         "/api/admin/channels/test-channel/feeds/1",
-        { name: "feed b", url: "https://example.com/a.xml" }, // name matches Feed B
+        { name: "feed b", url: "https://example.com/a.xml" } // name matches Feed B
       );
       const response = await handleAdminFeeds(request, env, url);
       const body = await response.json();
@@ -389,7 +402,7 @@ describe("handleAdminFeeds", () => {
       const { request, url } = makeRequest(
         "PUT",
         "/api/admin/channels/test-channel/feeds/1",
-        { name: "Renamed Feed A", url: FEED_A.url }, // same URL as itself
+        { name: "Renamed Feed A", url: FEED_A.url } // same URL as itself
       );
       const response = await handleAdminFeeds(request, env, url);
 
@@ -403,7 +416,7 @@ describe("handleAdminFeeds", () => {
       const { request, url } = makeRequest(
         "PUT",
         "/api/admin/channels/test-channel/feeds/1",
-        { name: FEED_A.name, url: "https://example.com/different.xml" },
+        { name: FEED_A.name, url: "https://example.com/different.xml" }
       );
       const response = await handleAdminFeeds(request, env, url);
 
@@ -420,7 +433,7 @@ describe("handleAdminFeeds", () => {
       const { request, url } = makeRequest(
         "PUT",
         "/api/admin/channels/test-channel/feeds/1",
-        { name: "Feed A", url: "https://example.com/new-url.xml" },
+        { name: "Feed A", url: "https://example.com/new-url.xml" }
       );
       const response = await handleAdminFeeds(request, env, url);
 
@@ -428,7 +441,7 @@ describe("handleAdminFeeds", () => {
       expect(updateFeed).toHaveBeenCalledWith(
         env.DB,
         1,
-        expect.objectContaining({ url: "https://example.com/new-url.xml" }),
+        expect.objectContaining({ url: "https://example.com/new-url.xml" })
       );
     });
   });
@@ -439,7 +452,7 @@ describe("handleAdminFeeds", () => {
 
       const { request, url } = makeRequest(
         "DELETE",
-        "/api/admin/channels/test-channel/feeds/1",
+        "/api/admin/channels/test-channel/feeds/1"
       );
       const response = await handleAdminFeeds(request, env, url);
 
@@ -452,7 +465,7 @@ describe("handleAdminFeeds", () => {
 
       const { request, url } = makeRequest(
         "DELETE",
-        "/api/admin/channels/test-channel/feeds/999",
+        "/api/admin/channels/test-channel/feeds/999"
       );
       const response = await handleAdminFeeds(request, env, url);
 
@@ -464,7 +477,7 @@ describe("handleAdminFeeds", () => {
 
       const { request, url } = makeRequest(
         "DELETE",
-        "/api/admin/channels/nonexistent/feeds/1",
+        "/api/admin/channels/nonexistent/feeds/1"
       );
       const response = await handleAdminFeeds(request, env, url);
 
@@ -476,7 +489,7 @@ describe("handleAdminFeeds", () => {
 
       const { request, url } = makeRequest(
         "DELETE",
-        "/api/admin/channels/test-channel/feeds/1",
+        "/api/admin/channels/test-channel/feeds/1"
       );
       await handleAdminFeeds(request, env, url);
 
@@ -489,7 +502,7 @@ describe("handleAdminFeeds", () => {
 
       const { request, url } = makeRequest(
         "DELETE",
-        "/api/admin/channels/test-channel/feeds/1",
+        "/api/admin/channels/test-channel/feeds/1"
       );
       const response = await handleAdminFeeds(request, env, url);
 

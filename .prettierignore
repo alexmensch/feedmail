@@ -1,0 +1,6 @@
+pnpm-lock.yaml
+src/templates/compiled/
+src/templates/**/*.hbs
+coverage/
+dist/
+.wrangler/

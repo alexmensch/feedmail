@@ -16,7 +16,7 @@ const ENTITY_MAP = {
   "&lsquo;": "\u2018",
   "&rsquo;": "\u2019",
   "&ldquo;": "\u201C",
-  "&rdquo;": "\u201D",
+  "&rdquo;": "\u201D"
 };
 
 /**
@@ -25,7 +25,9 @@ const ENTITY_MAP = {
  * @returns {string} Plain text
  */
 export function htmlToText(html) {
-  if (!html) return "";
+  if (!html) {
+    return "";
+  }
 
   let text = html;
 
@@ -38,13 +40,13 @@ export function htmlToText(html) {
   // Extract href from links: <a href="url">text</a> → text (url)
   text = text.replace(
     /<a\s+[^>]*href=["']([^"']*)["'][^>]*>(.*?)<\/a>/gi,
-    "$2 ($1)",
+    "$2 ($1)"
   );
 
   // Decode HTML entities (before final tag strip so decoded < > are caught)
   text = text.replace(
     /&[#a-z0-9]+;/gi,
-    (entity) => ENTITY_MAP[entity] || decodeNumericEntity(entity) || entity,
+    (entity) => ENTITY_MAP[entity] || decodeNumericEntity(entity) || entity
   );
 
   // Strip all remaining HTML tags; repeat in case earlier replacements
@@ -71,7 +73,9 @@ export function htmlToText(html) {
  * @returns {string} HTML with constrained images
  */
 export function constrainImages(html) {
-  if (!html) return "";
+  if (!html) {
+    return "";
+  }
 
   const imgStyles = "max-width: 100%; height: auto;";
 
@@ -82,7 +86,7 @@ export function constrainImages(html) {
       // Prepend our styles to the existing style value
       const updated = attrs.replace(
         /style\s*=\s*"([^"]*)"/i,
-        (_, existing) => `style="${imgStyles} ${existing}"`,
+        (_, existing) => `style="${imgStyles} ${existing}"`
       );
       return `<img${updated}>`;
     }
@@ -96,11 +100,11 @@ export function constrainImages(html) {
  */
 function decodeNumericEntity(entity) {
   const match = entity.match(/^&#(x?)(\w+);$/i);
-  if (!match) return null;
+  if (!match) {
+    return null;
+  }
 
-  const codePoint = match[1]
-    ? parseInt(match[2], 16)
-    : parseInt(match[2], 10);
+  const codePoint = match[1] ? parseInt(match[2], 16) : parseInt(match[2], 10);
 
   try {
     return String.fromCodePoint(codePoint);

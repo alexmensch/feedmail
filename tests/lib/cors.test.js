@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 
 // Mock config.js to control allowed origins
 vi.mock("../../src/lib/config.js", () => ({
-  getAllCorsOrigins: vi.fn(),
+  getAllCorsOrigins: vi.fn()
 }));
 
 import { handleCORSPreflight, withCORS } from "../../src/lib/cors.js";
@@ -10,10 +10,12 @@ import { getAllCorsOrigins } from "../../src/lib/config.js";
 
 function makeRequest(origin) {
   const headers = new Headers();
-  if (origin) headers.set("Origin", origin);
+  if (origin) {
+    headers.set("Origin", origin);
+  }
   return new Request("https://feedmail.cc/api/subscribe", {
     method: "OPTIONS",
-    headers,
+    headers
   });
 }
 
@@ -33,13 +35,13 @@ describe("cors", () => {
 
       expect(response.status).toBe(204);
       expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
-        "https://example.com",
+        "https://example.com"
       );
       expect(response.headers.get("Access-Control-Allow-Methods")).toBe(
-        "POST, OPTIONS",
+        "POST, OPTIONS"
       );
       expect(response.headers.get("Access-Control-Allow-Headers")).toBe(
-        "Content-Type",
+        "Content-Type"
       );
       expect(response.headers.get("Access-Control-Max-Age")).toBe("86400");
     });
@@ -79,14 +81,14 @@ describe("cors", () => {
       const request = makeRequest("https://example.com");
       const original = new Response(JSON.stringify({ ok: true }), {
         status: 200,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" }
       });
 
       const response = await withCORS(original, request, env);
 
       expect(response.status).toBe(200);
       expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
-        "https://example.com",
+        "https://example.com"
       );
       expect(response.headers.get("Content-Type")).toBe("application/json");
     });

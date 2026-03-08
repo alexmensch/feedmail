@@ -253,7 +253,7 @@ describe("parseFeed", () => {
   describe("unrecognized formats", () => {
     it("throws for unrecognized feed format", () => {
       expect(() => parseFeed("<html><body>Not a feed</body></html>")).toThrow(
-        "Unrecognized feed format",
+        "Unrecognized feed format"
       );
     });
 
@@ -273,18 +273,18 @@ describe("fetchAndParseFeed", () => {
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
-        text: () => Promise.resolve(ATOM_FEED),
-      }),
+        text: () => Promise.resolve(ATOM_FEED)
+      })
     );
 
     const items = await fetchAndParseFeed(
       "https://example.com/feed",
-      "feedmail/test",
+      "feedmail/test"
     );
 
     expect(items).toHaveLength(2);
     expect(fetch).toHaveBeenCalledWith("https://example.com/feed", {
-      headers: { "User-Agent": "feedmail/test" },
+      headers: { "User-Agent": "feedmail/test" }
     });
   });
 
@@ -294,23 +294,23 @@ describe("fetchAndParseFeed", () => {
       vi.fn().mockResolvedValue({
         ok: false,
         status: 404,
-        statusText: "Not Found",
-      }),
+        statusText: "Not Found"
+      })
     );
 
     await expect(
-      fetchAndParseFeed("https://example.com/feed", "feedmail/test"),
+      fetchAndParseFeed("https://example.com/feed", "feedmail/test")
     ).rejects.toThrow("Failed to fetch feed: 404 Not Found");
   });
 
   it("throws on network error", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockRejectedValue(new Error("Network error")),
+      vi.fn().mockRejectedValue(new Error("Network error"))
     );
 
     await expect(
-      fetchAndParseFeed("https://example.com/feed", "feedmail/test"),
+      fetchAndParseFeed("https://example.com/feed", "feedmail/test")
     ).rejects.toThrow("Network error");
   });
 });

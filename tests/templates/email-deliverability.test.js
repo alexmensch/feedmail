@@ -16,19 +16,24 @@ import newsletterTextSpec from "../../src/templates/compiled/newsletter.txt.js";
 
 // Register helpers that templates depend on
 Handlebars.registerHelper("formatDate", (dateStr) => {
-  if (!dateStr) return "";
+  if (!dateStr) {
+    return "";
+  }
   const date = new Date(dateStr);
   return date.toLocaleDateString("en-GB", {
     year: "numeric",
     month: "long",
-    day: "numeric",
+    day: "numeric"
   });
 });
 
 Handlebars.registerHelper("currentYear", () => new Date().getFullYear());
 
 // Register partials
-Handlebars.registerPartial("email-footer", Handlebars.template(emailFooterSpec));
+Handlebars.registerPartial(
+  "email-footer",
+  Handlebars.template(emailFooterSpec)
+);
 
 // Instantiate templates from precompiled specs
 const verificationEmailTemplate = Handlebars.template(verificationEmailSpec);
@@ -42,7 +47,7 @@ describe("verification email template unsubscribe link", () => {
     siteName: "Test Site",
     siteUrl: "https://example.com",
     verifyUrl: "https://feedmail.cc/api/verify?token=abc123",
-    unsubscribeUrl: "https://feedmail.cc/api/unsubscribe?token=xyz789",
+    unsubscribeUrl: "https://feedmail.cc/api/unsubscribe?token=xyz789"
   };
 
   it("renders an Unsubscribe link in the HTML footer", () => {
@@ -55,13 +60,17 @@ describe("verification email template unsubscribe link", () => {
   it("unsubscribe link points to the subscriber's unsubscribe URL", () => {
     const html = verificationEmailTemplate(baseData);
     // link href points to the unsubscribe URL
-    expect(html).toContain('href="https://feedmail.cc/api/unsubscribe?token=xyz789"');
+    expect(html).toContain(
+      'href="https://feedmail.cc/api/unsubscribe?token=xyz789"'
+    );
   });
 
   it("copyright line appears before unsubscribe link", () => {
     const html = verificationEmailTemplate(baseData);
     const copyrightIndex = html.indexOf(`&copy; ${currentYear} Test Site`);
-    const unsubscribeIndex = html.indexOf("https://feedmail.cc/api/unsubscribe?token=xyz789");
+    const unsubscribeIndex = html.indexOf(
+      "https://feedmail.cc/api/unsubscribe?token=xyz789"
+    );
     expect(copyrightIndex).toBeGreaterThan(-1);
     expect(unsubscribeIndex).toBeGreaterThan(-1);
     // Copyright must appear before unsubscribe link
@@ -80,13 +89,13 @@ describe("verification email template company info", () => {
     siteName: "Test Site",
     siteUrl: "https://example.com",
     verifyUrl: "https://feedmail.cc/api/verify?token=abc123",
-    unsubscribeUrl: "https://feedmail.cc/api/unsubscribe?token=xyz789",
+    unsubscribeUrl: "https://feedmail.cc/api/unsubscribe?token=xyz789"
   };
 
   it("displays companyName when configured", () => {
     const html = verificationEmailTemplate({
       ...baseData,
-      companyName: "Acme Corp",
+      companyName: "Acme Corp"
     });
     expect(html).toContain("Acme Corp");
   });
@@ -94,7 +103,7 @@ describe("verification email template company info", () => {
   it("displays companyAddress when configured", () => {
     const html = verificationEmailTemplate({
       ...baseData,
-      companyAddress: "123 Main St, Springfield, IL 62701",
+      companyAddress: "123 Main St, Springfield, IL 62701"
     });
     expect(html).toContain("123 Main St, Springfield, IL 62701");
   });
@@ -103,7 +112,7 @@ describe("verification email template company info", () => {
     const html = verificationEmailTemplate({
       ...baseData,
       companyName: "Acme Corp",
-      companyAddress: "123 Main St, Springfield, IL 62701",
+      companyAddress: "123 Main St, Springfield, IL 62701"
     });
     expect(html).toContain("Acme Corp");
     expect(html).toContain("123 Main St, Springfield, IL 62701");
@@ -121,7 +130,7 @@ describe("verification email template company info", () => {
     const html = verificationEmailTemplate({
       ...baseData,
       companyName: "",
-      companyAddress: "123 Main St",
+      companyAddress: "123 Main St"
     });
     // Empty string is falsy in Handlebars {{#if}}, so companyName block should not render
     expect(html).toContain("123 Main St");
@@ -131,7 +140,7 @@ describe("verification email template company info", () => {
     const html = verificationEmailTemplate({
       ...baseData,
       companyName: "Acme Corp",
-      companyAddress: "123 Main St",
+      companyAddress: "123 Main St"
     });
 
     const unsubscribeLinkIndex = html.indexOf("Unsubscribe</a>");
@@ -147,7 +156,7 @@ describe("verification email template company info", () => {
     const html = verificationEmailTemplate({
       ...baseData,
       companyName: "Acme Corp",
-      companyAddress: "123 Main St",
+      companyAddress: "123 Main St"
     });
 
     const copyrightIndex = html.indexOf(`&copy; ${currentYear} Test Site`);
@@ -169,13 +178,13 @@ describe("newsletter template company info", () => {
     summary: "A summary",
     siteName: "Test Site",
     siteUrl: "https://example.com",
-    unsubscribeUrl: "%%UNSUBSCRIBE_URL%%",
+    unsubscribeUrl: "%%UNSUBSCRIBE_URL%%"
   };
 
   it("displays companyName in HTML newsletter when configured", () => {
     const html = newsletterTemplate({
       ...baseData,
-      companyName: "Acme Corp",
+      companyName: "Acme Corp"
     });
     expect(html).toContain("Acme Corp");
   });
@@ -183,7 +192,7 @@ describe("newsletter template company info", () => {
   it("displays companyAddress in HTML newsletter when configured", () => {
     const html = newsletterTemplate({
       ...baseData,
-      companyAddress: "123 Main St, Springfield, IL 62701",
+      companyAddress: "123 Main St, Springfield, IL 62701"
     });
     expect(html).toContain("123 Main St, Springfield, IL 62701");
   });
@@ -192,7 +201,7 @@ describe("newsletter template company info", () => {
     const html = newsletterTemplate({
       ...baseData,
       companyName: "Acme Corp",
-      companyAddress: "123 Main St",
+      companyAddress: "123 Main St"
     });
     expect(html).toContain("Acme Corp");
     expect(html).toContain("123 Main St");
@@ -207,7 +216,7 @@ describe("newsletter template company info", () => {
   it("displays companyName in text newsletter when configured", () => {
     const text = newsletterTextTemplate({
       ...baseData,
-      companyName: "Acme Corp",
+      companyName: "Acme Corp"
     });
     expect(text).toContain("Acme Corp");
   });
@@ -215,7 +224,7 @@ describe("newsletter template company info", () => {
   it("displays companyAddress in text newsletter when configured", () => {
     const text = newsletterTextTemplate({
       ...baseData,
-      companyAddress: "123 Main St",
+      companyAddress: "123 Main St"
     });
     expect(text).toContain("123 Main St");
   });
@@ -230,7 +239,7 @@ describe("newsletter template company info", () => {
     const html = newsletterTemplate({
       ...baseData,
       companyName: "Acme Corp",
-      companyAddress: "123 Main St",
+      companyAddress: "123 Main St"
     });
 
     const unsubscribeIndex = html.indexOf("Unsubscribe</a>");
@@ -252,7 +261,7 @@ describe("newsletter footer layout standardization", () => {
     summary: "A summary",
     siteName: "Test Site",
     siteUrl: "https://example.com",
-    unsubscribeUrl: "%%UNSUBSCRIBE_URL%%",
+    unsubscribeUrl: "%%UNSUBSCRIBE_URL%%"
   };
 
   it("HTML footer contains copyright line with current year and site name", () => {
@@ -288,7 +297,7 @@ describe("newsletter footer layout standardization", () => {
     const html = newsletterTemplate({
       ...baseData,
       companyName: "Acme Corp",
-      companyAddress: "123 Main St",
+      companyAddress: "123 Main St"
     });
     const copyrightIndex = html.indexOf(`&copy; ${currentYear} Test Site`);
     const unsubscribeIndex = html.indexOf("Unsubscribe</a>");
@@ -329,7 +338,7 @@ describe("newsletter footer layout standardization", () => {
     const text = newsletterTextTemplate({
       ...baseData,
       companyName: "Acme Corp",
-      companyAddress: "123 Main St",
+      companyAddress: "123 Main St"
     });
     const copyrightIndex = text.indexOf(`${currentYear} Test Site`);
     const unsubscribeIndex = text.indexOf("%%UNSUBSCRIBE_URL%%");

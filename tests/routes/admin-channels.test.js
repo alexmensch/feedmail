@@ -7,7 +7,7 @@ vi.mock("../../src/lib/db.js", () => ({
   insertChannel: vi.fn(),
   updateChannel: vi.fn(),
   deleteChannel: vi.fn(),
-  insertFeed: vi.fn(),
+  insertFeed: vi.fn()
 }));
 
 import { handleAdminChannels } from "../../src/routes/admin-channels.js";
@@ -18,7 +18,7 @@ import {
   insertChannel,
   updateChannel,
   deleteChannel,
-  insertFeed,
+  insertFeed
 } from "../../src/lib/db.js";
 
 const CHANNEL = {
@@ -27,12 +27,12 @@ const CHANNEL = {
   siteUrl: "https://example.com",
   fromUser: "hello",
   fromName: "Test Sender",
-  corsOrigins: ["https://example.com"],
+  corsOrigins: ["https://example.com"]
 };
 
-const CHANNEL_WITH_FEEDS = {
+const _CHANNEL_WITH_FEEDS = {
   ...CHANNEL,
-  feeds: [{ id: 1, name: "Main Feed", url: "https://example.com/feed.xml" }],
+  feeds: [{ id: 1, name: "Main Feed", url: "https://example.com/feed.xml" }]
 };
 
 const FEED = { id: 1, name: "Main Feed", url: "https://example.com/feed.xml" };
@@ -42,7 +42,7 @@ const env = { DB: {}, DOMAIN: "feedmail.cc" };
 function makeRequest(method, path, body = null) {
   const options = {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" }
   };
   if (body) {
     options.body = JSON.stringify(body);
@@ -99,7 +99,7 @@ describe("handleAdminChannels", () => {
         ...CHANNEL,
         replyTo: "reply@example.com",
         companyName: "Acme Corp",
-        companyAddress: "123 Main St",
+        companyAddress: "123 Main St"
       };
       getAllChannels.mockResolvedValue([fullChannel]);
 
@@ -127,7 +127,7 @@ describe("handleAdminChannels", () => {
 
       const { request, url } = makeRequest(
         "GET",
-        "/api/admin/channels/test-channel",
+        "/api/admin/channels/test-channel"
       );
       const response = await handleAdminChannels(request, env, url);
       const body = await response.json();
@@ -142,7 +142,7 @@ describe("handleAdminChannels", () => {
 
       const { request, url } = makeRequest(
         "GET",
-        "/api/admin/channels/nonexistent",
+        "/api/admin/channels/nonexistent"
       );
       const response = await handleAdminChannels(request, env, url);
       const body = await response.json();
@@ -154,13 +154,13 @@ describe("handleAdminChannels", () => {
     it("includes feed list in get response", async () => {
       const feeds = [
         { id: 1, name: "Feed A", url: "https://example.com/a.xml" },
-        { id: 2, name: "Feed B", url: "https://example.com/b.xml" },
+        { id: 2, name: "Feed B", url: "https://example.com/b.xml" }
       ];
       getFeedsByChannelId.mockResolvedValue(feeds);
 
       const { request, url } = makeRequest(
         "GET",
-        "/api/admin/channels/test-channel",
+        "/api/admin/channels/test-channel"
       );
       const response = await handleAdminChannels(request, env, url);
       const body = await response.json();
@@ -173,7 +173,7 @@ describe("handleAdminChannels", () => {
 
       const { request, url } = makeRequest(
         "GET",
-        "/api/admin/channels/test-channel",
+        "/api/admin/channels/test-channel"
       );
       const response = await handleAdminChannels(request, env, url);
       const body = await response.json();
@@ -193,13 +193,13 @@ describe("handleAdminChannels", () => {
         fromUser: "news",
         fromName: "New Sender",
         corsOrigins: ["https://new.example.com"],
-        feeds: [{ name: "Main Feed", url: "https://new.example.com/feed.xml" }],
+        feeds: [{ name: "Main Feed", url: "https://new.example.com/feed.xml" }]
       };
 
       const { request, url } = makeRequest(
         "POST",
         "/api/admin/channels",
-        newChannel,
+        newChannel
       );
       const response = await handleAdminChannels(request, env, url);
 
@@ -217,10 +217,10 @@ describe("handleAdminChannels", () => {
         siteUrl: "https://new.example.com",
         fromUser: "news",
         fromName: "New Sender",
-        corsOrigins: ["https://new.example.com"],
+        corsOrigins: ["https://new.example.com"]
       });
       getFeedsByChannelId.mockResolvedValue([
-        { id: 1, name: "Main Feed", url: "https://new.example.com/feed.xml" },
+        { id: 1, name: "Main Feed", url: "https://new.example.com/feed.xml" }
       ]);
 
       const newChannel = {
@@ -230,13 +230,13 @@ describe("handleAdminChannels", () => {
         fromUser: "news",
         fromName: "New Sender",
         corsOrigins: ["https://new.example.com"],
-        feeds: [{ name: "Main Feed", url: "https://new.example.com/feed.xml" }],
+        feeds: [{ name: "Main Feed", url: "https://new.example.com/feed.xml" }]
       };
 
       const { request, url } = makeRequest(
         "POST",
         "/api/admin/channels",
-        newChannel,
+        newChannel
       );
       const response = await handleAdminChannels(request, env, url);
       const body = await response.json();
@@ -255,13 +255,13 @@ describe("handleAdminChannels", () => {
         fromUser: "news",
         fromName: "New Sender",
         corsOrigins: ["https://new.example.com"],
-        feeds: [{ name: "Feed", url: "https://new.example.com/feed.xml" }],
+        feeds: [{ name: "Feed", url: "https://new.example.com/feed.xml" }]
       };
 
       const { request, url } = makeRequest(
         "POST",
         "/api/admin/channels",
-        newChannel,
+        newChannel
       );
       const response = await handleAdminChannels(request, env, url);
       const body = await response.json();
@@ -278,7 +278,7 @@ describe("handleAdminChannels", () => {
         fromUser: "hello",
         fromName: "Sender",
         corsOrigins: ["https://example.com"],
-        feeds: [{ name: "Feed", url: "https://example.com/feed.xml" }],
+        feeds: [{ name: "Feed", url: "https://example.com/feed.xml" }]
       };
 
       beforeEach(() => {
@@ -286,11 +286,11 @@ describe("handleAdminChannels", () => {
       });
 
       it("rejects missing id", async () => {
-        const { id, ...channelNoId } = validChannel;
+        const { id: _id, ...channelNoId } = validChannel;
         const { request, url } = makeRequest(
           "POST",
           "/api/admin/channels",
-          channelNoId,
+          channelNoId
         );
         const response = await handleAdminChannels(request, env, url);
 
@@ -298,60 +298,40 @@ describe("handleAdminChannels", () => {
       });
 
       it("rejects missing siteName", async () => {
-        const { siteName, ...ch } = validChannel;
-        const { request, url } = makeRequest(
-          "POST",
-          "/api/admin/channels",
-          ch,
-        );
+        const { siteName: _siteName, ...ch } = validChannel;
+        const { request, url } = makeRequest("POST", "/api/admin/channels", ch);
         const response = await handleAdminChannels(request, env, url);
 
         expect(response.status).toBe(400);
       });
 
       it("rejects missing siteUrl", async () => {
-        const { siteUrl, ...ch } = validChannel;
-        const { request, url } = makeRequest(
-          "POST",
-          "/api/admin/channels",
-          ch,
-        );
+        const { siteUrl: _siteUrl, ...ch } = validChannel;
+        const { request, url } = makeRequest("POST", "/api/admin/channels", ch);
         const response = await handleAdminChannels(request, env, url);
 
         expect(response.status).toBe(400);
       });
 
       it("rejects missing fromUser", async () => {
-        const { fromUser, ...ch } = validChannel;
-        const { request, url } = makeRequest(
-          "POST",
-          "/api/admin/channels",
-          ch,
-        );
+        const { fromUser: _fromUser, ...ch } = validChannel;
+        const { request, url } = makeRequest("POST", "/api/admin/channels", ch);
         const response = await handleAdminChannels(request, env, url);
 
         expect(response.status).toBe(400);
       });
 
       it("rejects missing fromName", async () => {
-        const { fromName, ...ch } = validChannel;
-        const { request, url } = makeRequest(
-          "POST",
-          "/api/admin/channels",
-          ch,
-        );
+        const { fromName: _fromName, ...ch } = validChannel;
+        const { request, url } = makeRequest("POST", "/api/admin/channels", ch);
         const response = await handleAdminChannels(request, env, url);
 
         expect(response.status).toBe(400);
       });
 
       it("rejects missing corsOrigins", async () => {
-        const { corsOrigins, ...ch } = validChannel;
-        const { request, url } = makeRequest(
-          "POST",
-          "/api/admin/channels",
-          ch,
-        );
+        const { corsOrigins: _corsOrigins, ...ch } = validChannel;
+        const { request, url } = makeRequest("POST", "/api/admin/channels", ch);
         const response = await handleAdminChannels(request, env, url);
 
         expect(response.status).toBe(400);
@@ -359,11 +339,7 @@ describe("handleAdminChannels", () => {
 
       it("rejects fromUser containing @", async () => {
         const ch = { ...validChannel, fromUser: "user@domain.com" };
-        const { request, url } = makeRequest(
-          "POST",
-          "/api/admin/channels",
-          ch,
-        );
+        const { request, url } = makeRequest("POST", "/api/admin/channels", ch);
         const response = await handleAdminChannels(request, env, url);
 
         expect(response.status).toBe(400);
@@ -371,11 +347,7 @@ describe("handleAdminChannels", () => {
 
       it("rejects fromUser containing whitespace", async () => {
         const ch = { ...validChannel, fromUser: "my user" };
-        const { request, url } = makeRequest(
-          "POST",
-          "/api/admin/channels",
-          ch,
-        );
+        const { request, url } = makeRequest("POST", "/api/admin/channels", ch);
         const response = await handleAdminChannels(request, env, url);
 
         expect(response.status).toBe(400);
@@ -383,11 +355,7 @@ describe("handleAdminChannels", () => {
 
       it("rejects empty fromUser", async () => {
         const ch = { ...validChannel, fromUser: "" };
-        const { request, url } = makeRequest(
-          "POST",
-          "/api/admin/channels",
-          ch,
-        );
+        const { request, url } = makeRequest("POST", "/api/admin/channels", ch);
         const response = await handleAdminChannels(request, env, url);
 
         expect(response.status).toBe(400);
@@ -395,23 +363,15 @@ describe("handleAdminChannels", () => {
 
       it("rejects channel without feeds at creation time", async () => {
         const ch = { ...validChannel, feeds: [] };
-        const { request, url } = makeRequest(
-          "POST",
-          "/api/admin/channels",
-          ch,
-        );
+        const { request, url } = makeRequest("POST", "/api/admin/channels", ch);
         const response = await handleAdminChannels(request, env, url);
 
         expect(response.status).toBe(400);
       });
 
       it("rejects channel with missing feeds property at creation time", async () => {
-        const { feeds, ...ch } = validChannel;
-        const { request, url } = makeRequest(
-          "POST",
-          "/api/admin/channels",
-          ch,
-        );
+        const { feeds: _feeds, ...ch } = validChannel;
+        const { request, url } = makeRequest("POST", "/api/admin/channels", ch);
         const response = await handleAdminChannels(request, env, url);
 
         expect(response.status).toBe(400);
@@ -422,14 +382,10 @@ describe("handleAdminChannels", () => {
           ...validChannel,
           feeds: [
             { name: "Feed A", url: "https://example.com/feed.xml" },
-            { name: "Feed B", url: "https://example.com/feed.xml" },
-          ],
+            { name: "Feed B", url: "https://example.com/feed.xml" }
+          ]
         };
-        const { request, url } = makeRequest(
-          "POST",
-          "/api/admin/channels",
-          ch,
-        );
+        const { request, url } = makeRequest("POST", "/api/admin/channels", ch);
         const response = await handleAdminChannels(request, env, url);
 
         expect(response.status).toBe(400);
@@ -440,14 +396,10 @@ describe("handleAdminChannels", () => {
           ...validChannel,
           feeds: [
             { name: "Main Feed", url: "https://example.com/feed1.xml" },
-            { name: "main feed", url: "https://example.com/feed2.xml" },
-          ],
+            { name: "main feed", url: "https://example.com/feed2.xml" }
+          ]
         };
-        const { request, url } = makeRequest(
-          "POST",
-          "/api/admin/channels",
-          ch,
-        );
+        const { request, url } = makeRequest("POST", "/api/admin/channels", ch);
         const response = await handleAdminChannels(request, env, url);
 
         expect(response.status).toBe(400);
@@ -456,13 +408,9 @@ describe("handleAdminChannels", () => {
       it("rejects feeds with missing name", async () => {
         const ch = {
           ...validChannel,
-          feeds: [{ url: "https://example.com/feed.xml" }],
+          feeds: [{ url: "https://example.com/feed.xml" }]
         };
-        const { request, url } = makeRequest(
-          "POST",
-          "/api/admin/channels",
-          ch,
-        );
+        const { request, url } = makeRequest("POST", "/api/admin/channels", ch);
         const response = await handleAdminChannels(request, env, url);
 
         expect(response.status).toBe(400);
@@ -471,26 +419,19 @@ describe("handleAdminChannels", () => {
       it("rejects feeds with missing url", async () => {
         const ch = {
           ...validChannel,
-          feeds: [{ name: "Feed" }],
+          feeds: [{ name: "Feed" }]
         };
-        const { request, url } = makeRequest(
-          "POST",
-          "/api/admin/channels",
-          ch,
-        );
+        const { request, url } = makeRequest("POST", "/api/admin/channels", ch);
         const response = await handleAdminChannels(request, env, url);
 
         expect(response.status).toBe(400);
       });
 
       it("rejects invalid JSON body", async () => {
-        const request = new Request(
-          "https://feedmail.cc/api/admin/channels",
-          {
-            method: "POST",
-            body: "not json",
-          },
-        );
+        const request = new Request("https://feedmail.cc/api/admin/channels", {
+          method: "POST",
+          body: "not json"
+        });
         const url = new URL("https://feedmail.cc/api/admin/channels");
         const response = await handleAdminChannels(request, env, url);
 
@@ -498,12 +439,8 @@ describe("handleAdminChannels", () => {
       });
 
       it("returns error message in response body", async () => {
-        const { id, ...ch } = validChannel;
-        const { request, url } = makeRequest(
-          "POST",
-          "/api/admin/channels",
-          ch,
-        );
+        const { id: _id, ...ch } = validChannel;
+        const { request, url } = makeRequest("POST", "/api/admin/channels", ch);
         const response = await handleAdminChannels(request, env, url);
         const body = await response.json();
 
@@ -525,13 +462,13 @@ describe("handleAdminChannels", () => {
         companyName: "Acme",
         companyAddress: "123 Main St",
         corsOrigins: ["https://new.example.com"],
-        feeds: [{ name: "Feed", url: "https://new.example.com/feed.xml" }],
+        feeds: [{ name: "Feed", url: "https://new.example.com/feed.xml" }]
       };
 
       const { request, url } = makeRequest(
         "POST",
         "/api/admin/channels",
-        newChannel,
+        newChannel
       );
       const response = await handleAdminChannels(request, env, url);
 
@@ -549,13 +486,13 @@ describe("handleAdminChannels", () => {
         siteUrl: "https://updated.example.com",
         fromUser: "updated",
         fromName: "Updated Sender",
-        corsOrigins: ["https://updated.example.com"],
+        corsOrigins: ["https://updated.example.com"]
       };
 
       const { request, url } = makeRequest(
         "PUT",
         "/api/admin/channels/test-channel",
-        updated,
+        updated
       );
       const response = await handleAdminChannels(request, env, url);
 
@@ -569,7 +506,7 @@ describe("handleAdminChannels", () => {
       // After update, return new data
       getChannelById.mockResolvedValueOnce(CHANNEL).mockResolvedValueOnce({
         ...CHANNEL,
-        siteName: "Updated Site",
+        siteName: "Updated Site"
       });
 
       const { request, url } = makeRequest(
@@ -580,8 +517,8 @@ describe("handleAdminChannels", () => {
           siteUrl: "https://example.com",
           fromUser: "hello",
           fromName: "Test Sender",
-          corsOrigins: ["https://example.com"],
-        },
+          corsOrigins: ["https://example.com"]
+        }
       );
       const response = await handleAdminChannels(request, env, url);
       const body = await response.json();
@@ -601,8 +538,8 @@ describe("handleAdminChannels", () => {
           siteUrl: "https://example.com",
           fromUser: "hello",
           fromName: "Sender",
-          corsOrigins: ["https://example.com"],
-        },
+          corsOrigins: ["https://example.com"]
+        }
       );
       const response = await handleAdminChannels(request, env, url);
 
@@ -621,8 +558,8 @@ describe("handleAdminChannels", () => {
           siteUrl: "https://example.com",
           fromUser: "hello",
           fromName: "Test Sender",
-          corsOrigins: ["https://example.com"],
-        },
+          corsOrigins: ["https://example.com"]
+        }
       );
       const response = await handleAdminChannels(request, env, url);
 
@@ -631,7 +568,7 @@ describe("handleAdminChannels", () => {
       expect(updateChannel).toHaveBeenCalledWith(
         env.DB,
         "test-channel",
-        expect.any(Object),
+        expect.any(Object)
       );
     });
 
@@ -649,8 +586,8 @@ describe("handleAdminChannels", () => {
           replyTo: "reply@example.com",
           companyName: "Acme",
           companyAddress: "123 Main St",
-          corsOrigins: ["https://example.com"],
-        },
+          corsOrigins: ["https://example.com"]
+        }
       );
       const response = await handleAdminChannels(request, env, url);
 
@@ -669,8 +606,8 @@ describe("handleAdminChannels", () => {
             siteUrl: "https://example.com",
             fromUser: "bad@user",
             fromName: "Sender",
-            corsOrigins: ["https://example.com"],
-          },
+            corsOrigins: ["https://example.com"]
+          }
         );
         const response = await handleAdminChannels(request, env, url);
 
@@ -688,8 +625,8 @@ describe("handleAdminChannels", () => {
             siteUrl: "https://example.com",
             fromUser: "bad user",
             fromName: "Sender",
-            corsOrigins: ["https://example.com"],
-          },
+            corsOrigins: ["https://example.com"]
+          }
         );
         const response = await handleAdminChannels(request, env, url);
 
@@ -703,11 +640,11 @@ describe("handleAdminChannels", () => {
           "https://feedmail.cc/api/admin/channels/test-channel",
           {
             method: "PUT",
-            body: "not json",
-          },
+            body: "not json"
+          }
         );
         const url = new URL(
-          "https://feedmail.cc/api/admin/channels/test-channel",
+          "https://feedmail.cc/api/admin/channels/test-channel"
         );
         const response = await handleAdminChannels(request, env, url);
 
@@ -722,7 +659,7 @@ describe("handleAdminChannels", () => {
 
       const { request, url } = makeRequest(
         "DELETE",
-        "/api/admin/channels/test-channel",
+        "/api/admin/channels/test-channel"
       );
       const response = await handleAdminChannels(request, env, url);
 
@@ -735,7 +672,7 @@ describe("handleAdminChannels", () => {
 
       const { request, url } = makeRequest(
         "DELETE",
-        "/api/admin/channels/nonexistent",
+        "/api/admin/channels/nonexistent"
       );
       const response = await handleAdminChannels(request, env, url);
 
@@ -747,7 +684,7 @@ describe("handleAdminChannels", () => {
 
       const { request, url } = makeRequest(
         "DELETE",
-        "/api/admin/channels/test-channel",
+        "/api/admin/channels/test-channel"
       );
       await handleAdminChannels(request, env, url);
 
@@ -760,7 +697,7 @@ describe("handleAdminChannels", () => {
 
       const { request, url } = makeRequest(
         "DELETE",
-        "/api/admin/channels/test-channel",
+        "/api/admin/channels/test-channel"
       );
       const response = await handleAdminChannels(request, env, url);
 

@@ -35,7 +35,7 @@ describe("htmlToText", () => {
 
   it("converts <li> to bullet points", () => {
     expect(htmlToText("<ul><li>One</li><li>Two</li></ul>")).toBe(
-      "- One\n\n- Two",
+      "- One\n\n- Two"
     );
   });
 
@@ -46,28 +46,26 @@ describe("htmlToText", () => {
   });
 
   it("converts <tr> closing tags to double newlines", () => {
-    expect(htmlToText("<tr><td>A</td></tr><tr><td>B</td></tr>")).toBe(
-      "A\n\nB",
-    );
+    expect(htmlToText("<tr><td>A</td></tr><tr><td>B</td></tr>")).toBe("A\n\nB");
   });
 
   it("extracts href from links", () => {
-    expect(
-      htmlToText('<a href="https://example.com">Click here</a>'),
-    ).toBe("Click here (https://example.com)");
+    expect(htmlToText('<a href="https://example.com">Click here</a>')).toBe(
+      "Click here (https://example.com)"
+    );
   });
 
   it("extracts href from links with single quotes", () => {
-    expect(
-      htmlToText("<a href='https://example.com'>Click</a>"),
-    ).toBe("Click (https://example.com)");
+    expect(htmlToText("<a href='https://example.com'>Click</a>")).toBe(
+      "Click (https://example.com)"
+    );
   });
 
   it("extracts href from links with extra attributes", () => {
     expect(
       htmlToText(
-        '<a class="link" href="https://example.com" target="_blank">Link</a>',
-      ),
+        '<a class="link" href="https://example.com" target="_blank">Link</a>'
+      )
     ).toBe("Link (https://example.com)");
   });
 
@@ -90,7 +88,7 @@ describe("htmlToText", () => {
     // &lt; and &gt; decode to < and >, forming tag-like content that gets stripped
     // by the iterative tag stripping loop. This is intentional behavior.
     expect(htmlToText("&lt;script&gt;alert('xss')&lt;/script&gt;")).toBe(
-      "alert('xss')",
+      "alert('xss')"
     );
     // When decoded < and > don't form complete tags, partial content may remain
     expect(htmlToText("5 &gt; 3")).toBe("5 > 3");
@@ -168,25 +166,25 @@ describe("constrainImages", () => {
   it("adds style to images without existing style", () => {
     const result = constrainImages('<img src="photo.jpg">');
     expect(result).toBe(
-      '<img src="photo.jpg" style="max-width: 100%; height: auto;">',
+      '<img src="photo.jpg" style="max-width: 100%; height: auto;">'
     );
   });
 
   it("prepends style to images with existing style", () => {
     const result = constrainImages(
-      '<img src="photo.jpg" style="border: 1px solid red;">',
+      '<img src="photo.jpg" style="border: 1px solid red;">'
     );
     expect(result).toBe(
-      '<img src="photo.jpg" style="max-width: 100%; height: auto; border: 1px solid red;">',
+      '<img src="photo.jpg" style="max-width: 100%; height: auto; border: 1px solid red;">'
     );
   });
 
   it("handles img with multiple attributes", () => {
     const result = constrainImages(
-      '<img src="photo.jpg" alt="Photo" width="600">',
+      '<img src="photo.jpg" alt="Photo" width="600">'
     );
     expect(result).toBe(
-      '<img src="photo.jpg" alt="Photo" width="600" style="max-width: 100%; height: auto;">',
+      '<img src="photo.jpg" alt="Photo" width="600" style="max-width: 100%; height: auto;">'
     );
   });
 
@@ -195,10 +193,10 @@ describe("constrainImages", () => {
       '<img src="a.jpg"><p>text</p><img src="b.jpg" style="border: none;">';
     const result = constrainImages(html);
     expect(result).toContain(
-      '<img src="a.jpg" style="max-width: 100%; height: auto;">',
+      '<img src="a.jpg" style="max-width: 100%; height: auto;">'
     );
     expect(result).toContain(
-      '<img src="b.jpg" style="max-width: 100%; height: auto; border: none;">',
+      '<img src="b.jpg" style="max-width: 100%; height: auto; border: none;">'
     );
   });
 

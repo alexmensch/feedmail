@@ -13,7 +13,7 @@ import {
   resetSubscriberToPending,
   updateVerifyToken,
   countRecentVerificationAttempts,
-  insertVerificationAttempt,
+  insertVerificationAttempt
 } from "../lib/db.js";
 
 // Basic email validation (RFC 5322 simplified, ReDoS-safe)
@@ -25,7 +25,7 @@ const ALLOWED_FIELDS = new Set(["email", "channelId"]);
 
 const SUCCESS_RESPONSE = {
   success: true,
-  message: "Check your email to confirm your subscription",
+  message: "Check your email to confirm your subscription"
 };
 
 /**
@@ -41,19 +41,19 @@ export async function handleSubscribe(request, env) {
   } catch {
     return jsonResponse(400, {
       success: false,
-      message: "Invalid request body",
+      message: "Invalid request body"
     });
   }
 
   // Reject requests with unexpected fields (honeypot support).
   // Uses the same error message as invalid JSON to avoid leaking info.
   const hasUnexpectedFields = Object.keys(body).some(
-    (key) => !ALLOWED_FIELDS.has(key),
+    (key) => !ALLOWED_FIELDS.has(key)
   );
   if (hasUnexpectedFields) {
     return jsonResponse(400, {
       success: false,
-      message: "Invalid request body",
+      message: "Invalid request body"
     });
   }
 
@@ -63,7 +63,7 @@ export async function handleSubscribe(request, env) {
   if (!channelId) {
     return jsonResponse(400, {
       success: false,
-      message: "Missing channel identifier",
+      message: "Missing channel identifier"
     });
   }
 
@@ -71,7 +71,7 @@ export async function handleSubscribe(request, env) {
   if (!channel) {
     return jsonResponse(400, {
       success: false,
-      message: "Unknown channel",
+      message: "Unknown channel"
     });
   }
 
@@ -79,7 +79,7 @@ export async function handleSubscribe(request, env) {
   if (!email || !EMAIL_REGEX.test(email)) {
     return jsonResponse(400, {
       success: false,
-      message: "Please provide a valid email address",
+      message: "Please provide a valid email address"
     });
   }
 
@@ -89,7 +89,7 @@ export async function handleSubscribe(request, env) {
   const existing = await getSubscriberByEmail(
     env.DB,
     normalizedEmail,
-    channelId,
+    channelId
   );
 
   if (existing) {
@@ -102,7 +102,14 @@ export async function handleSubscribe(request, env) {
       // Regenerate token and resend if under rate limit
       const newToken = crypto.randomUUID();
       await updateVerifyToken(env.DB, existing.id, newToken);
-      await trySendVerification(env, channel, normalizedEmail, newToken, existing.id, existing.unsubscribe_token);
+      await trySendVerification(
+        env,
+        channel,
+        normalizedEmail,
+        newToken,
+        existing.id,
+        existing.unsubscribe_token
+      );
       return jsonResponse(200, SUCCESS_RESPONSE);
     }
 
@@ -110,7 +117,14 @@ export async function handleSubscribe(request, env) {
       // Re-subscribe: reset to pending
       const newToken = crypto.randomUUID();
       await resetSubscriberToPending(env.DB, existing.id, newToken);
-      await trySendVerification(env, channel, normalizedEmail, newToken, existing.id, existing.unsubscribe_token);
+      await trySendVerification(
+        env,
+        channel,
+        normalizedEmail,
+        newToken,
+        existing.id,
+        existing.unsubscribe_token
+      );
       return jsonResponse(200, SUCCESS_RESPONSE);
     }
   }
@@ -123,14 +137,21 @@ export async function handleSubscribe(request, env) {
     channelId,
     email: normalizedEmail,
     verifyToken,
-    unsubscribeToken,
+    unsubscribeToken
   });
 
   const subscriberId =
     result.meta?.last_row_id ||
     (await getSubscriberByEmail(env.DB, normalizedEmail, channelId))?.id;
 
-  await trySendVerification(env, channel, normalizedEmail, verifyToken, subscriberId, unsubscribeToken);
+  await trySendVerification(
+    env,
+    channel,
+    normalizedEmail,
+    verifyToken,
+    subscriberId,
+    unsubscribeToken
+  );
 
   return jsonResponse(200, SUCCESS_RESPONSE);
 }
@@ -138,17 +159,24 @@ export async function handleSubscribe(request, env) {
 /**
  * Check rate limit and send verification email if allowed.
  */
-async function trySendVerification(env, channel, email, verifyToken, subscriberId, unsubscribeToken) {
+async function trySendVerification(
+  env,
+  channel,
+  email,
+  verifyToken,
+  subscriberId,
+  unsubscribeToken
+) {
   const limits = await getVerifyLimits(env);
   const recentCount = await countRecentVerificationAttempts(
     env.DB,
     subscriberId,
-    limits.windowHours,
+    limits.windowHours
   );
 
   if (recentCount >= limits.maxAttempts) {
     console.log(
-      `Rate limit hit for subscriber ${subscriberId}: ${recentCount}/${limits.maxAttempts} in ${limits.windowHours}h`,
+      `Rate limit hit for subscriber ${subscriberId}: ${recentCount}/${limits.maxAttempts} in ${limits.windowHours}h`
     );
     return; // Silently skip — no info leak
   }
@@ -162,7 +190,7 @@ async function trySendVerification(env, channel, email, verifyToken, subscriberI
     verifyUrl,
     unsubscribeUrl,
     companyName: channel.companyName,
-    companyAddress: channel.companyAddress,
+    companyAddress: channel.companyAddress
   });
 
   const textLines = [
@@ -175,10 +203,14 @@ async function trySendVerification(env, channel, email, verifyToken, subscriberI
     "",
     "If you didn't request this, you can safely ignore this email.",
     "",
-    `Unsubscribe: ${unsubscribeUrl}`,
+    `Unsubscribe: ${unsubscribeUrl}`
   ];
-  if (channel.companyName) textLines.push(channel.companyName);
-  if (channel.companyAddress) textLines.push(channel.companyAddress);
+  if (channel.companyName) {
+    textLines.push(channel.companyName);
+  }
+  if (channel.companyAddress) {
+    textLines.push(channel.companyAddress);
+  }
   const text = textLines.join("\n");
 
   const result = await sendEmail(env.RESEND_API_KEY, {
@@ -191,8 +223,8 @@ async function trySendVerification(env, channel, email, verifyToken, subscriberI
     text,
     headers: {
       "List-Unsubscribe": `<${unsubscribeUrl}>`,
-      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-    },
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"
+    }
   });
 
   if (result.success) {

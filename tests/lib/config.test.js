@@ -8,7 +8,7 @@ vi.mock("../../src/lib/db.js", () => ({
   getChannelById: vi.fn(),
   getFeedsByChannelId: vi.fn(),
   getSiteConfig: vi.fn(),
-  getRateLimitConfigs: vi.fn(),
+  getRateLimitConfigs: vi.fn()
 }));
 
 import {
@@ -16,7 +16,7 @@ import {
   getChannelById as dbGetChannelById,
   getFeedsByChannelId,
   getSiteConfig,
-  getRateLimitConfigs,
+  getRateLimitConfigs
 } from "../../src/lib/db.js";
 
 function makeChannel(overrides = {}) {
@@ -27,7 +27,7 @@ function makeChannel(overrides = {}) {
     fromUser: "hello",
     fromName: "Test Sender",
     corsOrigins: ["https://test.example.com"],
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -36,7 +36,7 @@ function makeFeed(overrides = {}) {
     id: 1,
     name: "Main Feed",
     url: "https://test.example.com/feed.xml",
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -44,12 +44,16 @@ function makeEnv(overrides = {}) {
   return {
     DOMAIN: "test.example.com",
     DB: {},
-    ...overrides,
+    ...overrides
   };
 }
 
 describe("config (async DB-backed)", () => {
-  let getChannels, getChannelById, getVerifyLimits, getAllCorsOrigins, getRateLimitConfig;
+  let getChannels,
+    getChannelById,
+    getVerifyLimits,
+    getAllCorsOrigins,
+    getRateLimitConfig;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -87,7 +91,7 @@ describe("config (async DB-backed)", () => {
       getAllChannels.mockResolvedValue([makeChannel()]);
 
       const env = makeEnv({
-        CHANNELS: JSON.stringify([{ id: "old-env-channel" }]),
+        CHANNELS: JSON.stringify([{ id: "old-env-channel" }])
       });
       const result = await getChannels(env);
 
@@ -105,7 +109,7 @@ describe("config (async DB-backed)", () => {
 
       expect(dbGetChannelById).toHaveBeenCalledWith(
         makeEnv().DB,
-        "test-channel",
+        "test-channel"
       );
       expect(channel).toBeTruthy();
       expect(channel.id).toBe("test-channel");
@@ -149,7 +153,7 @@ describe("config (async DB-backed)", () => {
     it("reads verify limits from the database", async () => {
       getSiteConfig.mockResolvedValue({
         verifyMaxAttempts: 5,
-        verifyWindowHours: 48,
+        verifyWindowHours: 48
       });
 
       const limits = await getVerifyLimits(makeEnv());
@@ -171,7 +175,7 @@ describe("config (async DB-backed)", () => {
 
       const env = makeEnv({
         VERIFY_MAX_ATTEMPTS: "10",
-        VERIFY_WINDOW_HOURS: "72",
+        VERIFY_WINDOW_HOURS: "72"
       });
       const limits = await getVerifyLimits(env);
 
@@ -182,7 +186,7 @@ describe("config (async DB-backed)", () => {
     it("returns partial defaults when only some settings exist in DB", async () => {
       getSiteConfig.mockResolvedValue({
         verifyMaxAttempts: 10,
-        verifyWindowHours: null,
+        verifyWindowHours: null
       });
 
       const limits = await getVerifyLimits(makeEnv());
@@ -199,8 +203,8 @@ describe("config (async DB-backed)", () => {
         makeChannel({ corsOrigins: ["https://test.example.com"] }),
         makeChannel({
           id: "channel-2",
-          corsOrigins: ["https://other.example.com"],
-        }),
+          corsOrigins: ["https://other.example.com"]
+        })
       ]);
 
       const origins = await getAllCorsOrigins(makeEnv());
@@ -214,20 +218,18 @@ describe("config (async DB-backed)", () => {
       getAllChannels.mockResolvedValue([
         makeChannel({
           id: "a",
-          corsOrigins: ["https://shared.com", "https://a.com"],
+          corsOrigins: ["https://shared.com", "https://a.com"]
         }),
         makeChannel({
           id: "b",
-          corsOrigins: ["https://shared.com", "https://b.com"],
-        }),
+          corsOrigins: ["https://shared.com", "https://b.com"]
+        })
       ]);
 
       const origins = await getAllCorsOrigins(makeEnv());
 
       expect(origins).toHaveLength(3);
-      expect(
-        origins.filter((o) => o === "https://shared.com"),
-      ).toHaveLength(1);
+      expect(origins.filter((o) => o === "https://shared.com")).toHaveLength(1);
     });
 
     it("returns empty array when no channels exist", async () => {
@@ -241,7 +243,7 @@ describe("config (async DB-backed)", () => {
     it("handles channels without corsOrigins gracefully", async () => {
       getAllChannels.mockResolvedValue([
         makeChannel({ corsOrigins: ["https://a.com"] }),
-        makeChannel({ id: "b", corsOrigins: undefined }),
+        makeChannel({ id: "b", corsOrigins: undefined })
       ]);
 
       const origins = await getAllCorsOrigins(makeEnv());
@@ -257,7 +259,7 @@ describe("config (async DB-backed)", () => {
         verify: { windowHours: 1, maxRequests: 20 },
         unsubscribe: { windowHours: 1, maxRequests: 20 },
         send: { windowHours: 1, maxRequests: 5 },
-        admin: { windowHours: 1, maxRequests: 30 },
+        admin: { windowHours: 1, maxRequests: 30 }
       });
 
       const config = await getRateLimitConfig(makeEnv());
@@ -288,7 +290,7 @@ describe("config (async DB-backed)", () => {
     it("falls back to hardcoded default for missing endpoint row", async () => {
       // Only subscribe exists in DB, rest should default
       getRateLimitConfigs.mockResolvedValue({
-        subscribe: { windowHours: 2, maxRequests: 50 },
+        subscribe: { windowHours: 2, maxRequests: 50 }
       });
 
       const config = await getRateLimitConfig(makeEnv());
@@ -302,7 +304,7 @@ describe("config (async DB-backed)", () => {
 
     it("converts windowHours to windowSeconds for rate-limit.js compatibility", async () => {
       getRateLimitConfigs.mockResolvedValue({
-        subscribe: { windowHours: 2, maxRequests: 10 },
+        subscribe: { windowHours: 2, maxRequests: 10 }
       });
 
       const config = await getRateLimitConfig(makeEnv());
@@ -333,7 +335,7 @@ describe("config (async DB-backed)", () => {
       getAllChannels.mockResolvedValue([makeChannel()]);
 
       await expect(
-        getChannels(makeEnv({ DOMAIN: "https://test.example.com" })),
+        getChannels(makeEnv({ DOMAIN: "https://test.example.com" }))
       ).rejects.toThrow();
     });
 
@@ -341,7 +343,7 @@ describe("config (async DB-backed)", () => {
       getAllChannels.mockResolvedValue([makeChannel()]);
 
       await expect(
-        getChannels(makeEnv({ DOMAIN: "http://test.example.com" })),
+        getChannels(makeEnv({ DOMAIN: "http://test.example.com" }))
       ).rejects.toThrow();
     });
 
@@ -349,7 +351,7 @@ describe("config (async DB-backed)", () => {
       getAllChannels.mockResolvedValue([makeChannel()]);
 
       await expect(
-        getChannels(makeEnv({ DOMAIN: "test.example.com/" })),
+        getChannels(makeEnv({ DOMAIN: "test.example.com/" }))
       ).rejects.toThrow();
     });
 
@@ -357,7 +359,7 @@ describe("config (async DB-backed)", () => {
       getAllChannels.mockResolvedValue([makeChannel()]);
 
       await expect(
-        getChannels(makeEnv({ DOMAIN: "test.example.com/api" })),
+        getChannels(makeEnv({ DOMAIN: "test.example.com/api" }))
       ).rejects.toThrow();
     });
   });
@@ -377,9 +379,7 @@ describe("config (async DB-backed)", () => {
 
     describe("validateChannelFields", () => {
       it("accepts valid channel fields", () => {
-        expect(() =>
-          validateChannelFields(makeChannel()),
-        ).not.toThrow();
+        expect(() => validateChannelFields(makeChannel())).not.toThrow();
       });
 
       it("rejects channel missing id", () => {
@@ -420,27 +420,25 @@ describe("config (async DB-backed)", () => {
 
       it("rejects fromUser containing @", () => {
         expect(() =>
-          validateChannelFields(
-            makeChannel({ fromUser: "hello@example.com" }),
-          ),
+          validateChannelFields(makeChannel({ fromUser: "hello@example.com" }))
         ).toThrow();
       });
 
       it("rejects fromUser containing whitespace", () => {
         expect(() =>
-          validateChannelFields(makeChannel({ fromUser: "hello world" })),
+          validateChannelFields(makeChannel({ fromUser: "hello world" }))
         ).toThrow();
       });
 
       it("rejects empty fromUser", () => {
         expect(() =>
-          validateChannelFields(makeChannel({ fromUser: "" })),
+          validateChannelFields(makeChannel({ fromUser: "" }))
         ).toThrow();
       });
 
       it("accepts valid fromUser without @ or whitespace", () => {
         expect(() =>
-          validateChannelFields(makeChannel({ fromUser: "newsletter" })),
+          validateChannelFields(makeChannel({ fromUser: "newsletter" }))
         ).not.toThrow();
       });
     });
@@ -448,13 +446,16 @@ describe("config (async DB-backed)", () => {
     describe("validateFeedFields", () => {
       it("accepts valid feed fields", () => {
         expect(() =>
-          validateFeedFields({ name: "Feed", url: "https://example.com/feed.xml" }),
+          validateFeedFields({
+            name: "Feed",
+            url: "https://example.com/feed.xml"
+          })
         ).not.toThrow();
       });
 
       it("rejects feed missing name", () => {
         expect(() =>
-          validateFeedFields({ url: "https://example.com/feed.xml" }),
+          validateFeedFields({ url: "https://example.com/feed.xml" })
         ).toThrow();
       });
 
@@ -464,14 +465,12 @@ describe("config (async DB-backed)", () => {
 
       it("rejects feed with empty name", () => {
         expect(() =>
-          validateFeedFields({ name: "", url: "https://example.com/feed.xml" }),
+          validateFeedFields({ name: "", url: "https://example.com/feed.xml" })
         ).toThrow();
       });
 
       it("rejects feed with empty url", () => {
-        expect(() =>
-          validateFeedFields({ name: "Feed", url: "" }),
-        ).toThrow();
+        expect(() => validateFeedFields({ name: "Feed", url: "" })).toThrow();
       });
     });
   });

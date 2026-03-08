@@ -24,18 +24,24 @@ export const CLEANUP_PROBABILITY = 0.01;
  * @param {number} windowSeconds - Rolling window size in seconds
  * @returns {Promise<{ allowed: boolean, retryAfter?: number }>}
  */
-export async function checkRateLimit(db, ip, endpoint, maxRequests, windowSeconds) {
+export async function checkRateLimit(
+  db,
+  ip,
+  endpoint,
+  maxRequests,
+  windowSeconds
+) {
   // Probabilistically clean up all stale rows across the entire table
   if (Math.random() < CLEANUP_PROBABILITY) {
     cleanupStaleRateLimits(db).catch((err) =>
-      console.error("Stale rate limit cleanup failed:", err),
+      console.error("Stale rate limit cleanup failed:", err)
     );
   }
 
   // Clean up expired rows for this IP+endpoint (keeps table small)
   await db
     .prepare(
-      "DELETE FROM rate_limits WHERE ip = ? AND endpoint = ? AND requested_at < datetime('now', ? || ' seconds')",
+      "DELETE FROM rate_limits WHERE ip = ? AND endpoint = ? AND requested_at < datetime('now', ? || ' seconds')"
     )
     .bind(ip, endpoint, `-${windowSeconds}`)
     .run();
@@ -45,7 +51,7 @@ export async function checkRateLimit(db, ip, endpoint, maxRequests, windowSecond
     .prepare(
       `SELECT COUNT(*) as count, MIN(requested_at) as oldest
        FROM rate_limits
-       WHERE ip = ? AND endpoint = ? AND requested_at >= datetime('now', ? || ' seconds')`,
+       WHERE ip = ? AND endpoint = ? AND requested_at >= datetime('now', ? || ' seconds')`
     )
     .bind(ip, endpoint, `-${windowSeconds}`)
     .first();
@@ -55,10 +61,11 @@ export async function checkRateLimit(db, ip, endpoint, maxRequests, windowSecond
   if (count >= maxRequests) {
     // Calculate retryAfter: when the oldest request in the window expires
     // Add 0-30s random jitter to prevent thundering herd retries
-    const oldest = result?.oldest ? new Date(result.oldest + "Z") : new Date();
+    const oldest = result?.oldest ? new Date(`${result.oldest}Z`) : new Date();
     const expiresAt = new Date(oldest.getTime() + windowSeconds * 1000);
     const jitter = Math.floor(Math.random() * 31);
-    const retryAfter = Math.max(1, Math.ceil((expiresAt - new Date()) / 1000)) + jitter;
+    const retryAfter =
+      Math.max(1, Math.ceil((expiresAt - new Date()) / 1000)) + jitter;
 
     return { allowed: false, retryAfter };
   }
@@ -82,7 +89,7 @@ export async function checkRateLimit(db, ip, endpoint, maxRequests, windowSecond
 export async function cleanupStaleRateLimits(db) {
   return db
     .prepare(
-      "DELETE FROM rate_limits WHERE requested_at < datetime('now', ? || ' seconds')",
+      "DELETE FROM rate_limits WHERE requested_at < datetime('now', ? || ' seconds')"
     )
     .bind(`-${STALE_ROW_MAX_AGE_SECONDS}`)
     .run();
@@ -96,10 +103,20 @@ export async function cleanupStaleRateLimits(db) {
  * @returns {string|null} Endpoint name or null
  */
 export function getEndpointName(pathname) {
-  if (pathname === "/api/subscribe") return "subscribe";
-  if (pathname === "/api/verify") return "verify";
-  if (pathname === "/api/unsubscribe") return "unsubscribe";
-  if (pathname === "/api/send") return "send";
-  if (pathname.startsWith("/api/admin/")) return "admin";
+  if (pathname === "/api/subscribe") {
+    return "subscribe";
+  }
+  if (pathname === "/api/verify") {
+    return "verify";
+  }
+  if (pathname === "/api/unsubscribe") {
+    return "unsubscribe";
+  }
+  if (pathname === "/api/send") {
+    return "send";
+  }
+  if (pathname.startsWith("/api/admin/")) {
+    return "admin";
+  }
   return null;
 }

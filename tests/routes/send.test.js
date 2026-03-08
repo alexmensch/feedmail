@@ -2,25 +2,28 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../../src/lib/config.js", () => ({
   getChannels: vi.fn(),
-  getChannelById: vi.fn(),
+  getChannelById: vi.fn()
 }));
 vi.mock("../../src/lib/feed-parser.js", () => ({
-  fetchAndParseFeed: vi.fn(),
+  fetchAndParseFeed: vi.fn()
 }));
 vi.mock("../../src/lib/email.js", () => ({
-  sendEmail: vi.fn(),
+  sendEmail: vi.fn()
 }));
 vi.mock("../../src/lib/html-to-text.js", () => ({
   htmlToText: vi.fn().mockReturnValue("plain text"),
-  constrainImages: vi.fn().mockImplementation((html) => html || ""),
+  constrainImages: vi.fn().mockImplementation((html) => html || "")
 }));
 vi.mock("../../src/lib/templates.js", () => ({
   render: vi.fn().mockImplementation((name) => {
-    if (name === "newsletter") return "html with %%UNSUBSCRIBE_URL%%";
-    if (name === "newsletterText")
+    if (name === "newsletter") {
+      return "html with %%UNSUBSCRIBE_URL%%";
+    }
+    if (name === "newsletterText") {
       return "text with %%UNSUBSCRIBE_URL%%";
+    }
     return "rendered";
-  }),
+  })
 }));
 vi.mock("../../src/lib/db.js", () => ({
   isFeedSeeded: vi.fn(),
@@ -29,7 +32,7 @@ vi.mock("../../src/lib/db.js", () => ({
   getVerifiedSubscribers: vi.fn(),
   isItemSentToSubscriber: vi.fn(),
   insertSubscriberSend: vi.fn(),
-  deleteSubscriberSends: vi.fn(),
+  deleteSubscriberSends: vi.fn()
 }));
 
 import { handleSend, checkFeedsAndSend } from "../../src/routes/send.js";
@@ -45,7 +48,7 @@ import {
   getVerifiedSubscribers,
   isItemSentToSubscriber,
   insertSubscriberSend,
-  deleteSubscriberSends,
+  deleteSubscriberSends
 } from "../../src/lib/db.js";
 
 const CHANNEL = {
@@ -55,7 +58,7 @@ const CHANNEL = {
   fromUser: "hello",
   fromName: "Test",
   replyTo: "reply@example.com",
-  feeds: [{ name: "Main Feed", url: "https://example.com/feed.xml" }],
+  feeds: [{ name: "Main Feed", url: "https://example.com/feed.xml" }]
 };
 
 const ITEM = {
@@ -64,14 +67,14 @@ const ITEM = {
   link: "https://example.com/post-1",
   date: "2025-01-15T10:00:00Z",
   content: "<p>Full content</p>",
-  summary: "A summary",
+  summary: "A summary"
 };
 
 const env = {
   DB: {},
   RESEND_API_KEY: "re_test",
   DOMAIN: "test.example.com",
-  CHANNELS: JSON.stringify([CHANNEL]),
+  CHANNELS: JSON.stringify([CHANNEL])
 };
 
 describe("handleSend", () => {
@@ -91,7 +94,7 @@ describe("handleSend", () => {
     const request = new Request("https://test.example.com/api/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
+      body: JSON.stringify({})
     });
 
     const response = await handleSend(request, env);
@@ -106,7 +109,7 @@ describe("handleSend", () => {
     const request = new Request("https://test.example.com/api/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ channelId: "test-site" }),
+      body: JSON.stringify({ channelId: "test-site" })
     });
 
     await handleSend(request, env);
@@ -118,7 +121,7 @@ describe("handleSend", () => {
   it("handles invalid JSON body gracefully", async () => {
     const request = new Request("https://test.example.com/api/send", {
       method: "POST",
-      body: "not json",
+      body: "not json"
     });
 
     const response = await handleSend(request, env);
@@ -131,7 +134,7 @@ describe("handleSend", () => {
 
   it("handles empty body", async () => {
     const request = new Request("https://test.example.com/api/send", {
-      method: "POST",
+      method: "POST"
     });
 
     const response = await handleSend(request, env);
@@ -154,7 +157,11 @@ describe("checkFeedsAndSend", () => {
 
   describe("channel filtering", () => {
     it("processes all channels when targetChannelId is null", async () => {
-      const site2 = { ...CHANNEL, id: "channel-2", feeds: [{ name: "Other Feed", url: "https://other.com/feed" }] };
+      const site2 = {
+        ...CHANNEL,
+        id: "channel-2",
+        feeds: [{ name: "Other Feed", url: "https://other.com/feed" }]
+      };
       getChannels.mockReturnValue([CHANNEL, site2]);
 
       await checkFeedsAndSend(env, null);
@@ -164,7 +171,11 @@ describe("checkFeedsAndSend", () => {
     });
 
     it("processes only matching channel when targetChannelId is set", async () => {
-      const site2 = { ...CHANNEL, id: "channel-2", feeds: [{ name: "Other Feed", url: "https://other.com/feed" }] };
+      const site2 = {
+        ...CHANNEL,
+        id: "channel-2",
+        feeds: [{ name: "Other Feed", url: "https://other.com/feed" }]
+      };
       getChannels.mockReturnValue([CHANNEL, site2]);
 
       await checkFeedsAndSend(env, "test-site");
@@ -172,7 +183,7 @@ describe("checkFeedsAndSend", () => {
       expect(fetchAndParseFeed).toHaveBeenCalledTimes(1);
       expect(fetchAndParseFeed).toHaveBeenCalledWith(
         "https://example.com/feed.xml",
-        expect.any(String),
+        expect.any(String)
       );
     });
 
@@ -198,7 +209,7 @@ describe("checkFeedsAndSend", () => {
         itemId: "item-1",
         feedUrl: "https://example.com/feed.xml",
         title: "Test Post",
-        recipientCount: 0,
+        recipientCount: 0
       });
       expect(sendEmail).not.toHaveBeenCalled();
     });
@@ -206,7 +217,7 @@ describe("checkFeedsAndSend", () => {
     it("does not send emails during seeding", async () => {
       isFeedSeeded.mockResolvedValue(false);
       getVerifiedSubscribers.mockResolvedValue([
-        { id: 1, email: "a@b.com", unsubscribe_token: "tok" },
+        { id: 1, email: "a@b.com", unsubscribe_token: "tok" }
       ]);
 
       await checkFeedsAndSend(env);
@@ -230,14 +241,14 @@ describe("checkFeedsAndSend", () => {
       isItemSent.mockResolvedValue(false);
       getVerifiedSubscribers.mockResolvedValue([]);
 
-      const result = await checkFeedsAndSend(env);
+      await checkFeedsAndSend(env);
 
       // No subscribers, so items marked as sent with 0 recipients
       expect(insertSentItem).toHaveBeenCalledWith(env.DB, {
         itemId: "item-1",
         feedUrl: "https://example.com/feed.xml",
         title: "Test Post",
-        recipientCount: 0,
+        recipientCount: 0
       });
     });
   });
@@ -249,9 +260,12 @@ describe("checkFeedsAndSend", () => {
 
       await checkFeedsAndSend(env);
 
-      expect(insertSentItem).toHaveBeenCalledWith(env.DB, expect.objectContaining({
-        recipientCount: 0,
-      }));
+      expect(insertSentItem).toHaveBeenCalledWith(
+        env.DB,
+        expect.objectContaining({
+          recipientCount: 0
+        })
+      );
       expect(sendEmail).not.toHaveBeenCalled();
     });
   });
@@ -260,12 +274,12 @@ describe("checkFeedsAndSend", () => {
     const subscriber1 = {
       id: 1,
       email: "user1@test.com",
-      unsubscribe_token: "unsub-1",
+      unsubscribe_token: "unsub-1"
     };
     const subscriber2 = {
       id: 2,
       email: "user2@test.com",
-      unsubscribe_token: "unsub-2",
+      unsubscribe_token: "unsub-2"
     };
 
     it("sends to all verified subscribers", async () => {
@@ -288,11 +302,11 @@ describe("checkFeedsAndSend", () => {
 
       const emailCall = sendEmail.mock.calls[0];
       expect(emailCall[1].html).toContain(
-        "https://test.example.com/api/unsubscribe?token=unsub-1",
+        "https://test.example.com/api/unsubscribe?token=unsub-1"
       );
       expect(emailCall[1].html).not.toContain("%%UNSUBSCRIBE_URL%%");
       expect(emailCall[1].text).toContain(
-        "https://test.example.com/api/unsubscribe?token=unsub-1",
+        "https://test.example.com/api/unsubscribe?token=unsub-1"
       );
     });
 
@@ -304,10 +318,10 @@ describe("checkFeedsAndSend", () => {
 
       const headers = sendEmail.mock.calls[0][1].headers;
       expect(headers["List-Unsubscribe"]).toBe(
-        "<https://test.example.com/api/unsubscribe?token=unsub-1>",
+        "<https://test.example.com/api/unsubscribe?token=unsub-1>"
       );
       expect(headers["List-Unsubscribe-Post"]).toBe(
-        "List-Unsubscribe=One-Click",
+        "List-Unsubscribe=One-Click"
       );
     });
 
@@ -322,7 +336,7 @@ describe("checkFeedsAndSend", () => {
         env.DB,
         1,
         "item-1",
-        "https://example.com/feed.xml",
+        "https://example.com/feed.xml"
       );
     });
 
@@ -336,12 +350,12 @@ describe("checkFeedsAndSend", () => {
         itemId: "item-1",
         feedUrl: "https://example.com/feed.xml",
         title: "Test Post",
-        recipientCount: 1,
+        recipientCount: 1
       });
       expect(deleteSubscriberSends).toHaveBeenCalledWith(
         env.DB,
         "item-1",
-        "https://example.com/feed.xml",
+        "https://example.com/feed.xml"
       );
     });
   });
@@ -367,13 +381,11 @@ describe("checkFeedsAndSend", () => {
       isItemSent.mockResolvedValue(false);
       getVerifiedSubscribers.mockResolvedValue([subscriber1, subscriber2]);
 
-      sendEmail
-        .mockResolvedValueOnce({ success: true })
-        .mockResolvedValueOnce({
-          success: false,
-          quotaExhausted: true,
-          error: "Rate limited",
-        });
+      sendEmail.mockResolvedValueOnce({ success: true }).mockResolvedValueOnce({
+        success: false,
+        quotaExhausted: true,
+        error: "Rate limited"
+      });
 
       const result = await checkFeedsAndSend(env);
 
@@ -393,7 +405,7 @@ describe("checkFeedsAndSend", () => {
         .mockResolvedValueOnce({
           success: false,
           quotaExhausted: false,
-          error: "Invalid address",
+          error: "Invalid address"
         })
         .mockResolvedValueOnce({ success: true });
 
@@ -413,7 +425,7 @@ describe("checkFeedsAndSend", () => {
       sendEmail.mockResolvedValue({
         success: false,
         quotaExhausted: true,
-        error: "Rate limited",
+        error: "Rate limited"
       });
 
       const result = await checkFeedsAndSend(env);
@@ -427,7 +439,7 @@ describe("checkFeedsAndSend", () => {
     it("uses item content when available", async () => {
       isItemSent.mockResolvedValue(false);
       getVerifiedSubscribers.mockResolvedValue([
-        { id: 1, email: "a@b.com", unsubscribe_token: "u1" },
+        { id: 1, email: "a@b.com", unsubscribe_token: "u1" }
       ]);
 
       await checkFeedsAndSend(env);
@@ -438,11 +450,11 @@ describe("checkFeedsAndSend", () => {
 
     it("falls back to summary when content is null", async () => {
       fetchAndParseFeed.mockResolvedValue([
-        { ...ITEM, content: null, summary: "Just a summary" },
+        { ...ITEM, content: null, summary: "Just a summary" }
       ]);
       isItemSent.mockResolvedValue(false);
       getVerifiedSubscribers.mockResolvedValue([
-        { id: 1, email: "a@b.com", unsubscribe_token: "u1" },
+        { id: 1, email: "a@b.com", unsubscribe_token: "u1" }
       ]);
 
       await checkFeedsAndSend(env);
@@ -452,11 +464,11 @@ describe("checkFeedsAndSend", () => {
 
     it("uses empty string when both content and summary are null", async () => {
       fetchAndParseFeed.mockResolvedValue([
-        { ...ITEM, content: null, summary: null },
+        { ...ITEM, content: null, summary: null }
       ]);
       isItemSent.mockResolvedValue(false);
       getVerifiedSubscribers.mockResolvedValue([
-        { id: 1, email: "a@b.com", unsubscribe_token: "u1" },
+        { id: 1, email: "a@b.com", unsubscribe_token: "u1" }
       ]);
 
       await checkFeedsAndSend(env);
@@ -467,7 +479,7 @@ describe("checkFeedsAndSend", () => {
     it("renders newsletter template with correct data", async () => {
       isItemSent.mockResolvedValue(false);
       getVerifiedSubscribers.mockResolvedValue([
-        { id: 1, email: "a@b.com", unsubscribe_token: "u1" },
+        { id: 1, email: "a@b.com", unsubscribe_token: "u1" }
       ]);
 
       await checkFeedsAndSend(env);
@@ -484,24 +496,22 @@ describe("checkFeedsAndSend", () => {
         siteUrl: "https://example.com",
         unsubscribeUrl: "%%UNSUBSCRIBE_URL%%",
         companyName: undefined,
-        companyAddress: undefined,
+        companyAddress: undefined
       });
     });
 
     it("sets hasFullContent to false when content is null", async () => {
-      fetchAndParseFeed.mockResolvedValue([
-        { ...ITEM, content: null },
-      ]);
+      fetchAndParseFeed.mockResolvedValue([{ ...ITEM, content: null }]);
       isItemSent.mockResolvedValue(false);
       getVerifiedSubscribers.mockResolvedValue([
-        { id: 1, email: "a@b.com", unsubscribe_token: "u1" },
+        { id: 1, email: "a@b.com", unsubscribe_token: "u1" }
       ]);
 
       await checkFeedsAndSend(env);
 
       expect(render).toHaveBeenCalledWith(
         "newsletter",
-        expect.objectContaining({ hasFullContent: false }),
+        expect.objectContaining({ hasFullContent: false })
       );
     });
   });
@@ -511,7 +521,7 @@ describe("checkFeedsAndSend", () => {
       const site2 = {
         ...CHANNEL,
         id: "channel-2",
-        feeds: [{ name: "Other Feed", url: "https://other.com/feed" }],
+        feeds: [{ name: "Other Feed", url: "https://other.com/feed" }]
       };
       getChannels.mockReturnValue([CHANNEL, site2]);
 
@@ -522,7 +532,7 @@ describe("checkFeedsAndSend", () => {
 
       isItemSent.mockResolvedValue(true); // all items already sent
 
-      const result = await checkFeedsAndSend(env);
+      await checkFeedsAndSend(env);
 
       // Should not throw, should continue
       expect(fetchAndParseFeed).toHaveBeenCalledTimes(2);
@@ -531,7 +541,10 @@ describe("checkFeedsAndSend", () => {
     it("continues to next feed on per-feed error", async () => {
       const site = {
         ...CHANNEL,
-        feeds: [{ name: "Feed 1", url: "https://feed1.com" }, { name: "Feed 2", url: "https://feed2.com" }],
+        feeds: [
+          { name: "Feed 1", url: "https://feed1.com" },
+          { name: "Feed 2", url: "https://feed2.com" }
+        ]
       };
       getChannels.mockReturnValue([site]);
 
@@ -541,7 +554,7 @@ describe("checkFeedsAndSend", () => {
 
       isItemSent.mockResolvedValue(true);
 
-      const result = await checkFeedsAndSend(env);
+      await checkFeedsAndSend(env);
 
       expect(fetchAndParseFeed).toHaveBeenCalledTimes(2);
     });
@@ -552,7 +565,10 @@ describe("checkFeedsAndSend", () => {
       const item2 = { ...ITEM, id: "item-2", title: "Feed 2 Post" };
       const site = {
         ...CHANNEL,
-        feeds: [{ name: "Feed 1", url: "https://feed1.com" }, { name: "Feed 2", url: "https://feed2.com" }],
+        feeds: [
+          { name: "Feed 1", url: "https://feed1.com" },
+          { name: "Feed 2", url: "https://feed2.com" }
+        ]
       };
       getChannels.mockReturnValue([site]);
 
@@ -562,7 +578,7 @@ describe("checkFeedsAndSend", () => {
 
       isItemSent.mockResolvedValue(false);
       getVerifiedSubscribers.mockResolvedValue([
-        { id: 1, email: "a@b.com", unsubscribe_token: "u1" },
+        { id: 1, email: "a@b.com", unsubscribe_token: "u1" }
       ]);
 
       const result = await checkFeedsAndSend(env);
@@ -585,7 +601,7 @@ describe("checkFeedsAndSend", () => {
     });
 
     it("skips channel with undefined feeds without errors", async () => {
-      const { feeds, ...channelNoFeeds } = CHANNEL;
+      const { feeds: _feeds, ...channelNoFeeds } = CHANNEL;
       getChannels.mockReturnValue([channelNoFeeds]);
 
       const result = await checkFeedsAndSend(env);
@@ -602,12 +618,12 @@ describe("checkFeedsAndSend", () => {
 
       isItemSent.mockResolvedValue(true); // all items already sent
 
-      const result = await checkFeedsAndSend(env);
+      await checkFeedsAndSend(env);
 
       expect(fetchAndParseFeed).toHaveBeenCalledTimes(1);
       expect(fetchAndParseFeed).toHaveBeenCalledWith(
         "https://example.com/feed.xml",
-        expect.any(String),
+        expect.any(String)
       );
     });
   });
@@ -616,14 +632,14 @@ describe("checkFeedsAndSend", () => {
     const subscriber1 = {
       id: 1,
       email: "user1@test.com",
-      unsubscribe_token: "unsub-1",
+      unsubscribe_token: "unsub-1"
     };
 
     it("passes companyName and companyAddress to newsletter HTML template when configured", async () => {
       const channelWithCompany = {
         ...CHANNEL,
         companyName: "Acme Corp",
-        companyAddress: "123 Main St, Springfield, IL 62701",
+        companyAddress: "123 Main St, Springfield, IL 62701"
       };
       getChannels.mockReturnValue([channelWithCompany]);
       isItemSent.mockResolvedValue(false);
@@ -635,8 +651,8 @@ describe("checkFeedsAndSend", () => {
         "newsletter",
         expect.objectContaining({
           companyName: "Acme Corp",
-          companyAddress: "123 Main St, Springfield, IL 62701",
-        }),
+          companyAddress: "123 Main St, Springfield, IL 62701"
+        })
       );
     });
 
@@ -644,7 +660,7 @@ describe("checkFeedsAndSend", () => {
       const channelWithCompany = {
         ...CHANNEL,
         companyName: "Acme Corp",
-        companyAddress: "123 Main St, Springfield, IL 62701",
+        companyAddress: "123 Main St, Springfield, IL 62701"
       };
       getChannels.mockReturnValue([channelWithCompany]);
       isItemSent.mockResolvedValue(false);
@@ -656,8 +672,8 @@ describe("checkFeedsAndSend", () => {
         "newsletterText",
         expect.objectContaining({
           companyName: "Acme Corp",
-          companyAddress: "123 Main St, Springfield, IL 62701",
-        }),
+          companyAddress: "123 Main St, Springfield, IL 62701"
+        })
       );
     });
 
@@ -672,16 +688,16 @@ describe("checkFeedsAndSend", () => {
         "newsletter",
         expect.objectContaining({
           companyName: undefined,
-          companyAddress: undefined,
-        }),
+          companyAddress: undefined
+        })
       );
 
       expect(render).toHaveBeenCalledWith(
         "newsletterText",
         expect.objectContaining({
           companyName: undefined,
-          companyAddress: undefined,
-        }),
+          companyAddress: undefined
+        })
       );
     });
 
@@ -689,7 +705,7 @@ describe("checkFeedsAndSend", () => {
       const channelWithEmpty = {
         ...CHANNEL,
         companyName: "",
-        companyAddress: "123 Main St",
+        companyAddress: "123 Main St"
       };
       getChannels.mockReturnValue([channelWithEmpty]);
       isItemSent.mockResolvedValue(false);
@@ -701,15 +717,15 @@ describe("checkFeedsAndSend", () => {
         "newsletter",
         expect.objectContaining({
           companyName: "",
-          companyAddress: "123 Main St",
-        }),
+          companyAddress: "123 Main St"
+        })
       );
     });
 
     it("passes only companyAddress when companyName is not configured", async () => {
       const channelOnlyAddress = {
         ...CHANNEL,
-        companyAddress: "456 Oak Ave",
+        companyAddress: "456 Oak Ave"
       };
       getChannels.mockReturnValue([channelOnlyAddress]);
       isItemSent.mockResolvedValue(false);
@@ -721,15 +737,15 @@ describe("checkFeedsAndSend", () => {
         "newsletter",
         expect.objectContaining({
           companyName: undefined,
-          companyAddress: "456 Oak Ave",
-        }),
+          companyAddress: "456 Oak Ave"
+        })
       );
     });
 
     it("passes only companyName when companyAddress is not configured", async () => {
       const channelOnlyName = {
         ...CHANNEL,
-        companyName: "Acme Corp",
+        companyName: "Acme Corp"
       };
       getChannels.mockReturnValue([channelOnlyName]);
       isItemSent.mockResolvedValue(false);
@@ -741,8 +757,8 @@ describe("checkFeedsAndSend", () => {
         "newsletter",
         expect.objectContaining({
           companyName: "Acme Corp",
-          companyAddress: undefined,
-        }),
+          companyAddress: undefined
+        })
       );
     });
   });
@@ -751,7 +767,7 @@ describe("checkFeedsAndSend", () => {
     const subscriber1 = {
       id: 1,
       email: "user1@test.com",
-      unsubscribe_token: "unsub-1",
+      unsubscribe_token: "unsub-1"
     };
 
     it("%%UNSUBSCRIBE_URL%% placeholder replacement continues to work", async () => {
@@ -765,11 +781,11 @@ describe("checkFeedsAndSend", () => {
       // which should be replaced with the actual per-subscriber URL
       expect(emailCall[1].html).not.toContain("%%UNSUBSCRIBE_URL%%");
       expect(emailCall[1].html).toContain(
-        "https://test.example.com/api/unsubscribe?token=unsub-1",
+        "https://test.example.com/api/unsubscribe?token=unsub-1"
       );
       expect(emailCall[1].text).not.toContain("%%UNSUBSCRIBE_URL%%");
       expect(emailCall[1].text).toContain(
-        "https://test.example.com/api/unsubscribe?token=unsub-1",
+        "https://test.example.com/api/unsubscribe?token=unsub-1"
       );
     });
 
@@ -784,8 +800,8 @@ describe("checkFeedsAndSend", () => {
       expect(render).toHaveBeenCalledWith(
         "newsletter",
         expect.objectContaining({
-          unsubscribeUrl: "%%UNSUBSCRIBE_URL%%",
-        }),
+          unsubscribeUrl: "%%UNSUBSCRIBE_URL%%"
+        })
       );
     });
 
@@ -798,8 +814,8 @@ describe("checkFeedsAndSend", () => {
       expect(render).toHaveBeenCalledWith(
         "newsletterText",
         expect.objectContaining({
-          unsubscribeUrl: "%%UNSUBSCRIBE_URL%%",
-        }),
+          unsubscribeUrl: "%%UNSUBSCRIBE_URL%%"
+        })
       );
     });
 
@@ -813,8 +829,8 @@ describe("checkFeedsAndSend", () => {
       expect(render).toHaveBeenCalledWith(
         "newsletter",
         expect.objectContaining({
-          siteName: "Test Site",
-        }),
+          siteName: "Test Site"
+        })
       );
     });
 
@@ -822,7 +838,7 @@ describe("checkFeedsAndSend", () => {
       const subscriber2 = {
         id: 2,
         email: "user2@test.com",
-        unsubscribe_token: "unsub-2",
+        unsubscribe_token: "unsub-2"
       };
       isItemSent.mockResolvedValue(false);
       getVerifiedSubscribers.mockResolvedValue([subscriber1, subscriber2]);
@@ -832,14 +848,14 @@ describe("checkFeedsAndSend", () => {
       // First subscriber
       const call1 = sendEmail.mock.calls[0];
       expect(call1[1].html).toContain(
-        "https://test.example.com/api/unsubscribe?token=unsub-1",
+        "https://test.example.com/api/unsubscribe?token=unsub-1"
       );
       expect(call1[1].html).not.toContain("unsub-2");
 
       // Second subscriber
       const call2 = sendEmail.mock.calls[1];
       expect(call2[1].html).toContain(
-        "https://test.example.com/api/unsubscribe?token=unsub-2",
+        "https://test.example.com/api/unsubscribe?token=unsub-2"
       );
       expect(call2[1].html).not.toContain("unsub-1");
     });

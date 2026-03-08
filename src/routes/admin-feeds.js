@@ -10,7 +10,7 @@ import {
   getFeedById,
   insertFeed,
   updateFeed,
-  deleteFeed,
+  deleteFeed
 } from "../lib/db.js";
 import { jsonResponse } from "../lib/response.js";
 
@@ -22,8 +22,12 @@ import { jsonResponse } from "../lib/response.js";
  * @returns {Promise<Response>}
  */
 export async function handleAdminFeeds(request, env, url) {
-  const match = url.pathname.match(/^\/api\/admin\/channels\/([^/]+)\/feeds(?:\/(\d+))?$/);
-  if (!match) return jsonResponse(404, { error: "Not Found" });
+  const match = url.pathname.match(
+    /^\/api\/admin\/channels\/([^/]+)\/feeds(?:\/(\d+))?$/
+  );
+  if (!match) {
+    return jsonResponse(404, { error: "Not Found" });
+  }
 
   const channelId = match[1];
   const feedId = match[2] ? parseInt(match[2], 10) : null;
@@ -36,14 +40,22 @@ export async function handleAdminFeeds(request, env, url) {
 
   if (!feedId) {
     // /api/admin/channels/{channelId}/feeds
-    if (request.method === "GET") return listFeeds(env, channelId);
-    if (request.method === "POST") return addFeed(request, env, channelId);
+    if (request.method === "GET") {
+      return listFeeds(env, channelId);
+    }
+    if (request.method === "POST") {
+      return addFeed(request, env, channelId);
+    }
     return jsonResponse(405, { error: "Method Not Allowed" });
   }
 
   // /api/admin/channels/{channelId}/feeds/{feedId}
-  if (request.method === "PUT") return updateFeedHandler(request, env, channelId, feedId);
-  if (request.method === "DELETE") return deleteFeedHandler(env, feedId);
+  if (request.method === "PUT") {
+    return updateFeedHandler(request, env, channelId, feedId);
+  }
+  if (request.method === "DELETE") {
+    return deleteFeedHandler(env, feedId);
+  }
   return jsonResponse(405, { error: "Method Not Allowed" });
 }
 
@@ -51,7 +63,7 @@ async function listFeeds(env, channelId) {
   const feeds = await getFeedsByChannelId(env.DB, channelId);
   return jsonResponse(200, {
     channelId,
-    feeds: feeds.map((f) => ({ id: f.id, name: f.name, url: f.url })),
+    feeds: feeds.map((f) => ({ id: f.id, name: f.name, url: f.url }))
   });
 }
 
@@ -73,13 +85,22 @@ async function addFeed(request, env, channelId) {
   // Check uniqueness within channel
   const existingFeeds = await getFeedsByChannelId(env.DB, channelId);
   if (existingFeeds.some((f) => f.url === body.url)) {
-    return jsonResponse(409, { error: "Feed URL already exists in this channel" });
+    return jsonResponse(409, {
+      error: "Feed URL already exists in this channel"
+    });
   }
-  if (existingFeeds.some((f) => f.name.toLowerCase() === body.name.toLowerCase())) {
-    return jsonResponse(409, { error: "Feed name already exists in this channel (case-insensitive)" });
+  if (
+    existingFeeds.some((f) => f.name.toLowerCase() === body.name.toLowerCase())
+  ) {
+    return jsonResponse(409, {
+      error: "Feed name already exists in this channel (case-insensitive)"
+    });
   }
 
-  const result = await insertFeed(env.DB, channelId, { name: body.name, url: body.url });
+  const result = await insertFeed(env.DB, channelId, {
+    name: body.name,
+    url: body.url
+  });
   const feedId = result.meta?.last_row_id || result.id;
 
   const feed = await getFeedById(env.DB, feedId);
@@ -111,18 +132,33 @@ async function updateFeedHandler(request, env, channelId, feedId) {
 
   // Check uniqueness (excluding this feed)
   const existingFeeds = await getFeedsByChannelId(env.DB, channelId);
-  if (url !== existing.url && existingFeeds.some((f) => f.id !== feedId && f.url === url)) {
-    return jsonResponse(409, { error: "Feed URL already exists in this channel" });
+  if (
+    url !== existing.url &&
+    existingFeeds.some((f) => f.id !== feedId && f.url === url)
+  ) {
+    return jsonResponse(409, {
+      error: "Feed URL already exists in this channel"
+    });
   }
-  if (name.toLowerCase() !== existing.name.toLowerCase() &&
-      existingFeeds.some((f) => f.id !== feedId && f.name.toLowerCase() === name.toLowerCase())) {
-    return jsonResponse(409, { error: "Feed name already exists in this channel (case-insensitive)" });
+  if (
+    name.toLowerCase() !== existing.name.toLowerCase() &&
+    existingFeeds.some(
+      (f) => f.id !== feedId && f.name.toLowerCase() === name.toLowerCase()
+    )
+  ) {
+    return jsonResponse(409, {
+      error: "Feed name already exists in this channel (case-insensitive)"
+    });
   }
 
   await updateFeed(env.DB, feedId, { name, url });
 
   const updated = await getFeedById(env.DB, feedId);
-  return jsonResponse(200, { id: updated.id, name: updated.name, url: updated.url });
+  return jsonResponse(200, {
+    id: updated.id,
+    name: updated.name,
+    url: updated.url
+  });
 }
 
 async function deleteFeedHandler(env, feedId) {

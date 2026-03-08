@@ -7,7 +7,7 @@
 export async function getSubscriberByEmail(db, email, channelId) {
   return db
     .prepare(
-      "SELECT * FROM subscribers WHERE email = ? AND channel_id = ? LIMIT 1",
+      "SELECT * FROM subscribers WHERE email = ? AND channel_id = ? LIMIT 1"
     )
     .bind(email, channelId)
     .first();
@@ -16,7 +16,7 @@ export async function getSubscriberByEmail(db, email, channelId) {
 export async function getSubscriberByVerifyToken(db, token) {
   return db
     .prepare(
-      "SELECT * FROM subscribers WHERE verify_token = ? AND status = 'pending' LIMIT 1",
+      "SELECT * FROM subscribers WHERE verify_token = ? AND status = 'pending' LIMIT 1"
     )
     .bind(token)
     .first();
@@ -32,7 +32,7 @@ export async function getSubscriberByUnsubscribeToken(db, token) {
 export async function getVerifiedSubscribers(db, channelId) {
   const { results } = await db
     .prepare(
-      "SELECT * FROM subscribers WHERE channel_id = ? AND status = 'verified'",
+      "SELECT * FROM subscribers WHERE channel_id = ? AND status = 'verified'"
     )
     .bind(channelId)
     .all();
@@ -41,28 +41,24 @@ export async function getVerifiedSubscribers(db, channelId) {
 
 export async function insertSubscriber(
   db,
-  { channelId, email, verifyToken, unsubscribeToken },
+  { channelId, email, verifyToken, unsubscribeToken }
 ) {
   return db
     .prepare(
       `INSERT INTO subscribers (channel_id, email, status, verify_token, unsubscribe_token)
-       VALUES (?, ?, 'pending', ?, ?)`,
+       VALUES (?, ?, 'pending', ?, ?)`
     )
     .bind(channelId, email, verifyToken, unsubscribeToken)
     .run();
 }
 
-export async function resetSubscriberToPending(
-  db,
-  subscriberId,
-  verifyToken,
-) {
+export async function resetSubscriberToPending(db, subscriberId, verifyToken) {
   return db
     .prepare(
       `UPDATE subscribers
        SET status = 'pending', verify_token = ?, created_at = datetime('now'),
            verified_at = NULL, unsubscribed_at = NULL
-       WHERE id = ?`,
+       WHERE id = ?`
     )
     .bind(verifyToken, subscriberId)
     .run();
@@ -71,7 +67,7 @@ export async function resetSubscriberToPending(
 export async function updateVerifyToken(db, subscriberId, verifyToken) {
   return db
     .prepare(
-      `UPDATE subscribers SET verify_token = ?, created_at = datetime('now') WHERE id = ?`,
+      `UPDATE subscribers SET verify_token = ?, created_at = datetime('now') WHERE id = ?`
     )
     .bind(verifyToken, subscriberId)
     .run();
@@ -82,7 +78,7 @@ export async function markSubscriberVerified(db, subscriberId) {
     .prepare(
       `UPDATE subscribers
        SET status = 'verified', verified_at = datetime('now'), verify_token = NULL
-       WHERE id = ?`,
+       WHERE id = ?`
     )
     .bind(subscriberId)
     .run();
@@ -93,7 +89,7 @@ export async function markSubscriberUnsubscribed(db, subscriberId) {
     .prepare(
       `UPDATE subscribers
        SET status = 'unsubscribed', unsubscribed_at = datetime('now')
-       WHERE id = ?`,
+       WHERE id = ?`
     )
     .bind(subscriberId)
     .run();
@@ -104,12 +100,12 @@ export async function markSubscriberUnsubscribed(db, subscriberId) {
 export async function countRecentVerificationAttempts(
   db,
   subscriberId,
-  windowHours,
+  windowHours
 ) {
   const result = await db
     .prepare(
       `SELECT COUNT(*) as count FROM verification_attempts
-       WHERE subscriber_id = ? AND sent_at > datetime('now', ? || ' hours')`,
+       WHERE subscriber_id = ? AND sent_at > datetime('now', ? || ' hours')`
     )
     .bind(subscriberId, `-${windowHours}`)
     .first();
@@ -143,7 +139,7 @@ export async function isFeedSeeded(db, feedUrl) {
 export async function isItemSent(db, itemId, feedUrl) {
   const result = await db
     .prepare(
-      "SELECT id FROM sent_items WHERE item_id = ? AND feed_url = ? LIMIT 1",
+      "SELECT id FROM sent_items WHERE item_id = ? AND feed_url = ? LIMIT 1"
     )
     .bind(itemId, feedUrl)
     .first();
@@ -152,12 +148,12 @@ export async function isItemSent(db, itemId, feedUrl) {
 
 export async function insertSentItem(
   db,
-  { itemId, feedUrl, title, recipientCount },
+  { itemId, feedUrl, title, recipientCount }
 ) {
   return db
     .prepare(
       `INSERT OR IGNORE INTO sent_items (item_id, feed_url, title, recipient_count)
-       VALUES (?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?)`
     )
     .bind(itemId, feedUrl, title || "", recipientCount)
     .run();
@@ -165,10 +161,15 @@ export async function insertSentItem(
 
 // ─── Subscriber Sends (per-subscriber deduplication) ────────────────────────
 
-export async function isItemSentToSubscriber(db, subscriberId, itemId, feedUrl) {
+export async function isItemSentToSubscriber(
+  db,
+  subscriberId,
+  itemId,
+  feedUrl
+) {
   const result = await db
     .prepare(
-      "SELECT id FROM subscriber_sends WHERE subscriber_id = ? AND item_id = ? AND feed_url = ? LIMIT 1",
+      "SELECT id FROM subscriber_sends WHERE subscriber_id = ? AND item_id = ? AND feed_url = ? LIMIT 1"
     )
     .bind(subscriberId, itemId, feedUrl)
     .first();
@@ -179,7 +180,7 @@ export async function insertSubscriberSend(db, subscriberId, itemId, feedUrl) {
   return db
     .prepare(
       `INSERT OR IGNORE INTO subscriber_sends (subscriber_id, item_id, feed_url)
-       VALUES (?, ?, ?)`,
+       VALUES (?, ?, ?)`
     )
     .bind(subscriberId, itemId, feedUrl)
     .run();
@@ -195,22 +196,29 @@ export async function deleteSubscriberSends(db, itemId, feedUrl) {
 // ─── Site Config ────────────────────────────────────────────────────────────
 
 export async function getSiteConfig(db) {
-  const row = await db.prepare("SELECT * FROM site_config WHERE id = 1").first();
-  if (!row) return null;
+  const row = await db
+    .prepare("SELECT * FROM site_config WHERE id = 1")
+    .first();
+  if (!row) {
+    return null;
+  }
   return {
     verifyMaxAttempts: row.verify_max_attempts,
-    verifyWindowHours: row.verify_window_hours,
+    verifyWindowHours: row.verify_window_hours
   };
 }
 
-export async function upsertSiteConfig(db, { verifyMaxAttempts, verifyWindowHours }) {
+export async function upsertSiteConfig(
+  db,
+  { verifyMaxAttempts, verifyWindowHours }
+) {
   return db
     .prepare(
       `INSERT INTO site_config (id, verify_max_attempts, verify_window_hours)
        VALUES (1, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          verify_max_attempts = excluded.verify_max_attempts,
-         verify_window_hours = excluded.verify_window_hours`,
+         verify_window_hours = excluded.verify_window_hours`
     )
     .bind(verifyMaxAttempts, verifyWindowHours)
     .run();
@@ -220,26 +228,32 @@ export async function upsertSiteConfig(db, { verifyMaxAttempts, verifyWindowHour
 
 export async function getRateLimitConfigs(db) {
   const { results } = await db
-    .prepare("SELECT endpoint, max_requests, window_hours FROM rate_limit_config")
+    .prepare(
+      "SELECT endpoint, max_requests, window_hours FROM rate_limit_config"
+    )
     .all();
   const map = {};
   for (const row of results) {
     map[row.endpoint] = {
       windowHours: row.window_hours,
-      maxRequests: row.max_requests,
+      maxRequests: row.max_requests
     };
   }
   return map;
 }
 
-export async function upsertRateLimitConfig(db, endpoint, { windowHours, maxRequests }) {
+export async function upsertRateLimitConfig(
+  db,
+  endpoint,
+  { windowHours, maxRequests }
+) {
   return db
     .prepare(
       `INSERT INTO rate_limit_config (endpoint, max_requests, window_hours)
        VALUES (?, ?, ?)
        ON CONFLICT(endpoint) DO UPDATE SET
          max_requests = excluded.max_requests,
-         window_hours = excluded.window_hours`,
+         window_hours = excluded.window_hours`
     )
     .bind(endpoint, maxRequests, windowHours)
     .run();
@@ -257,7 +271,7 @@ function formatChannelRow(row) {
     replyTo: row.reply_to || undefined,
     companyName: row.company_name || undefined,
     companyAddress: row.company_address || undefined,
-    corsOrigins: JSON.parse(row.cors_origins),
+    corsOrigins: JSON.parse(row.cors_origins)
   };
 }
 
@@ -266,7 +280,7 @@ export async function getAllChannels(db) {
     .prepare(
       `SELECT id, site_name, site_url, from_user, from_name, reply_to,
               company_name, company_address, cors_origins, created_at, updated_at
-       FROM channels ORDER BY created_at`,
+       FROM channels ORDER BY created_at`
     )
     .all();
   return results.map(formatChannelRow);
@@ -277,7 +291,7 @@ export async function getChannelById(db, channelId) {
     .prepare(
       `SELECT id, site_name, site_url, from_user, from_name, reply_to,
               company_name, company_address, cors_origins, created_at, updated_at
-       FROM channels WHERE id = ?`,
+       FROM channels WHERE id = ?`
     )
     .bind(channelId)
     .first();
@@ -289,7 +303,7 @@ export async function insertChannel(db, data) {
     .prepare(
       `INSERT INTO channels (id, site_name, site_url, from_user, from_name, reply_to,
                              company_name, company_address, cors_origins)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       data.id,
@@ -300,7 +314,7 @@ export async function insertChannel(db, data) {
       data.replyTo || null,
       data.companyName || null,
       data.companyAddress || null,
-      JSON.stringify(data.corsOrigins),
+      JSON.stringify(data.corsOrigins)
     )
     .run();
 }
@@ -312,7 +326,7 @@ export async function updateChannel(db, channelId, data) {
          site_name = ?, site_url = ?, from_user = ?, from_name = ?,
          reply_to = ?, company_name = ?, company_address = ?, cors_origins = ?,
          updated_at = datetime('now')
-       WHERE id = ?`,
+       WHERE id = ?`
     )
     .bind(
       data.siteName,
@@ -323,7 +337,7 @@ export async function updateChannel(db, channelId, data) {
       data.companyName || null,
       data.companyAddress || null,
       JSON.stringify(data.corsOrigins),
-      channelId,
+      channelId
     )
     .run();
 }
@@ -345,7 +359,9 @@ export async function deleteChannel(db, channelId) {
       .bind(...feedUrls)
       .run();
     await db
-      .prepare(`DELETE FROM subscriber_sends WHERE feed_url IN (${placeholders})`)
+      .prepare(
+        `DELETE FROM subscriber_sends WHERE feed_url IN (${placeholders})`
+      )
       .bind(...feedUrls)
       .run();
   }
@@ -354,7 +370,7 @@ export async function deleteChannel(db, channelId) {
   await db
     .prepare(
       `DELETE FROM verification_attempts WHERE subscriber_id IN
-       (SELECT id FROM subscribers WHERE channel_id = ?)`,
+       (SELECT id FROM subscribers WHERE channel_id = ?)`
     )
     .bind(channelId)
     .run();
@@ -373,7 +389,9 @@ export async function deleteChannel(db, channelId) {
 
 export async function getFeedsByChannelId(db, channelId) {
   const { results } = await db
-    .prepare("SELECT id, channel_id, name, url FROM feeds WHERE channel_id = ? ORDER BY id")
+    .prepare(
+      "SELECT id, channel_id, name, url FROM feeds WHERE channel_id = ? ORDER BY id"
+    )
     .bind(channelId)
     .all();
   return results;
@@ -395,7 +413,9 @@ export async function insertFeed(db, channelId, { name, url }) {
 
 export async function updateFeed(db, feedId, { name, url }) {
   return db
-    .prepare("UPDATE feeds SET name = ?, url = ?, updated_at = datetime('now') WHERE id = ?")
+    .prepare(
+      "UPDATE feeds SET name = ?, url = ?, updated_at = datetime('now') WHERE id = ?"
+    )
     .bind(name, url, feedId)
     .run();
 }
@@ -427,7 +447,7 @@ export async function getSubscriberStats(db, channelId) {
   const { results } = await db
     .prepare(
       `SELECT status, COUNT(*) as count FROM subscribers
-       WHERE channel_id = ? GROUP BY status`,
+       WHERE channel_id = ? GROUP BY status`
     )
     .bind(channelId)
     .all();
@@ -445,18 +465,19 @@ export async function getSentItemStats(db, feedUrls) {
   const result = await db
     .prepare(
       `SELECT COUNT(*) as total, MAX(sent_at) as lastSentAt
-       FROM sent_items WHERE feed_url IN (${placeholders}) AND recipient_count > 0`,
+       FROM sent_items WHERE feed_url IN (${placeholders}) AND recipient_count > 0`
     )
     .bind(...feedUrls)
     .first();
   return {
     total: result?.total || 0,
-    lastSentAt: result?.lastSentAt || null,
+    lastSentAt: result?.lastSentAt || null
   };
 }
 
 export async function getSubscriberList(db, channelId, statusFilter) {
-  let query = "SELECT email, status, created_at, verified_at, unsubscribed_at FROM subscribers WHERE channel_id = ?";
+  let query =
+    "SELECT email, status, created_at, verified_at, unsubscribed_at FROM subscribers WHERE channel_id = ?";
   const binds = [channelId];
 
   if (statusFilter) {
@@ -466,6 +487,9 @@ export async function getSubscriberList(db, channelId, statusFilter) {
 
   query += " ORDER BY created_at DESC";
 
-  const { results } = await db.prepare(query).bind(...binds).all();
+  const { results } = await db
+    .prepare(query)
+    .bind(...binds)
+    .all();
   return results;
 }

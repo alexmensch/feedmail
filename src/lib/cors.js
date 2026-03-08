@@ -7,7 +7,7 @@ import { getAllCorsOrigins } from "./config.js";
 const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
-  "Access-Control-Max-Age": "86400",
+  "Access-Control-Max-Age": "86400"
 };
 
 /**
@@ -18,7 +18,9 @@ const CORS_HEADERS = {
  */
 async function getAllowedOrigin(request, env) {
   const origin = request.headers.get("Origin");
-  if (!origin) return null;
+  if (!origin) {
+    return null;
+  }
 
   const allowed = await getAllCorsOrigins(env);
   return allowed.includes(origin) ? origin : null;
@@ -40,8 +42,8 @@ export async function handleCORSPreflight(request, env) {
     status: 204,
     headers: {
       "Access-Control-Allow-Origin": origin,
-      ...CORS_HEADERS,
-    },
+      ...CORS_HEADERS
+    }
   });
 }
 
@@ -54,7 +56,9 @@ export async function handleCORSPreflight(request, env) {
  */
 export async function withCORS(response, request, env) {
   const origin = await getAllowedOrigin(request, env);
-  if (!origin) return response;
+  if (!origin) {
+    return response;
+  }
 
   const newHeaders = new Headers(response.headers);
   newHeaders.set("Access-Control-Allow-Origin", origin);
@@ -62,6 +66,6 @@ export async function withCORS(response, request, env) {
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
-    headers: newHeaders,
+    headers: newHeaders
   });
 }

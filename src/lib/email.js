@@ -34,7 +34,7 @@ const MAX_RETRY_WAIT = 60;
  */
 export async function sendEmail(
   apiKey,
-  { from, fromName, replyTo, to, subject, html, text, headers },
+  { from, fromName, replyTo, to, subject, html, text, headers }
 ) {
   const payload = {
     from: fromName ? `${fromName} <${from}>` : from,
@@ -42,7 +42,7 @@ export async function sendEmail(
     reply_to: replyTo || from,
     subject,
     html,
-    text,
+    text
   };
 
   if (headers && Object.keys(headers).length > 0) {
@@ -53,9 +53,9 @@ export async function sendEmail(
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
+      "Content-Type": "application/json"
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(payload)
   };
 
   let lastError = "";
@@ -78,12 +78,12 @@ export async function sendEmail(
           return {
             success: false,
             quotaExhausted: true,
-            error: `Resend 429: ${errorBody} (retry-after: ${retryAfter}s)`,
+            error: `Resend 429: ${errorBody} (retry-after: ${retryAfter}s)`
           };
         }
 
         console.log(
-          `Resend rate limited (attempt ${attempt + 1}/${MAX_RETRIES + 1}), waiting ${retryAfter}s`,
+          `Resend rate limited (attempt ${attempt + 1}/${MAX_RETRIES + 1}), waiting ${retryAfter}s`
         );
         await sleep(retryAfter * 1000);
         continue;
@@ -94,19 +94,21 @@ export async function sendEmail(
       return {
         success: false,
         quotaExhausted: false,
-        error: `Resend ${response.status}: ${errorBody}`,
+        error: `Resend ${response.status}: ${errorBody}`
       };
     } catch (err) {
       lastError = err.message;
       // Network errors on last attempt are permanent failures
-      if (attempt === MAX_RETRIES) break;
+      if (attempt === MAX_RETRIES) {
+        break;
+      }
     }
   }
 
   return {
     success: false,
     quotaExhausted: false,
-    error: `Resend request failed after ${MAX_RETRIES + 1} attempts: ${lastError}`,
+    error: `Resend request failed after ${MAX_RETRIES + 1} attempts: ${lastError}`
   };
 }
 
@@ -117,10 +119,14 @@ export async function sendEmail(
  * @returns {number} Seconds to wait (defaults to 1 if unparseable)
  */
 function parseRetryAfter(value) {
-  if (!value) return 1;
+  if (!value) {
+    return 1;
+  }
 
   const seconds = parseInt(value, 10);
-  if (!isNaN(seconds)) return Math.max(1, seconds);
+  if (!isNaN(seconds)) {
+    return Math.max(1, seconds);
+  }
 
   // Try HTTP-date format
   const date = new Date(value);
