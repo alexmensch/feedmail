@@ -32,10 +32,10 @@ A reader who subscribes to receive feed updates via email. They interact with fe
 
 A browser-based admin console with passwordless authentication, giving operators a visual interface for managing channels, feeds, and subscribers without API calls.
 
-| #   | Feature                                             | Description                                                                                                                                 | GUID                                   |
-| --- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 1   | [admin-auth-passkey](./admin-auth-passkey.md)       | Adds passkey (WebAuthn) authentication as the primary login method, with magic link as fallback                                             | `FF8F870D-4FD8-491F-9DF2-A4D5E332BE22` |
-| 2   | [admin-console-ui](./admin-console-ui.md)           | Server-rendered admin UI with HTMX and CUBE CSS: dashboard, channel/feed CRUD, subscriber list, and styled auth pages                       | `D108788E-EB05-4EFC-B7AD-FB9840790A69` |
+| #   | Feature                                       | Description                                                                                                           | GUID                                   |
+| --- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| 1   | [admin-auth-passkey](./admin-auth-passkey.md) | Adds passkey (WebAuthn) authentication as the primary login method, with magic link as fallback                       | `FF8F870D-4FD8-491F-9DF2-A4D5E332BE22` |
+| 2   | [admin-console-ui](./admin-console-ui.md)     | Server-rendered admin UI with HTMX and CUBE CSS: dashboard, channel/feed CRUD, subscriber list, and styled auth pages | `D108788E-EB05-4EFC-B7AD-FB9840790A69` |
 
 ### Release: Admin Console Setup
 
