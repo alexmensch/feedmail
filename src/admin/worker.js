@@ -6,6 +6,7 @@
 import { getRateLimitConfig } from "../shared/lib/config.js";
 import { checkRateLimit, getEndpointName } from "../shared/lib/rate-limit.js";
 import { render } from "../shared/lib/templates.js";
+import { htmlResponse } from "../shared/lib/response.js";
 import { getCredential } from "../shared/lib/db.js";
 import {
   handleLogin,
@@ -103,17 +104,11 @@ export default {
               setupError:
                 "Admin email not configured. Run the setup script to complete installation."
             });
-            return new Response(html, {
-              status: 200,
-              headers: { "Content-Type": "text/html; charset=utf-8" }
-            });
+            return htmlResponse(html);
           }
 
           const html = render("adminPlaceholder", {});
-          return new Response(html, {
-            status: 200,
-            headers: { "Content-Type": "text/html; charset=utf-8" }
-          });
+          return htmlResponse(html);
         }
         return new Response(null, { status: 405 });
       }

@@ -17,7 +17,8 @@ vi.mock("../../../src/shared/lib/db.js", () => ({
   resetSubscriberToPending: vi.fn(),
   updateVerifyToken: vi.fn(),
   countRecentVerificationAttempts: vi.fn(),
-  insertVerificationAttempt: vi.fn()
+  insertVerificationAttempt: vi.fn(),
+  getResendApiKey: vi.fn().mockResolvedValue("re_test")
 }));
 
 import { handleSubscribe } from "../../../src/api/routes/subscribe.js";
@@ -30,7 +31,8 @@ import {
   resetSubscriberToPending,
   updateVerifyToken,
   countRecentVerificationAttempts,
-  insertVerificationAttempt
+  insertVerificationAttempt,
+  getResendApiKey
 } from "../../../src/shared/lib/db.js";
 
 const CHANNEL = {

@@ -32,7 +32,8 @@ vi.mock("../../../src/shared/lib/db.js", () => ({
   getVerifiedSubscribers: vi.fn(),
   isItemSentToSubscriber: vi.fn(),
   insertSubscriberSend: vi.fn(),
-  deleteSubscriberSends: vi.fn()
+  deleteSubscriberSends: vi.fn(),
+  getResendApiKey: vi.fn().mockResolvedValue("re_test")
 }));
 
 import { handleSend, checkFeedsAndSend } from "../../../src/api/routes/send.js";
@@ -48,7 +49,8 @@ import {
   getVerifiedSubscribers,
   isItemSentToSubscriber,
   insertSubscriberSend,
-  deleteSubscriberSends
+  deleteSubscriberSends,
+  getResendApiKey
 } from "../../../src/shared/lib/db.js";
 
 const CHANNEL = {

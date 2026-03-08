@@ -526,3 +526,18 @@ export async function upsertCredential(db, key, value) {
     .bind(key, value)
     .run();
 }
+
+/**
+ * Resolve the Resend API key from env var or D1 credentials table.
+ * @param {object} env - Worker environment bindings
+ * @returns {Promise<string|null>} The API key or null if not configured
+ */
+export async function getResendApiKey(env) {
+  if (env.RESEND_API_KEY) {
+    return env.RESEND_API_KEY;
+  }
+  if (env.DB) {
+    return getCredential(env.DB, "resend_api_key");
+  }
+  return null;
+}

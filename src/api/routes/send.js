@@ -17,25 +17,10 @@ import {
   isItemSentToSubscriber,
   insertSubscriberSend,
   deleteSubscriberSends,
-  getCredential
+  getResendApiKey
 } from "../../shared/lib/db.js";
 
 const USER_AGENT = `feedmail/${pkg.version}`;
-
-/**
- * Resolve the Resend API key from env var or D1 credentials table.
- * @param {object} env
- * @returns {Promise<string|null>}
- */
-async function getResendApiKey(env) {
-  if (env.RESEND_API_KEY) {
-    return env.RESEND_API_KEY;
-  }
-  if (env.DB) {
-    return getCredential(env.DB, "resend_api_key");
-  }
-  return null;
-}
 
 /**
  * Handle a manual send request.

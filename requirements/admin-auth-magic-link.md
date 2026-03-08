@@ -90,7 +90,7 @@ src/
 | 6 | Magic link email delivery | `sendEmail()` from `src/shared/lib/email.js`, Resend key from D1. From: `admin@{DOMAIN}`. Template: `admin-magic-link.hbs`. |
 | 7 | Magic link verification | `GET /admin/verify?token=` — validate, mark used, create session, set cookie, redirect to `/admin`. |
 | 8 | Session management | Cookie `feedmail_admin_session`, HttpOnly/Secure/SameSite=Strict, Path=/admin, 24hr TTL. D1-backed. Logout clears both. |
-| 9 | Rate limiting | `admin_login` (10/hr) and `admin_verify` (20/hr) added to `RATE_LIMIT_DEFAULTS`. Reuses existing `checkRateLimit()`. |
+| 9 | Rate limiting | `admin_login` (10/hr) and `admin_verify` (10/hr) added to `RATE_LIMIT_DEFAULTS`. Reuses existing `checkRateLimit()`. |
 | 10 | Protected route middleware | `requireSession()` on all `/admin/*` except login/verify/logout. Redirect with `?redirect=` param, validated to start with `/admin`. |
 
 ### New Files

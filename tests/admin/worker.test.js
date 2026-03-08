@@ -27,6 +27,16 @@ vi.mock("../../src/shared/lib/rate-limit.js", () => ({
 vi.mock("../../src/shared/lib/templates.js", () => ({
   render: vi.fn().mockReturnValue("<html>mock</html>")
 }));
+// Mock shared response helpers
+vi.mock("../../src/shared/lib/response.js", () => ({
+  htmlResponse: vi.fn().mockImplementation(
+    (html, status = 200) =>
+      new Response(html, {
+        status,
+        headers: { "Content-Type": "text/html; charset=utf-8" }
+      })
+  )
+}));
 // Mock shared db
 vi.mock("../../src/shared/lib/db.js", () => ({
   getCredential: vi.fn()

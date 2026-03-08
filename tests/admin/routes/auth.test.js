@@ -11,7 +11,8 @@ vi.mock("../../../src/admin/lib/db.js", () => ({
   MAGIC_LINK_TTL_SECONDS: 900
 }));
 vi.mock("../../../src/shared/lib/db.js", () => ({
-  getCredential: vi.fn()
+  getCredential: vi.fn(),
+  getResendApiKey: vi.fn()
 }));
 vi.mock("../../../src/shared/lib/email.js", () => ({
   sendEmail: vi.fn()
@@ -19,7 +20,17 @@ vi.mock("../../../src/shared/lib/email.js", () => ({
 vi.mock("../../../src/shared/lib/templates.js", () => ({
   render: vi.fn().mockReturnValue("<html>mock template</html>")
 }));
+vi.mock("../../../src/shared/lib/response.js", () => ({
+  htmlResponse: vi.fn().mockImplementation(
+    (html, status = 200) =>
+      new Response(html, {
+        status,
+        headers: { "Content-Type": "text/html; charset=utf-8" }
+      })
+  )
+}));
 vi.mock("../../../src/admin/lib/session.js", () => ({
+  requireSession: vi.fn(),
   getSessionFromCookie: vi.fn(),
   createSessionCookie: vi
     .fn()
@@ -50,10 +61,11 @@ import {
   deleteSession,
   getSession
 } from "../../../src/admin/lib/db.js";
-import { getCredential } from "../../../src/shared/lib/db.js";
+import { getCredential, getResendApiKey } from "../../../src/shared/lib/db.js";
 import { sendEmail } from "../../../src/shared/lib/email.js";
 import { render } from "../../../src/shared/lib/templates.js";
 import {
+  requireSession,
   getSessionFromCookie,
   createSessionCookie,
   clearSessionCookie
@@ -67,7 +79,7 @@ const env = {
 describe("handleLogin", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getSessionFromCookie.mockReturnValue(null);
+    requireSession.mockResolvedValue({ session: null, response: null });
   });
 
   it("renders the login page template", async () => {
@@ -91,22 +103,12 @@ describe("handleLogin", () => {
   });
 
   it("redirects to /admin when already authenticated", async () => {
-    getSessionFromCookie.mockReturnValue("valid-session-token");
-    const futureExpiry = new Date(Date.now() + 3600 * 1000)
-      .toISOString()
-      .replace("T", " ")
-      .replace("Z", "");
-    getSession.mockResolvedValue({
-      id: 1,
-      token: "valid-session-token",
-      expires_at: futureExpiry
+    requireSession.mockResolvedValue({
+      session: { id: 1, token: "valid-session-token" },
+      response: null
     });
 
-    const request = new Request("https://feedmail.example.com/admin/login", {
-      headers: {
-        Cookie: "feedmail_admin_session=valid-session-token"
-      }
-    });
+    const request = new Request("https://feedmail.example.com/admin/login");
 
     const response = await handleLogin(request, env);
 
@@ -139,6 +141,7 @@ describe("handleLoginSubmit", () => {
       randomUUID: vi.fn().mockReturnValue("mock-magic-token-uuid")
     });
     sendEmail.mockResolvedValue({ success: true });
+    getResendApiKey.mockResolvedValue("re_test_key");
   });
 
   it("always renders the 'check your email' page regardless of email match", async () => {
@@ -279,9 +282,8 @@ describe("handleLoginSubmit", () => {
 
   describe("magic link email content", () => {
     beforeEach(() => {
-      getCredential
-        .mockResolvedValueOnce("admin@feedmail.example.com") // admin_email
-        .mockResolvedValueOnce("re_test_resend_key"); // resend_api_key
+      getCredential.mockResolvedValue("admin@feedmail.example.com");
+      getResendApiKey.mockResolvedValue("re_test_resend_key");
     });
 
     it("sends email from admin@{DOMAIN} with name 'feedmail'", async () => {
@@ -336,7 +338,7 @@ describe("handleLoginSubmit", () => {
       );
     });
 
-    it("uses Resend API key from D1 credentials", async () => {
+    it("uses shared getResendApiKey to resolve API key", async () => {
       const request = new Request("https://feedmail.example.com/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -345,7 +347,7 @@ describe("handleLoginSubmit", () => {
 
       await handleLoginSubmit(request, env);
 
-      expect(getCredential).toHaveBeenCalledWith(env.DB, "resend_api_key");
+      expect(getResendApiKey).toHaveBeenCalledWith(env);
       expect(sendEmail).toHaveBeenCalledWith(
         "re_test_resend_key",
         expect.any(Object)
@@ -372,10 +374,9 @@ describe("handleLoginSubmit", () => {
     });
   });
 
-  it("shows same 'check your email' page when Resend API key is missing from D1", async () => {
-    getCredential
-      .mockResolvedValueOnce("admin@feedmail.example.com") // admin_email
-      .mockResolvedValueOnce(null); // resend_api_key missing
+  it("shows same 'check your email' page when Resend API key is missing", async () => {
+    getCredential.mockResolvedValue("admin@feedmail.example.com");
+    getResendApiKey.mockResolvedValue(null);
 
     const request = new Request("https://feedmail.example.com/admin/login", {
       method: "POST",
@@ -391,9 +392,8 @@ describe("handleLoginSubmit", () => {
   });
 
   it("shows same 'check your email' page when Resend API fails", async () => {
-    getCredential
-      .mockResolvedValueOnce("admin@feedmail.example.com")
-      .mockResolvedValueOnce("re_test_key");
+    getCredential.mockResolvedValue("admin@feedmail.example.com");
+    getResendApiKey.mockResolvedValue("re_test_key");
     sendEmail.mockResolvedValue({ success: false, error: "API error" });
 
     const request = new Request("https://feedmail.example.com/admin/login", {

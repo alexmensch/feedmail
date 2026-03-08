@@ -54,9 +54,3 @@ export async function deleteSession(db, token) {
     .bind(token)
     .run();
 }
-
-export async function deleteExpiredSessions(db) {
-  return db
-    .prepare("DELETE FROM admin_sessions WHERE expires_at < datetime('now')")
-    .run();
-}

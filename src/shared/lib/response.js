@@ -14,3 +14,16 @@ export function jsonResponse(status, body) {
     headers: { "Content-Type": "application/json" }
   });
 }
+
+/**
+ * Create an HTML response.
+ * @param {string} html - HTML content
+ * @param {number} [status=200] - HTTP status code
+ * @returns {Response}
+ */
+export function htmlResponse(html, status = 200) {
+  return new Response(html, {
+    status,
+    headers: { "Content-Type": "text/html; charset=utf-8" }
+  });
+}

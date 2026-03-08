@@ -4,24 +4,23 @@
 
 import { sendEmail } from "../../shared/lib/email.js";
 import { render } from "../../shared/lib/templates.js";
-import { getCredential } from "../../shared/lib/db.js";
+import { getCredential, getResendApiKey } from "../../shared/lib/db.js";
+import { htmlResponse } from "../../shared/lib/response.js";
 import {
   createMagicLinkToken,
   getMagicLinkToken,
   markMagicLinkTokenUsed,
-  MAGIC_LINK_TTL_SECONDS
-} from "../lib/db.js";
-import {
+  MAGIC_LINK_TTL_SECONDS,
   createSession as createSessionDb,
   deleteSession
 } from "../lib/db.js";
 import {
+  requireSession,
   getSessionFromCookie,
   createSessionCookie,
   clearSessionCookie,
   SESSION_TTL_SECONDS
 } from "../lib/session.js";
-import { getSession } from "../lib/db.js";
 
 /**
  * GET /admin/login — render login page.
@@ -29,15 +28,9 @@ import { getSession } from "../lib/db.js";
  */
 export async function handleLogin(request, env) {
   // Check if already authenticated
-  const token = getSessionFromCookie(request);
-  if (token) {
-    const session = await getSession(env.DB, token);
-    if (session) {
-      const expiresAt = new Date(`${session.expires_at}Z`);
-      if (expiresAt > new Date()) {
-        return Response.redirect(new URL("/admin", request.url).toString(), 302);
-      }
-    }
+  const { session } = await requireSession(request, env);
+  if (session) {
+    return Response.redirect(new URL("/admin", request.url).toString(), 302);
   }
 
   const url = new URL(request.url);
@@ -45,10 +38,7 @@ export async function handleLogin(request, env) {
   const error = url.searchParams.get("error") || "";
 
   const html = render("adminLogin", { redirect, error });
-  return new Response(html, {
-    status: 200,
-    headers: { "Content-Type": "text/html; charset=utf-8" }
-  });
+  return htmlResponse(html);
 }
 
 /**
@@ -72,10 +62,7 @@ export async function handleLoginSubmit(request, env) {
       redirect,
       error: "Please enter your email address"
     });
-    return new Response(html, {
-      status: 200,
-      headers: { "Content-Type": "text/html; charset=utf-8" }
-    });
+    return htmlResponse(html);
   }
 
   const normalizedEmail = email.toLowerCase().trim();
@@ -94,7 +81,7 @@ export async function handleLoginSubmit(request, env) {
 
     // Send magic link email
     const verifyUrl = `https://${env.DOMAIN}/admin/verify?token=${token}`;
-    const resendApiKey = await getCredential(env.DB, "resend_api_key");
+    const resendApiKey = await getResendApiKey(env);
 
     if (resendApiKey) {
       const html = render("adminMagicLink", {
@@ -123,10 +110,7 @@ export async function handleLoginSubmit(request, env) {
 
   // Always show "check your email" — no info leakage
   const html = render("adminLoginSent", {});
-  return new Response(html, {
-    status: 200,
-    headers: { "Content-Type": "text/html; charset=utf-8" }
-  });
+  return htmlResponse(html);
 }
 
 /**
@@ -220,8 +204,5 @@ function renderAuthError(message) {
     error: message,
     loginUrl: "/admin/login"
   });
-  return new Response(html, {
-    status: 200,
-    headers: { "Content-Type": "text/html; charset=utf-8" }
-  });
+  return htmlResponse(html);
 }
