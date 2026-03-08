@@ -59,9 +59,9 @@ Paginated subscriber lists, in-browser site configuration editing, and credentia
 
 Lower-priority infrastructure hygiene and non-user-facing enhancements that keep the system tidy as it matures.
 
-| #   | Feature                                             | Description                                                                                                                     | GUID                                   |
-| --- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 7   | [auth-session-cleanup](./auth-session-cleanup.md)   | Probabilistic cleanup of expired auth sessions and magic link tokens, with a shared utility that also refactors rate limit cleanup | `E0AC5C7B-3792-44B4-89EB-FCC3B89050C4` |
+| #   | Feature                                           | Description                                                                                                                        | GUID                                   |
+| --- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| 7   | [auth-session-cleanup](./auth-session-cleanup.md) | Probabilistic cleanup of expired auth sessions and magic link tokens, with a shared utility that also refactors rate limit cleanup | `E0AC5C7B-3792-44B4-89EB-FCC3B89050C4` |
 
 ---
 
