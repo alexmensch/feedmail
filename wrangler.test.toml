@@ -3,7 +3,7 @@
 # and feed fixtures served by: pnpm run dev:feed
 
 name = "feedmail"
-main = "src/index.js"
+main = "src/api/worker.js"
 compatibility_date = "2026-02-27"
 compatibility_flags = ["nodejs_compat"]
 

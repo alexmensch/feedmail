@@ -34,3 +34,144 @@ A session-based authentication system for the feedmail admin console, using magi
 - **API key management through the UI** — deferred to Admin Console Enhancements feature
 - **Email template customization for magic link emails** — standard template only
 - **Audit logging of auth events** (login, logout) — potential future enhancement
+
+## Technical Specification
+
+### Summary
+
+Reorganizes `src/` into `api/`, `admin/`, and `shared/` subdirectories, then adds a separate Admin Worker with magic link authentication. Three credentials (admin email, Resend API key, admin API key) transition from Wrangler secrets to a D1 `credentials` table with env var fallbacks.
+
+### Directory Reorganization
+
+```
+src/
+  api/
+    worker.js                    # (was src/index.js) API Worker entry point
+    routes/
+      subscribe.js               # (was src/routes/subscribe.js)
+      verify.js                  # (was src/routes/verify.js)
+      unsubscribe.js             # (was src/routes/unsubscribe.js)
+      send.js                    # (was src/routes/send.js)
+      admin.js                   # (was src/routes/admin.js) API admin router
+      admin-config.js            # (was src/routes/admin-config.js)
+      admin-channels.js          # (was src/routes/admin-channels.js)
+      admin-feeds.js             # (was src/routes/admin-feeds.js)
+    lib/
+      cors.js                    # (was src/lib/cors.js) API-only
+      feed-parser.js             # (was src/lib/feed-parser.js) API-only
+      html-to-text.js            # (was src/lib/html-to-text.js) API-only
+  admin/
+    worker.js                    # Admin Worker entry point
+    routes/
+      auth.js                    # Login, verify, logout handlers
+    lib/
+      db.js                      # Session + magic link token D1 helpers
+      session.js                 # Cookie parsing, session middleware
+  shared/
+    lib/
+      config.js                  # (was src/lib/config.js)
+      db.js                      # (was src/lib/db.js) + getCredential/upsertCredential
+      email.js                   # (was src/lib/email.js)
+      rate-limit.js              # (was src/lib/rate-limit.js)
+      response.js                # (was src/lib/response.js)
+      templates.js               # (was src/lib/templates.js)
+  templates/                     # Unchanged — all .hbs files stay here
+```
+
+### Requirements Table
+
+| # | Requirement | Implementation |
+|---|-------------|----------------|
+| 1 | Directory reorganization | `git mv` all existing files to new locations. Update all import paths in source and test files. Update `wrangler.toml`/`wrangler.test.toml` to `main = "src/api/worker.js"`. Standalone commit, no behavior changes. |
+| 2 | Admin Worker deployment | `src/admin/worker.js` entry point, `wrangler.admin.toml` config. `setup.sh` seeds credentials into D1 and deploys both Workers. `isAuthorized()` in API Worker reads admin API key from D1 with env var fallback. |
+| 3 | Auth database schema | Migration `0006_admin_auth.sql`: `admin_sessions`, `magic_link_tokens`, `credentials` tables. |
+| 4 | Login page | `GET /admin/login` → `admin-login.hbs`. Already-authenticated redirects to `/admin`. Form POSTs to `/admin/login`. |
+| 5 | Magic link request | `POST /admin/login` — case-insensitive email match → token + email. Always shows "check your email" page. |
+| 6 | Magic link email delivery | `sendEmail()` from `src/shared/lib/email.js`, Resend key from D1. From: `admin@{DOMAIN}`. Template: `admin-magic-link.hbs`. |
+| 7 | Magic link verification | `GET /admin/verify?token=` — validate, mark used, create session, set cookie, redirect to `/admin`. |
+| 8 | Session management | Cookie `feedmail_admin_session`, HttpOnly/Secure/SameSite=Strict, Path=/admin, 24hr TTL. D1-backed. Logout clears both. |
+| 9 | Rate limiting | `admin_login` (10/hr) and `admin_verify` (20/hr) added to `RATE_LIMIT_DEFAULTS`. Reuses existing `checkRateLimit()`. |
+| 10 | Protected route middleware | `requireSession()` on all `/admin/*` except login/verify/logout. Redirect with `?redirect=` param, validated to start with `/admin`. |
+
+### New Files
+
+| File | Purpose |
+|------|---------|
+| `src/admin/worker.js` | Admin Worker entry point |
+| `src/admin/routes/auth.js` | Login, verify, logout handlers |
+| `src/admin/lib/db.js` | Session + magic link token D1 helpers |
+| `src/admin/lib/session.js` | Cookie parsing, `requireSession()` middleware |
+| `src/templates/admin-login.hbs` | Login page |
+| `src/templates/admin-login-sent.hbs` | "Check your email" confirmation |
+| `src/templates/admin-auth-error.hbs` | Verification error page |
+| `src/templates/admin-magic-link.hbs` | Magic link HTML email |
+| `src/templates/admin-placeholder.hbs` | Placeholder dashboard |
+| `migrations/0006_admin_auth.sql` | Schema migration |
+| `wrangler.admin.toml` | Admin Worker config template |
+
+### Modified Files
+
+| File | Change |
+|------|--------|
+| All existing `src/` files | Move to `api/` or `shared/` subdirs, update import paths |
+| All existing `tests/` files | Move to mirror source structure, update import/mock paths |
+| `wrangler.toml` | `main = "src/api/worker.js"` |
+| `wrangler.test.toml` | `main = "src/api/worker.js"` |
+| `src/shared/lib/config.js` | Add `admin_login`, `admin_verify` to `RATE_LIMIT_DEFAULTS` |
+| `src/shared/lib/rate-limit.js` | Add endpoint mappings for admin paths |
+| `src/shared/lib/templates.js` | Register 5 new admin templates |
+| `src/shared/lib/db.js` | Add `getCredential()`, `upsertCredential()` |
+| `src/api/worker.js` | `isAuthorized()` → async, reads admin API key from D1 |
+| `src/api/routes/send.js` | Read Resend key from D1 with fallback |
+| `src/api/routes/subscribe.js` | Read Resend key from D1 with fallback |
+| `scripts/setup.sh` | Seed credentials, gen admin config, deploy both Workers |
+| `package.json` | Add `deploy:admin`, `dev:admin`, `build:check:admin` scripts |
+| `.gitignore` | Add `wrangler.admin.prod.toml` |
+
+### Naming Conventions
+
+| Name | Location | Description |
+|------|----------|-------------|
+| `getCredential(db, key)` | `src/shared/lib/db.js` | Read credential from D1. Returns string or null. |
+| `upsertCredential(db, key, value)` | `src/shared/lib/db.js` | Insert or update credential. |
+| `createMagicLinkToken(db, token, expiresAt)` | `src/admin/lib/db.js` | Insert magic link token row. |
+| `getMagicLinkToken(db, token)` | `src/admin/lib/db.js` | Look up magic link token. |
+| `markMagicLinkTokenUsed(db, token)` | `src/admin/lib/db.js` | Set `used = 1` on token. |
+| `createSession(db, token, expiresAt)` | `src/admin/lib/db.js` | Insert session row. |
+| `getSession(db, token)` | `src/admin/lib/db.js` | Look up session by token. |
+| `deleteSession(db, token)` | `src/admin/lib/db.js` | Delete session row. |
+| `requireSession(request, env)` | `src/admin/lib/session.js` | Middleware: returns `{ session }` or redirect Response. |
+| `getSessionFromCookie(request)` | `src/admin/lib/session.js` | Parse cookie value. Returns string or null. |
+| `SESSION_COOKIE_NAME` | `src/admin/lib/session.js` | `"feedmail_admin_session"` |
+| `SESSION_TTL_SECONDS` | `src/admin/lib/session.js` | `86400` (24 hours) |
+| `MAGIC_LINK_TTL_SECONDS` | `src/admin/lib/db.js` | `900` (15 minutes) |
+
+### Credential Keys (in `credentials` table)
+
+| Key | Description |
+|-----|-------------|
+| `admin_email` | Admin user's email address |
+| `resend_api_key` | Resend API key |
+| `admin_api_key` | Admin API key for API Worker auth |
+
+### Template Registration Names (in `src/shared/lib/templates.js`)
+
+| File | Registration Name |
+|------|-------------------|
+| `admin-login.hbs` | `adminLogin` |
+| `admin-login-sent.hbs` | `adminLoginSent` |
+| `admin-auth-error.hbs` | `adminAuthError` |
+| `admin-magic-link.hbs` | `adminMagicLink` |
+| `admin-placeholder.hbs` | `adminPlaceholder` |
+
+### Out of Scope
+
+- Passkey authentication — separate future feature
+- Visual styling of auth pages — deferred to Admin Console UI
+- Manual code entry fallback — additive enhancement
+- Multi-user admin — single admin only
+- Password/SSO auth — not part of auth model
+- Extended session duration — 24hr TTL fixed
+- API key management UI — deferred to Admin Console Enhancements
+- Splitting `src/shared/lib/db.js` — all D1 helpers co-located for simplicity
+- Moving templates into Worker-specific subdirs — precompiler scans single directory

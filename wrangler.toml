@@ -1,5 +1,5 @@
 name = "feedmail"
-main = "src/index.js"
+main = "src/api/worker.js"
 compatibility_date = "2026-02-27"
 compatibility_flags = ["nodejs_compat"]
 upload_source_maps = true
