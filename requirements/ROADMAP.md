@@ -61,7 +61,7 @@ Lower-priority infrastructure hygiene and non-user-facing enhancements that keep
 
 | #   | Feature                                             | Description                                                                                                                     | GUID                                   |
 | --- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 7   | [auth-session-cleanup](./auth-session-cleanup.md)   | Probabilistic cleanup of expired auth sessions and magic link tokens, with a shared utility that also refactors rate limit cleanup | `E63AC31A-2F95-410E-95CB-1F30D45C7B45` |
+| 7   | [auth-session-cleanup](./auth-session-cleanup.md)   | Probabilistic cleanup of expired auth sessions and magic link tokens, with a shared utility that also refactors rate limit cleanup | `E0AC5C7B-3792-44B4-89EB-FCC3B89050C4` |
 
 ---
 
