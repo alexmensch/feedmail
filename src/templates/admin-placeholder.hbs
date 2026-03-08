@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>feedmail admin</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; color: #333; }
+    h1 { font-size: 24px; margin: 0 0 20px; }
+    p { font-size: 16px; line-height: 1.5; }
+    .error { color: #c00; background: #fff0f0; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px; }
+    a { color: #0066cc; }
+  </style>
+</head>
+<body>
+  <h1>feedmail admin</h1>
+  {{#if setupError}}
+  <div class="error">{{setupError}}</div>
+  {{else}}
+  <p>Admin dashboard coming soon.</p>
+  <p><a href="/admin/logout">Sign out</a></p>
+  {{/if}}
+</body>
+</html>

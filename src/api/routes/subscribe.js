@@ -13,7 +13,8 @@ import {
   resetSubscriberToPending,
   updateVerifyToken,
   countRecentVerificationAttempts,
-  insertVerificationAttempt
+  insertVerificationAttempt,
+  getCredential
 } from "../../shared/lib/db.js";
 
 // Basic email validation (RFC 5322 simplified, ReDoS-safe)
@@ -213,7 +214,18 @@ async function trySendVerification(
   }
   const text = textLines.join("\n");
 
-  const result = await sendEmail(env.RESEND_API_KEY, {
+  // Resolve Resend API key (env var first, then D1)
+  const resendApiKey =
+    env.RESEND_API_KEY ||
+    (env.DB ? await getCredential(env.DB, "resend_api_key") : null);
+  if (!resendApiKey) {
+    console.error(
+      "Resend API key not configured — cannot send verification email"
+    );
+    return;
+  }
+
+  const result = await sendEmail(resendApiKey, {
     from: `${channel.fromUser}@${env.DOMAIN}`,
     fromName: channel.fromName,
     replyTo: channel.replyTo,

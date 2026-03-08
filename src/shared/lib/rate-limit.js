@@ -118,5 +118,11 @@ export function getEndpointName(pathname) {
   if (pathname.startsWith("/api/admin/")) {
     return "admin";
   }
+  if (pathname === "/admin/login") {
+    return "admin_login";
+  }
+  if (pathname === "/admin/verify") {
+    return "admin_verify";
+  }
   return null;
 }

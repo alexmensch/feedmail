@@ -122,6 +122,19 @@ echo ""
 
 echo ""
 
+# --- Collect admin email ---
+
+while true; do
+  read -rp "Admin email (for magic link login): " ADMIN_EMAIL
+  if [ -z "$ADMIN_EMAIL" ]; then
+    echo "  Admin email is required."
+    continue
+  fi
+  break
+done
+
+echo ""
+
 # --- Run migrations (R12) ---
 
 echo "Running D1 migrations ..."
@@ -138,8 +151,24 @@ INSERT OR IGNORE INTO rate_limit_config (endpoint, max_requests, window_hours) V
 INSERT OR IGNORE INTO rate_limit_config (endpoint, max_requests, window_hours) VALUES ('verify', 20, 1); \
 INSERT OR IGNORE INTO rate_limit_config (endpoint, max_requests, window_hours) VALUES ('unsubscribe', 20, 1); \
 INSERT OR IGNORE INTO rate_limit_config (endpoint, max_requests, window_hours) VALUES ('send', 5, 1); \
-INSERT OR IGNORE INTO rate_limit_config (endpoint, max_requests, window_hours) VALUES ('admin', 30, 1);" || {
+INSERT OR IGNORE INTO rate_limit_config (endpoint, max_requests, window_hours) VALUES ('admin', 30, 1); \
+INSERT OR IGNORE INTO rate_limit_config (endpoint, max_requests, window_hours) VALUES ('admin_login', 10, 1); \
+INSERT OR IGNORE INTO rate_limit_config (endpoint, max_requests, window_hours) VALUES ('admin_verify', 10, 1);" || {
   echo "Error: Failed to seed default configuration."
+  exit 1
+}
+
+echo ""
+echo "Seeding credentials ..."
+# Escape single quotes in values for SQL
+ESCAPED_RESEND_KEY=$(printf '%s' "$RESEND_KEY" | sed "s/'/''/g")
+ESCAPED_ADMIN_KEY=$(printf '%s' "$ADMIN_KEY" | sed "s/'/''/g")
+ESCAPED_ADMIN_EMAIL=$(printf '%s' "$ADMIN_EMAIL" | sed "s/'/''/g")
+$WRANGLER d1 execute "$WORKER_NAME" --remote --config wrangler.prod.toml --command "\
+INSERT OR REPLACE INTO credentials (key, value) VALUES ('resend_api_key', '$ESCAPED_RESEND_KEY'); \
+INSERT OR REPLACE INTO credentials (key, value) VALUES ('admin_api_key', '$ESCAPED_ADMIN_KEY'); \
+INSERT OR REPLACE INTO credentials (key, value) VALUES ('admin_email', '$ESCAPED_ADMIN_EMAIL');" || {
+  echo "Error: Failed to seed credentials."
   exit 1
 }
 
@@ -180,6 +209,35 @@ echo "$ADMIN_KEY" | $WRANGLER secret put ADMIN_API_KEY --config wrangler.prod.to
   exit 1
 }
 
+echo ""
+
+# --- Deploy admin worker ---
+
+echo "Writing wrangler.admin.prod.toml ..."
+cp wrangler.admin.toml wrangler.admin.prod.toml
+
+ADMIN_WORKER_NAME="${WORKER_NAME}-admin"
+sed -i '' "s/^name = .*/name = \"$ADMIN_WORKER_NAME\"/" wrangler.admin.prod.toml
+sed -i '' "s/YOUR_DATABASE_ID/$DATABASE_ID/" wrangler.admin.prod.toml
+sed -i '' "s/YOUR_DOMAIN/$DOMAIN/g" wrangler.admin.prod.toml
+sed -i '' "s/^database_name = .*/database_name = \"$WORKER_NAME\"/" wrangler.admin.prod.toml
+
+# Comment out the routes section (deployer uncomments when ready)
+sed -i '' 's/^\(\[\[routes\]\]\)/# \1/' wrangler.admin.prod.toml
+sed -i '' 's/^pattern = /# pattern = /' wrangler.admin.prod.toml
+sed -i '' 's/^zone_name = /# zone_name = /' wrangler.admin.prod.toml
+
+echo "  Created wrangler.admin.prod.toml"
+echo ""
+
+echo "Deploying admin worker ..."
+ADMIN_DEPLOY_OUTPUT=$($WRANGLER deploy --config wrangler.admin.prod.toml 2>&1) || {
+  echo "Error: Admin worker deployment failed."
+  echo "$ADMIN_DEPLOY_OUTPUT"
+  exit 1
+}
+
+echo "$ADMIN_DEPLOY_OUTPUT"
 echo ""
 
 # --- Collect required channel config (R15) ---
@@ -317,7 +375,9 @@ echo "  $API_URL"
 echo ""
 echo "Configuration summary:"
 echo "  Worker name:    $WORKER_NAME"
+echo "  Admin worker:   $ADMIN_WORKER_NAME"
 echo "  Domain:         $DOMAIN"
+echo "  Admin email:    $ADMIN_EMAIL"
 echo "  Channel:        $CHANNEL_ID"
 echo "  Site name:      $SITE_NAME"
 echo "  Site URL:       $SITE_URL"
@@ -343,17 +403,19 @@ echo "  Feed:           $FEED_NAME → $FEED_URL"
 echo "  CORS origin:    $CORS_ORIGIN"
 echo ""
 echo "Next steps:"
-echo "  1. Configure DNS routes: edit wrangler.prod.toml to uncomment the"
-echo "     [[routes]] section. Set zone_name to your Cloudflare zone (usually"
-echo "     the apex domain) so that https://$DOMAIN/api/* is accessible."
-echo "     Then redeploy with: pnpm run deploy"
+echo "  1. Configure DNS routes: edit wrangler.prod.toml and wrangler.admin.prod.toml"
+echo "     to uncomment the [[routes]] sections. Set zone_name to your Cloudflare"
+echo "     zone (usually the apex domain) so that https://$DOMAIN/api/* and"
+echo "     https://$DOMAIN/admin/* are accessible."
+echo "     Then redeploy with: pnpm run deploy && pnpm run deploy:admin"
 echo "  2. Verify the service is accessible on your domain:"
 echo "     curl -s https://$DOMAIN/api/admin/channels \\"
 echo "       -H \"Authorization: Bearer <your-admin-key>\" | python3 -m json.tool"
-echo "  3. Add a subscribe form to your site that POSTs to:"
+echo "  3. Access the admin console at: https://$DOMAIN/admin"
+echo "  4. Add a subscribe form to your site that POSTs to:"
 echo "     https://$DOMAIN/api/subscribe"
-echo "  4. Seed your feed history (prevents sending old items to new subscribers):"
+echo "  5. Seed your feed history (prevents sending old items to new subscribers):"
 echo "     curl -s -X POST https://$DOMAIN/api/send \\"
 echo "       -H \"Authorization: Bearer <your-admin-key>\""
-echo "  5. To add more channels or feeds, use the admin API."
+echo "  6. To add more channels or feeds, use the admin API."
 echo "     See the README for details."

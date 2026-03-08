@@ -493,3 +493,36 @@ export async function getSubscriberList(db, channelId, statusFilter) {
     .all();
   return results;
 }
+
+// ─── Credentials ───────────────────────────────────────────────────────────
+
+/**
+ * Get a credential value from the credentials table.
+ * @param {object} db - D1 database binding
+ * @param {string} key - Credential key (e.g. "admin_email", "resend_api_key")
+ * @returns {Promise<string|null>} The credential value or null if not found
+ */
+export async function getCredential(db, key) {
+  const row = await db
+    .prepare("SELECT value FROM credentials WHERE key = ?")
+    .bind(key)
+    .first();
+  return row?.value || null;
+}
+
+/**
+ * Insert or update a credential in the credentials table.
+ * @param {object} db - D1 database binding
+ * @param {string} key - Credential key
+ * @param {string} value - Credential value
+ * @returns {Promise<object>} D1 run result
+ */
+export async function upsertCredential(db, key, value) {
+  return db
+    .prepare(
+      `INSERT INTO credentials (key, value) VALUES (?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`
+    )
+    .bind(key, value)
+    .run();
+}

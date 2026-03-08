@@ -21,6 +21,13 @@ import verifyPageSpec from "../../templates/compiled/verify-page.js";
 import unsubscribePageSpec from "../../templates/compiled/unsubscribe-page.js";
 import errorPageSpec from "../../templates/compiled/error-page.js";
 
+// Import precompiled admin template specs
+import adminLoginSpec from "../../templates/compiled/admin-login.js";
+import adminLoginSentSpec from "../../templates/compiled/admin-login-sent.js";
+import adminAuthErrorSpec from "../../templates/compiled/admin-auth-error.js";
+import adminMagicLinkSpec from "../../templates/compiled/admin-magic-link.js";
+import adminPlaceholderSpec from "../../templates/compiled/admin-placeholder.js";
+
 // Register Handlebars helpers
 Handlebars.registerHelper("formatDate", (dateStr) => {
   if (!dateStr) {
@@ -49,7 +56,12 @@ const templates = {
   verificationEmail: Handlebars.template(verificationEmailSpec),
   verifyPage: Handlebars.template(verifyPageSpec),
   unsubscribePage: Handlebars.template(unsubscribePageSpec),
-  errorPage: Handlebars.template(errorPageSpec)
+  errorPage: Handlebars.template(errorPageSpec),
+  adminLogin: Handlebars.template(adminLoginSpec),
+  adminLoginSent: Handlebars.template(adminLoginSentSpec),
+  adminAuthError: Handlebars.template(adminAuthErrorSpec),
+  adminMagicLink: Handlebars.template(adminMagicLinkSpec),
+  adminPlaceholder: Handlebars.template(adminPlaceholderSpec)
 };
 
 /**

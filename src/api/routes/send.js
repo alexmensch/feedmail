@@ -16,10 +16,26 @@ import {
   getVerifiedSubscribers,
   isItemSentToSubscriber,
   insertSubscriberSend,
-  deleteSubscriberSends
+  deleteSubscriberSends,
+  getCredential
 } from "../../shared/lib/db.js";
 
 const USER_AGENT = `feedmail/${pkg.version}`;
+
+/**
+ * Resolve the Resend API key from env var or D1 credentials table.
+ * @param {object} env
+ * @returns {Promise<string|null>}
+ */
+async function getResendApiKey(env) {
+  if (env.RESEND_API_KEY) {
+    return env.RESEND_API_KEY;
+  }
+  if (env.DB) {
+    return getCredential(env.DB, "resend_api_key");
+  }
+  return null;
+}
 
 /**
  * Handle a manual send request.
@@ -192,6 +208,13 @@ async function processChannelFeeds(env, channel, summary) {
  *   complete — true if all subscribers were reached (safe to mark item as done)
  */
 async function sendItemToSubscribers(env, channel, item, subscribers) {
+  // Resolve Resend API key (env var first, then D1)
+  const resendApiKey = await getResendApiKey(env);
+  if (!resendApiKey) {
+    console.error("Resend API key not configured — cannot send emails");
+    return { sent: 0, complete: false };
+  }
+
   // Determine email content
   const rawContent = item.content || item.summary || "";
   const emailContent = constrainImages(rawContent);
@@ -252,7 +275,7 @@ async function sendItemToSubscribers(env, channel, item, subscribers) {
       unsubscribeUrl
     );
 
-    const result = await sendEmail(env.RESEND_API_KEY, {
+    const result = await sendEmail(resendApiKey, {
       from: `${channel.fromUser}@${env.DOMAIN}`,
       fromName: channel.fromName,
       replyTo: channel.replyTo,

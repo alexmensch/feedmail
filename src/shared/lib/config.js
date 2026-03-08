@@ -16,7 +16,9 @@ export const RATE_LIMIT_DEFAULTS = {
   verify: { windowHours: 1, maxRequests: 20 },
   unsubscribe: { windowHours: 1, maxRequests: 20 },
   send: { windowHours: 1, maxRequests: 5 },
-  admin: { windowHours: 1, maxRequests: 30 }
+  admin: { windowHours: 1, maxRequests: 30 },
+  admin_login: { windowHours: 1, maxRequests: 10 },
+  admin_verify: { windowHours: 1, maxRequests: 10 }
 };
 
 // ─── Validation ─────────────────────────────────────────────────────────────

@@ -11,6 +11,7 @@ import { handleAdmin } from "./routes/admin.js";
 import { handleCORSPreflight, withCORS } from "./lib/cors.js";
 import { getRateLimitConfig } from "../shared/lib/config.js";
 import { checkRateLimit, getEndpointName } from "../shared/lib/rate-limit.js";
+import { getCredential } from "../shared/lib/db.js";
 
 /**
  * Allowed HTTP methods per route path.
@@ -32,14 +33,29 @@ const TIMEOUT_DELAY_MS = 10_000;
 
 /**
  * Validate the Authorization header against the ADMIN_API_KEY.
+ * Checks the env var first, then falls back to the D1 credentials table.
  * @param {Request} request
  * @param {object} env
- * @returns {boolean}
+ * @returns {Promise<boolean>}
  */
-function isAuthorized(request, env) {
+async function isAuthorized(request, env) {
   const authHeader = request.headers.get("Authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
-  return token === env.ADMIN_API_KEY;
+
+  // Check env var first (fastest path)
+  if (env.ADMIN_API_KEY) {
+    return token === env.ADMIN_API_KEY;
+  }
+
+  // Fall back to D1 credentials table
+  if (env.DB) {
+    const dbKey = await getCredential(env.DB, "admin_api_key");
+    if (dbKey) {
+      return token === dbKey;
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -149,14 +165,14 @@ export default {
 
       // Authenticated routes
       if (url.pathname === "/api/send") {
-        if (!isAuthorized(request, env)) {
+        if (!(await isAuthorized(request, env))) {
           return unauthorizedResponse();
         }
         return handleSend(request, env);
       }
 
       if (url.pathname.startsWith("/api/admin/")) {
-        if (!isAuthorized(request, env)) {
+        if (!(await isAuthorized(request, env))) {
           return unauthorizedResponse();
         }
         return handleAdmin(request, env, url);
