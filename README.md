@@ -13,6 +13,7 @@ An open-source RSS-to-email microservice that runs on Cloudflare Workers. Monito
 - **Multi-feed** — Each channel can monitor multiple named feeds
 - **Zero tracking** — No open or click tracking; privacy by default
 - **Customizable templates** — Handlebars templates for emails and confirmation pages
+- **Admin console** — Browser-based admin with passwordless magic link authentication
 - **Admin API** — Runtime config management, subscriber stats, channel/feed CRUD
 - **IP rate limiting** — Per-endpoint rolling window rate limiting via D1
 - **Bot protection** — Strict input validation with honeypot support, method enforcement with deliberate timeouts
@@ -176,6 +177,8 @@ Default rate limits per endpoint (configurable via `PATCH /api/admin/config`):
 | `/api/unsubscribe` | 20 requests | 1 hour |
 | `/api/send`        | 5 requests  | 1 hour |
 | `/api/admin/*`     | 30 requests | 1 hour |
+| `/admin/login`     | 10 requests | 1 hour |
+| `/admin/verify`    | 10 requests | 1 hour |
 
 When rate limited, the API returns `429 Too Many Requests` with a `Retry-After` header indicating when the next request will be accepted (with random jitter to prevent thundering herd retries).
 

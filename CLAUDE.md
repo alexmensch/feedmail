@@ -5,16 +5,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-pnpm run dev              # Local dev server (wrangler dev) on port 8787
+pnpm run dev              # Local dev server — API Worker (wrangler dev) on port 8787
+pnpm run dev:admin        # Local dev server — Admin Worker (wrangler.admin.toml)
 pnpm run dev:test         # Local dev with test channel config (wrangler.test.toml)
 pnpm run dev:feed         # Serve test feed fixtures on port 8888
-pnpm run deploy           # Deploy to Cloudflare Workers (uses wrangler.prod.toml)
+pnpm run deploy           # Deploy API Worker to Cloudflare (uses wrangler.prod.toml)
+pnpm run deploy:admin     # Deploy Admin Worker to Cloudflare (uses wrangler.admin.prod.toml)
 pnpm run db:migrate       # Apply D1 migrations (remote, uses wrangler.prod.toml)
 pnpm run db:migrate:local # Apply D1 migrations (local dev)
 pnpm run db:reset:local   # Clear all local D1 tables
 pnpm run test             # Run all tests (vitest)
 pnpm run test:coverage    # Run tests with coverage report
-pnpm run build:check      # Dry-run deploy to verify build (uses default wrangler.toml)
+pnpm run build:check      # Dry-run deploy API Worker to verify build
+pnpm run build:check:admin # Dry-run deploy Admin Worker to verify build
 pnpm run lint             # Run ESLint
 pnpm run lint:fix         # Run ESLint with auto-fix
 pnpm run format           # Format all files with Prettier
@@ -35,53 +38,73 @@ feedmail is an RSS-to-email microservice on Cloudflare Workers. It monitors RSS/
 
 ```
 src/
-  index.js              # Main router: fetch handler + scheduled (cron) handler
-  routes/
-    subscribe.js        # POST /api/subscribe — strict input validation + rate-limited verification emails
-    verify.js           # GET /api/verify — 24hr token expiry, marks subscriber verified
-    unsubscribe.js      # GET + POST /api/unsubscribe — RFC 8058 one-click support
-    send.js             # POST /api/send + checkFeedsAndSend() — feed processing + email dispatch
-    admin.js            # Admin API router — delegates to sub-handlers
-    admin-config.js     # GET/PATCH /api/admin/config — site settings + rate limits
-    admin-channels.js   # CRUD /api/admin/channels — channel management
-    admin-feeds.js      # CRUD /api/admin/channels/{id}/feeds — feed management
-  lib/
-    config.js           # DB-backed config reads, validation helpers, rate limit defaults
-    cors.js             # CORS preflight + response header helpers
-    db.js               # All D1 query helpers (subscribers, config, channels, feeds, etc.)
-    response.js         # Shared HTTP response helpers (jsonResponse)
-    feed-parser.js      # RSS 2.0 + Atom parsing via fast-xml-parser, normalized item shape
-    html-to-text.js     # HTML processing: plain text fallback + image constraining
-    email.js            # Resend API email sending wrapper
-    rate-limit.js       # IP-based rate limiting: config, rolling window check, endpoint name mapping
-    templates.js        # Handlebars precompiled template rendering — render(name, data)
-  templates/            # Handlebars (.hbs) source files, precompiled at build time
+  api/                    # API Worker (handles /api/* routes)
+    worker.js             # Main router: fetch handler + scheduled (cron) handler
+    routes/
+      subscribe.js        # POST /api/subscribe — strict input validation + rate-limited verification emails
+      verify.js           # GET /api/verify — 24hr token expiry, marks subscriber verified
+      unsubscribe.js      # GET + POST /api/unsubscribe — RFC 8058 one-click support
+      send.js             # POST /api/send + checkFeedsAndSend() — feed processing + email dispatch
+      admin.js            # Admin API router — delegates to sub-handlers
+      admin-config.js     # GET/PATCH /api/admin/config — site settings + rate limits
+      admin-channels.js   # CRUD /api/admin/channels — channel management
+      admin-feeds.js      # CRUD /api/admin/channels/{id}/feeds — feed management
+    lib/
+      cors.js             # CORS preflight + response header helpers
+      feed-parser.js      # RSS 2.0 + Atom parsing via fast-xml-parser, normalized item shape
+      html-to-text.js     # HTML processing: plain text fallback + image constraining
+  admin/                  # Admin Worker (handles /admin/* routes)
+    worker.js             # Admin fetch handler: routing, rate limiting, session middleware
+    routes/
+      auth.js             # Login, magic link verification, logout handlers
+    lib/
+      db.js               # Admin D1 helpers (magic link tokens, sessions)
+      session.js          # Session middleware, cookie helpers, session TTL
+  shared/                 # Shared modules used by both Workers
+    lib/
+      config.js           # DB-backed config reads, validation helpers, rate limit defaults
+      db.js               # All D1 query helpers (subscribers, config, channels, feeds, credentials)
+      email.js            # Resend API email sending wrapper
+      rate-limit.js       # IP-based rate limiting: config, rolling window check, endpoint name mapping
+      response.js         # Shared HTTP response helpers (jsonResponse, htmlResponse)
+      templates.js        # Handlebars precompiled template rendering — render(name, data)
+  templates/              # Handlebars (.hbs) source files, precompiled at build time
     partials/
-      email-footer.hbs  # Shared email footer partial (copyright, unsubscribe, company info)
-    newsletter.hbs      # HTML newsletter email (table-based, inline styles)
-    newsletter.txt.hbs  # Plain text newsletter
+      email-footer.hbs    # Shared email footer partial (copyright, unsubscribe, company info)
+    newsletter.hbs        # HTML newsletter email (table-based, inline styles)
+    newsletter.txt.hbs    # Plain text newsletter
     verification-email.hbs  # Verification CTA email
-    verify-page.hbs     # "You're subscribed" confirmation page
-    unsubscribe-page.hbs    # "You've been unsubscribed" page
-    error-page.hbs      # Error page (invalid/expired tokens)
+    verify-page.hbs       # "You're subscribed" confirmation page
+    unsubscribe-page.hbs  # "You've been unsubscribed" page
+    error-page.hbs        # Error page (invalid/expired tokens)
+    admin-login.hbs       # Admin login form
+    admin-login-sent.hbs  # "Check your email" confirmation
+    admin-auth-error.hbs  # Auth error page (expired/used magic link)
+    admin-magic-link.hbs  # Magic link email body
+    admin-placeholder.hbs # Admin dashboard placeholder
 migrations/
-  0001_initial.sql      # D1 schema: subscribers, verification_attempts, sent_items
+  0001_initial.sql        # D1 schema: subscribers, verification_attempts, sent_items
   0002_subscriber_sends.sql  # Per-subscriber send tracking for partial send recovery
-  0003_rate_limits.sql  # IP-based rate limiting table
+  0003_rate_limits.sql    # IP-based rate limiting table
   0004_rename_site_id_to_channel_id.sql  # Rename site_id → channel_id in subscribers
   0005_config_tables.sql  # DB-backed config: site_config, rate_limit_config, channels, feeds
-wrangler.toml           # Worker config template with placeholders (YOUR_DOMAIN, YOUR_DATABASE_ID)
-wrangler.prod.toml      # Deployer-specific config generated by setup.sh (gitignored)
-wrangler.test.toml      # Local testing config — test channel with localhost feeds
+  0006_admin_auth.sql     # Admin auth: credentials, magic_link_tokens, admin_sessions tables
+wrangler.toml             # API Worker config template with placeholders
+wrangler.admin.toml       # Admin Worker config template with placeholders
+wrangler.prod.toml        # API Worker deployer-specific config (gitignored)
+wrangler.admin.prod.toml  # Admin Worker deployer-specific config (gitignored)
+wrangler.test.toml        # Local testing config — test channel with localhost feeds
 tests/
+  helpers/
+    mock-db.js            # Shared D1 mock helper for unit tests
   fixtures/
-    feed.rss            # RSS 2.0 test feed fixture (served by dev:feed)
-    feed.atom           # Atom test feed fixture (served by dev:feed)
+    feed.rss              # RSS 2.0 test feed fixture (served by dev:feed)
+    feed.atom             # Atom test feed fixture (served by dev:feed)
 scripts/
-  install.sh            # Curl-installable bootstrap: prereq checks, clone, pnpm install, hand off to setup
-  setup.sh              # Interactive setup wizard: D1 creation, wrangler.prod.toml, secrets, deploy, first channel
+  install.sh              # Curl-installable bootstrap: prereq checks, clone, pnpm install, hand off to setup
+  setup.sh                # Interactive setup wizard: D1 creation, wrangler.prod.toml, secrets, deploy, first channel
   precompile-templates.mjs  # Build-time Handlebars template compiler
-  test-local.sh         # Interactive local testing helper (subscribe → verify → send)
+  test-local.sh           # Interactive local testing helper (subscribe → verify → send)
 ```
 
 ### Local Testing
@@ -96,6 +119,9 @@ To test the full email flow locally:
 
 ### Key Design Decisions
 
+- **Two-worker architecture:** The API Worker (`src/api/worker.js`) handles `/api/*` routes and cron triggers. The Admin Worker (`src/admin/worker.js`) handles `/admin/*` routes for the browser-based admin console. Both share the same D1 database and shared modules in `src/shared/`. Each Worker has its own wrangler config (`wrangler.toml` / `wrangler.admin.toml`).
+- **Admin authentication:** Magic link (passwordless) authentication. A single admin email is stored in the `credentials` table. Login sends a time-limited magic link via Resend; clicking it creates a server-side session stored in `admin_sessions`. Session cookie is `HttpOnly; Secure; SameSite=Strict; Path=/admin`. Magic link tokens expire after 15 minutes; sessions expire after 24 hours. No info leakage — login always shows "check your email" regardless of whether the email matched.
+- **Credentials in D1:** Secrets (`resend_api_key`, `admin_api_key`, `admin_email`) are stored in the `credentials` table. The shared `getResendApiKey(env)` helper checks `env.RESEND_API_KEY` first (backward compat) then falls back to D1. The Admin Worker has no Wrangler secrets — it reads all credentials from D1.
 - **DB-backed configuration:** Channel, feed, site settings, and rate limit config are stored in D1 tables (not env vars). Config is read asynchronously via `config.js` helpers that accept the `env` object. Admin API endpoints provide runtime CRUD management without redeployment. `RATE_LIMIT_DEFAULTS` in `config.js` provides hardcoded fallbacks when no DB rows exist.
 - **Multi-channel support:** Each channel has its own subscriber list, feeds, sender identity, and CORS origins. All routes accept a `channelId` parameter to scope operations. A single deployment is the site; channels are subscriber lists with feeds.
 - **DOMAIN-based URL/email construction:** The `DOMAIN` env var (e.g. `feedmail.cc`) is used to construct all URLs as `https://{DOMAIN}/api/...` and from-email addresses as `{fromUser}@{DOMAIN}`. HTTPS is always assumed. This is the only config that remains as an env var.
@@ -113,7 +139,7 @@ To test the full email flow locally:
 - **User-Agent** uses semver from `package.json` (imported with `{ type: "json" }`).
 - **Zero tracking:** No open pixels or click tracking.
 
-### D1 Schema (9 tables)
+### D1 Schema (12 tables)
 
 **Subscriber & delivery tables:**
 
@@ -129,6 +155,12 @@ To test the full email flow locally:
 - `rate_limit_config` — endpoint (PK), max_requests, window_hours. Per-endpoint rate limit overrides.
 - `channels` — id (PK), site_name, site_url, from_user, from_name, reply_to, company_name, company_address, cors_origins (JSON array). DB uses snake_case; `db.js` helpers convert to camelCase.
 - `feeds` — id (auto-increment PK), channel_id (FK), name, url. UNIQUE(channel_id, url), UNIQUE(channel_id, name).
+
+**Admin auth tables (migration 0006):**
+
+- `credentials` — key (PK), value. Stores admin_email, resend_api_key, admin_api_key.
+- `magic_link_tokens` — token (UNIQUE), expires_at, used (0/1), created_at. Short-lived tokens for passwordless login.
+- `admin_sessions` — token (UNIQUE), expires_at, created_at. Server-side session storage.
 
 ### API Routes
 
@@ -149,6 +181,14 @@ To test the full email flow locally:
 - `GET|POST /api/admin/channels/{id}/feeds` — List/add feeds
 - `PUT|DELETE /api/admin/channels/{id}/feeds/{feedId}` — Update/delete feed
 
+**Admin Console (browser-based, same-origin only — no CORS):**
+
+- `GET /admin/login` — Login form (redirects to `/admin` if already authenticated)
+- `POST /admin/login` — Request magic link email
+- `GET /admin/verify?token=` — Validate magic link, create session, redirect
+- `GET /admin/logout` — Destroy session, redirect to login
+- `GET /admin` — Dashboard placeholder (requires session)
+
 ### Security Layers
 
 Requests pass through these checks in order:
@@ -162,7 +202,7 @@ Requests pass through these checks in order:
 
 ### Configuration
 
-**`wrangler.toml`** is a template with placeholder values (`YOUR_DOMAIN`, `YOUR_DATABASE_ID`). The setup wizard (`scripts/setup.sh`) generates `wrangler.prod.toml` from it with real values. `wrangler.prod.toml` is gitignored since it contains deployer-specific config. The `deploy` and `db:migrate` scripts use `--config wrangler.prod.toml`; `build:check` uses the default `wrangler.toml` (dry-run works with placeholders).
+**`wrangler.toml`** (API Worker) and **`wrangler.admin.toml`** (Admin Worker) are templates with placeholder values (`YOUR_DOMAIN`, `YOUR_DATABASE_ID`). The setup wizard generates `wrangler.prod.toml` and `wrangler.admin.prod.toml` with real values. Both prod configs are gitignored. `build:check` and `build:check:admin` use the template configs (dry-run works with placeholders).
 
 **`wrangler.toml` / `wrangler.prod.toml` vars:**
 
@@ -175,10 +215,12 @@ Requests pass through these checks in order:
 - **Site config** — verify_max_attempts (default 3), verify_window_hours (default 24)
 - **Rate limits** — Per-endpoint max_requests and window_hours overrides
 
-**Secrets (set via `wrangler secret put`):**
+**Secrets (API Worker — set via `wrangler secret put`):**
 
-- `RESEND_API_KEY`
-- `ADMIN_API_KEY`
+- `RESEND_API_KEY` — also stored in D1 `credentials` table; env var takes precedence
+- `ADMIN_API_KEY` — also stored in D1 `credentials` table; env var takes precedence
+
+The Admin Worker has no Wrangler secrets — it reads `admin_email` and `resend_api_key` from the D1 `credentials` table.
 
 **Local dev secrets** go in `.dev.vars` (gitignored):
 
@@ -193,4 +235,8 @@ Configured in `wrangler.toml` as `0 */6 * * *` (every 6 hours). Calls `checkFeed
 
 ### Route Configuration
 
-The feedmail Worker handles only API traffic via the route pattern `{DOMAIN}/api/*`. A separate website Worker handles all other traffic on the domain. Both Workers share the zone via pattern-based routing.
+Three Workers share the zone via pattern-based routing:
+
+- **API Worker** (`feedmail`) — `{DOMAIN}/api/*` — handles API traffic and cron triggers
+- **Admin Worker** (`feedmail-admin`) — `{DOMAIN}/admin/*` — handles admin console
+- **Website Worker** (separate repo) — handles all other traffic on the domain

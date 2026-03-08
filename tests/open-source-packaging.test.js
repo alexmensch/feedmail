@@ -57,7 +57,7 @@ describe("wrangler.toml sanitisation", () => {
   });
 
   it("retains main entry point", () => {
-    expect(toml).toMatch(/main\s*=\s*"src\/index\.js"/);
+    expect(toml).toMatch(/main\s*=\s*"src\/api\/worker\.js"/);
   });
 
   it("retains [build] section", () => {
@@ -375,7 +375,7 @@ describe("setup.sh structure and content", () => {
     it("wrangler.toml template includes all required structural sections", () => {
       // Since setup.sh copies wrangler.toml, verify the template has everything
       const toml = readFile("wrangler.toml");
-      expect(toml).toMatch(/main\s*=.*src\/index\.js/);
+      expect(toml).toMatch(/main\s*=.*src\/api\/worker\.js/);
       expect(toml).toMatch(/compatibility_date/);
       expect(toml).toMatch(/compatibility_flags/);
       expect(toml).toMatch(/\[build\]/);

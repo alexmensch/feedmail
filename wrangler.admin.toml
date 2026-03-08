@@ -1,5 +1,5 @@
-name = "feedmail"
-main = "src/api/worker.js"
+name = "feedmail-admin"
+main = "src/admin/worker.js"
 compatibility_date = "2026-02-27"
 compatibility_flags = ["nodejs_compat"]
 upload_source_maps = true
@@ -9,24 +9,20 @@ preview_urls = false
 [build]
 command = "node scripts/precompile-templates.mjs"
 
-[triggers]
-crons = ["0 */6 * * *"]
-
 [[d1_databases]]
 binding = "DB"
 database_name = "feedmail"
 database_id = "YOUR_DATABASE_ID"
 
 [[routes]]
-pattern = "YOUR_DOMAIN/api/*"
+pattern = "YOUR_DOMAIN/admin/*"
 zone_name = "YOUR_DOMAIN"
 
 [vars]
 DOMAIN = "YOUR_DOMAIN"
 
 # Secrets (set via `wrangler secret put`):
-# RESEND_API_KEY
-# ADMIN_API_KEY
+# None — credentials are stored in D1
 
 [observability.logs]
 enabled = true
