@@ -61,6 +61,7 @@ Lower-priority infrastructure hygiene and non-user-facing enhancements that keep
 | #   | Feature                                           | Description                                                                                                                        | GUID                                   |
 | --- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | 6   | [auth-session-cleanup](./auth-session-cleanup.md) | Probabilistic cleanup of expired auth sessions and magic link tokens, with a shared utility that also refactors rate limit cleanup | `E0AC5C7B-3792-44B4-89EB-FCC3B89050C4` |
+| 7   | [remove-credential-env-fallbacks](./remove-credential-env-fallbacks.md) | Removes env-var fallback for ADMIN_API_KEY and RESEND_API_KEY so the D1 credentials table is the single source of truth, with explicit error logging when credentials are missing | `5CBF07F1-6FFE-4FE0-9DF6-221398A0EFDC` |
 
 ---
 
