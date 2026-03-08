@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { htmlToText, constrainImages } from "../../../src/api/lib/html-to-text.js";
+import {
+  htmlToText,
+  constrainImages
+} from "../../../src/api/lib/html-to-text.js";
 
 describe("htmlToText", () => {
   it("returns empty string for falsy input", () => {

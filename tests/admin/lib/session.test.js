@@ -91,9 +91,10 @@ describe("requireSession", () => {
   });
 
   it("returns null (allows through) when session is valid and not expired", async () => {
-    const futureExpiry = new Date(
-      Date.now() + 3600 * 1000
-    ).toISOString().replace("T", " ").replace("Z", "");
+    const futureExpiry = new Date(Date.now() + 3600 * 1000)
+      .toISOString()
+      .replace("T", " ")
+      .replace("Z", "");
     getSession.mockResolvedValue({
       id: 1,
       token: "valid-session-token",
@@ -140,9 +141,10 @@ describe("requireSession", () => {
   });
 
   it("returns redirect to /admin/login when session is expired", async () => {
-    const pastExpiry = new Date(
-      Date.now() - 3600 * 1000
-    ).toISOString().replace("T", " ").replace("Z", "");
+    const pastExpiry = new Date(Date.now() - 3600 * 1000)
+      .toISOString()
+      .replace("T", " ")
+      .replace("Z", "");
     getSession.mockResolvedValue({
       id: 1,
       token: "expired-session-token",
@@ -163,18 +165,14 @@ describe("requireSession", () => {
   });
 
   it("preserves the originally requested path in redirect query param", async () => {
-    const request = new Request(
-      "https://example.com/admin/channels/123/feeds"
-    );
+    const request = new Request("https://example.com/admin/channels/123/feeds");
 
     const result = await requireSession(request, { DB: {} });
 
     expect(result.response.status).toBe(302);
     const location = result.response.headers.get("Location");
     expect(location).toContain("redirect=");
-    expect(location).toContain(
-      encodeURIComponent("/admin/channels/123/feeds")
-    );
+    expect(location).toContain(encodeURIComponent("/admin/channels/123/feeds"));
   });
 
   it("validates redirect parameter starts with /admin", async () => {

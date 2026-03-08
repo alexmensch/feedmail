@@ -37,7 +37,10 @@ import { handleSend, checkFeedsAndSend } from "../../src/api/routes/send.js";
 import { handleAdmin } from "../../src/api/routes/admin.js";
 import { handleCORSPreflight, withCORS } from "../../src/api/lib/cors.js";
 import { getRateLimitConfig } from "../../src/shared/lib/config.js";
-import { checkRateLimit, getEndpointName } from "../../src/shared/lib/rate-limit.js";
+import {
+  checkRateLimit,
+  getEndpointName
+} from "../../src/shared/lib/rate-limit.js";
 
 const RATE_LIMITS = {
   subscribe: { maxRequests: 10, windowSeconds: 3600 },

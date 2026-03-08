@@ -87,8 +87,7 @@ function redirectToLogin(request) {
   const redirectPath = url.pathname + url.search;
 
   // Validate redirect starts with /admin to prevent open redirect
-  const redirect =
-    redirectPath.startsWith("/admin") ? redirectPath : "/admin";
+  const redirect = redirectPath.startsWith("/admin") ? redirectPath : "/admin";
 
   return Response.redirect(
     `${url.origin}/admin/login?redirect=${encodeURIComponent(redirect)}`,

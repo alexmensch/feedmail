@@ -9,9 +9,7 @@ export const MAGIC_LINK_TTL_SECONDS = 900;
 
 export async function createMagicLinkToken(db, token, expiresAt) {
   return db
-    .prepare(
-      "INSERT INTO magic_link_tokens (token, expires_at) VALUES (?, ?)"
-    )
+    .prepare("INSERT INTO magic_link_tokens (token, expires_at) VALUES (?, ?)")
     .bind(token, expiresAt)
     .run();
 }

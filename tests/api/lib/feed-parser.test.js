@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { parseFeed, fetchAndParseFeed } from "../../../src/api/lib/feed-parser.js";
+import {
+  parseFeed,
+  fetchAndParseFeed
+} from "../../../src/api/lib/feed-parser.js";
 
 // Sample Atom feed
 const ATOM_FEED = `<?xml version="1.0" encoding="utf-8"?>

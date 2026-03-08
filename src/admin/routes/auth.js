@@ -122,17 +122,13 @@ export async function handleAdminVerify(request, env) {
   const redirect = url.searchParams.get("redirect") || "/admin";
 
   if (!token) {
-    return renderAuthError(
-      "This link has expired. Please request a new one."
-    );
+    return renderAuthError("This link has expired. Please request a new one.");
   }
 
   const magicLink = await getMagicLinkToken(env.DB, token);
 
   if (!magicLink) {
-    return renderAuthError(
-      "This link has expired. Please request a new one."
-    );
+    return renderAuthError("This link has expired. Please request a new one.");
   }
 
   // Check if already used
@@ -143,9 +139,7 @@ export async function handleAdminVerify(request, env) {
   // Check expiry
   const expiresAt = new Date(`${magicLink.expires_at}Z`);
   if (expiresAt <= new Date()) {
-    return renderAuthError(
-      "This link has expired. Please request a new one."
-    );
+    return renderAuthError("This link has expired. Please request a new one.");
   }
 
   // Mark token as used (race-safe: only succeeds if used = 0)
@@ -163,8 +157,7 @@ export async function handleAdminVerify(request, env) {
   await createSessionDb(env.DB, sessionToken, sessionExpiresAt);
 
   // Validate redirect starts with /admin
-  const safeRedirect =
-    redirect.startsWith("/admin") ? redirect : "/admin";
+  const safeRedirect = redirect.startsWith("/admin") ? redirect : "/admin";
 
   return new Response(null, {
     status: 302,
