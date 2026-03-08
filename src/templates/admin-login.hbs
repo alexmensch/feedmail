@@ -9,8 +9,8 @@
   <h1>feedmail admin</h1>
   <p>Enter your email address to receive a sign-in link.</p>
 
-  {{#if errorMessage}}
-  <p role="alert"><strong>{{errorMessage}}</strong></p>
+  {{#if error}}
+  <p role="alert"><strong>{{error}}</strong></p>
   {{/if}}
 
   <form method="POST" action="/admin/login">

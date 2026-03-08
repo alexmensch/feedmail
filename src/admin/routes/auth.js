@@ -42,9 +42,9 @@ export async function handleLogin(request, env) {
 
   const url = new URL(request.url);
   const redirect = url.searchParams.get("redirect") || "";
-  const errorMessage = url.searchParams.get("error") || "";
+  const error = url.searchParams.get("error") || "";
 
-  const html = render("adminLogin", { redirect, errorMessage });
+  const html = render("adminLogin", { redirect, error });
   return new Response(html, {
     status: 200,
     headers: { "Content-Type": "text/html; charset=utf-8" }
@@ -70,7 +70,7 @@ export async function handleLoginSubmit(request, env) {
   if (!email || typeof email !== "string" || !email.trim()) {
     const html = render("adminLogin", {
       redirect,
-      errorMessage: "Please enter your email address"
+      error: "Please enter your email address"
     });
     return new Response(html, {
       status: 200,
@@ -216,7 +216,10 @@ export async function handleLogout(request, env) {
  * @returns {Response}
  */
 function renderAuthError(message) {
-  const html = render("adminAuthError", { errorMessage: message });
+  const html = render("adminAuthError", {
+    error: message,
+    loginUrl: "/admin/login"
+  });
   return new Response(html, {
     status: 200,
     headers: { "Content-Type": "text/html; charset=utf-8" }

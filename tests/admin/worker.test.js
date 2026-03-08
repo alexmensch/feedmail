@@ -27,6 +27,10 @@ vi.mock("../../src/shared/lib/rate-limit.js", () => ({
 vi.mock("../../src/shared/lib/templates.js", () => ({
   render: vi.fn().mockReturnValue("<html>mock</html>")
 }));
+// Mock shared db
+vi.mock("../../src/shared/lib/db.js", () => ({
+  getCredential: vi.fn()
+}));
 
 import adminApp from "../../src/admin/worker.js";
 import {
@@ -79,8 +83,11 @@ describe("admin worker — fetch handler", () => {
       })
     );
 
-    // Session middleware: null means allow through
-    requireSession.mockResolvedValue(null);
+    // Session middleware: response null means allow through
+    requireSession.mockResolvedValue({
+      session: { id: 1, token: "test-session" },
+      response: null
+    });
 
     // Rate limiting defaults: allow all requests
     getRateLimitConfig.mockResolvedValue(RATE_LIMITS);
@@ -114,11 +121,7 @@ describe("admin worker — fetch handler", () => {
 
       await adminApp.fetch(request, env);
 
-      expect(handleAdminVerify).toHaveBeenCalledWith(
-        request,
-        env,
-        expect.any(URL)
-      );
+      expect(handleAdminVerify).toHaveBeenCalledWith(request, env);
     });
 
     it("routes GET /admin/logout to handleLogout", async () => {
@@ -217,12 +220,13 @@ describe("admin worker — fetch handler", () => {
 
   describe("session middleware for protected routes", () => {
     it("applies session middleware to GET /admin (root)", async () => {
-      requireSession.mockResolvedValue(
-        new Response(null, {
+      requireSession.mockResolvedValue({
+        session: null,
+        response: new Response(null, {
           status: 302,
           headers: { Location: "/admin/login?redirect=%2Fadmin" }
         })
-      );
+      });
 
       const request = makeRequest("GET", "/admin");
 
@@ -257,7 +261,10 @@ describe("admin worker — fetch handler", () => {
     });
 
     it("applies session middleware to arbitrary protected admin paths", async () => {
-      requireSession.mockResolvedValue(null);
+      requireSession.mockResolvedValue({
+        session: { id: 1, token: "test-session" },
+        response: null
+      });
 
       const request = makeRequest("GET", "/admin/channels/123/feeds");
 
@@ -267,15 +274,16 @@ describe("admin worker — fetch handler", () => {
     });
 
     it("redirects to login when session is invalid on protected route", async () => {
-      requireSession.mockResolvedValue(
-        new Response(null, {
+      requireSession.mockResolvedValue({
+        session: null,
+        response: new Response(null, {
           status: 302,
           headers: {
             Location:
               "/admin/login?redirect=%2Fadmin%2Fchannels%2F123%2Ffeeds"
           }
         })
-      );
+      });
 
       const request = makeRequest("GET", "/admin/channels/123/feeds");
 
@@ -287,7 +295,10 @@ describe("admin worker — fetch handler", () => {
     });
 
     it("allows through when session middleware returns null (valid session)", async () => {
-      requireSession.mockResolvedValue(null);
+      requireSession.mockResolvedValue({
+        session: { id: 1, token: "test-session" },
+        response: null
+      });
 
       const request = makeRequest("GET", "/admin");
 

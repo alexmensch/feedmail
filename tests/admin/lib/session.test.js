@@ -108,7 +108,8 @@ describe("requireSession", () => {
 
     const result = await requireSession(request, { DB: {} });
 
-    expect(result).toBeNull();
+    expect(result.response).toBeNull();
+    expect(result.session).toBeTruthy();
     expect(getSession).toHaveBeenCalledWith({}, "valid-session-token");
   });
 
@@ -117,9 +118,9 @@ describe("requireSession", () => {
 
     const result = await requireSession(request, { DB: {} });
 
-    expect(result).toBeInstanceOf(Response);
-    expect(result.status).toBe(302);
-    expect(result.headers.get("Location")).toContain("/admin/login");
+    expect(result.response).toBeInstanceOf(Response);
+    expect(result.response.status).toBe(302);
+    expect(result.response.headers.get("Location")).toContain("/admin/login");
   });
 
   it("returns redirect to /admin/login when session token not found in D1", async () => {
@@ -133,9 +134,9 @@ describe("requireSession", () => {
 
     const result = await requireSession(request, { DB: {} });
 
-    expect(result).toBeInstanceOf(Response);
-    expect(result.status).toBe(302);
-    expect(result.headers.get("Location")).toContain("/admin/login");
+    expect(result.response).toBeInstanceOf(Response);
+    expect(result.response.status).toBe(302);
+    expect(result.response.headers.get("Location")).toContain("/admin/login");
   });
 
   it("returns redirect to /admin/login when session is expired", async () => {
@@ -156,9 +157,9 @@ describe("requireSession", () => {
 
     const result = await requireSession(request, { DB: {} });
 
-    expect(result).toBeInstanceOf(Response);
-    expect(result.status).toBe(302);
-    expect(result.headers.get("Location")).toContain("/admin/login");
+    expect(result.response).toBeInstanceOf(Response);
+    expect(result.response.status).toBe(302);
+    expect(result.response.headers.get("Location")).toContain("/admin/login");
   });
 
   it("preserves the originally requested path in redirect query param", async () => {
@@ -168,8 +169,8 @@ describe("requireSession", () => {
 
     const result = await requireSession(request, { DB: {} });
 
-    expect(result.status).toBe(302);
-    const location = result.headers.get("Location");
+    expect(result.response.status).toBe(302);
+    const location = result.response.headers.get("Location");
     expect(location).toContain("redirect=");
     expect(location).toContain(
       encodeURIComponent("/admin/channels/123/feeds")
@@ -183,8 +184,8 @@ describe("requireSession", () => {
 
     const result = await requireSession(request, { DB: {} });
 
-    expect(result.status).toBe(302);
-    const location = result.headers.get("Location");
+    expect(result.response.status).toBe(302);
+    const location = result.response.headers.get("Location");
     const redirectParam = new URL(
       location,
       "https://example.com"

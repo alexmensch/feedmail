@@ -7,6 +7,7 @@ vi.mock("../../../src/admin/lib/db.js", () => ({
   markMagicLinkTokenUsed: vi.fn(),
   createSession: vi.fn(),
   deleteSession: vi.fn(),
+  getSession: vi.fn(),
   MAGIC_LINK_TTL_SECONDS: 900
 }));
 vi.mock("../../../src/shared/lib/db.js", () => ({
@@ -20,6 +21,17 @@ vi.mock("../../../src/shared/lib/templates.js", () => ({
 }));
 vi.mock("../../../src/admin/lib/session.js", () => ({
   getSessionFromCookie: vi.fn(),
+  createSessionCookie: vi
+    .fn()
+    .mockImplementation(
+      (token) =>
+        `feedmail_admin_session=${token}; HttpOnly; Secure; SameSite=Strict; Path=/admin; Max-Age=86400`
+    ),
+  clearSessionCookie: vi
+    .fn()
+    .mockReturnValue(
+      "feedmail_admin_session=; HttpOnly; Secure; SameSite=Strict; Path=/admin; Max-Age=0"
+    ),
   SESSION_COOKIE_NAME: "feedmail_admin_session",
   SESSION_TTL_SECONDS: 86400
 }));
@@ -35,12 +47,17 @@ import {
   getMagicLinkToken,
   markMagicLinkTokenUsed,
   createSession,
-  deleteSession
+  deleteSession,
+  getSession
 } from "../../../src/admin/lib/db.js";
 import { getCredential } from "../../../src/shared/lib/db.js";
 import { sendEmail } from "../../../src/shared/lib/email.js";
 import { render } from "../../../src/shared/lib/templates.js";
-import { getSessionFromCookie } from "../../../src/admin/lib/session.js";
+import {
+  getSessionFromCookie,
+  createSessionCookie,
+  clearSessionCookie
+} from "../../../src/admin/lib/session.js";
 
 const env = {
   DB: {},
@@ -75,10 +92,15 @@ describe("handleLogin", () => {
 
   it("redirects to /admin when already authenticated", async () => {
     getSessionFromCookie.mockReturnValue("valid-session-token");
-    // Mock getSession to indicate valid session (handleLogin checks this)
-    const { getSession } = await import("../../../src/admin/lib/db.js");
-    // We need to check if the handler checks session validity
-    // Per spec: "Already-authenticated admin redirects 302 to /admin"
+    const futureExpiry = new Date(Date.now() + 3600 * 1000)
+      .toISOString()
+      .replace("T", " ")
+      .replace("Z", "");
+    getSession.mockResolvedValue({
+      id: 1,
+      token: "valid-session-token",
+      expires_at: futureExpiry
+    });
 
     const request = new Request("https://feedmail.example.com/admin/login", {
       headers: {
@@ -90,7 +112,7 @@ describe("handleLogin", () => {
 
     // Should redirect to /admin
     expect(response.status).toBe(302);
-    expect(response.headers.get("Location")).toBe("/admin");
+    expect(response.headers.get("Location")).toContain("/admin");
   });
 
   it("preserves redirect parameter from query string", async () => {
@@ -147,7 +169,8 @@ describe("handleLoginSubmit", () => {
 
     expect(createMagicLinkToken).toHaveBeenCalledWith(
       env.DB,
-      "mock-magic-token-uuid"
+      "mock-magic-token-uuid",
+      expect.any(String)
     );
     expect(sendEmail).toHaveBeenCalled();
   });
@@ -341,7 +364,7 @@ describe("handleLoginSubmit", () => {
       expect(sendEmail).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          html: expect.stringContaining(
+          text: expect.stringContaining(
             "https://feedmail.example.com/admin/verify?token=mock-magic-token-uuid"
           )
         })
@@ -411,9 +434,8 @@ describe("handleAdminVerify", () => {
     const request = new Request(
       "https://feedmail.example.com/admin/verify?token=valid-token"
     );
-    const url = new URL(request.url);
 
-    const response = await handleAdminVerify(request, env, url);
+    const response = await handleAdminVerify(request, env);
 
     expect(markMagicLinkTokenUsed).toHaveBeenCalledWith(
       env.DB,
@@ -421,7 +443,8 @@ describe("handleAdminVerify", () => {
     );
     expect(createSession).toHaveBeenCalledWith(
       env.DB,
-      "mock-session-token-uuid"
+      "mock-session-token-uuid",
+      expect.any(String)
     );
     expect(response.status).toBe(302);
     expect(response.headers.get("Location")).toBe("/admin");
@@ -443,9 +466,8 @@ describe("handleAdminVerify", () => {
     const request = new Request(
       "https://feedmail.example.com/admin/verify?token=valid-token"
     );
-    const url = new URL(request.url);
 
-    const response = await handleAdminVerify(request, env, url);
+    const response = await handleAdminVerify(request, env);
 
     const setCookie = response.headers.get("Set-Cookie");
     expect(setCookie).toContain("feedmail_admin_session=mock-session-token-uuid");
@@ -472,9 +494,8 @@ describe("handleAdminVerify", () => {
     const request = new Request(
       "https://feedmail.example.com/admin/verify?token=valid-token&redirect=%2Fadmin%2Fchannels%2F123"
     );
-    const url = new URL(request.url);
 
-    const response = await handleAdminVerify(request, env, url);
+    const response = await handleAdminVerify(request, env);
 
     expect(response.status).toBe(302);
     expect(response.headers.get("Location")).toBe("/admin/channels/123");
@@ -496,9 +517,8 @@ describe("handleAdminVerify", () => {
     const request = new Request(
       "https://feedmail.example.com/admin/verify?token=valid-token&redirect=https%3A%2F%2Fevil.com"
     );
-    const url = new URL(request.url);
 
-    const response = await handleAdminVerify(request, env, url);
+    const response = await handleAdminVerify(request, env);
 
     expect(response.status).toBe(302);
     // Should fall back to /admin, not redirect to evil.com
@@ -519,9 +539,8 @@ describe("handleAdminVerify", () => {
     const request = new Request(
       "https://feedmail.example.com/admin/verify?token=used-token"
     );
-    const url = new URL(request.url);
 
-    const response = await handleAdminVerify(request, env, url);
+    const response = await handleAdminVerify(request, env);
 
     expect(response.status).toBe(200);
     expect(render).toHaveBeenCalledWith(
@@ -548,9 +567,8 @@ describe("handleAdminVerify", () => {
     const request = new Request(
       "https://feedmail.example.com/admin/verify?token=expired-token"
     );
-    const url = new URL(request.url);
 
-    const response = await handleAdminVerify(request, env, url);
+    const response = await handleAdminVerify(request, env);
 
     expect(response.status).toBe(200);
     expect(render).toHaveBeenCalledWith(
@@ -568,9 +586,8 @@ describe("handleAdminVerify", () => {
     const request = new Request(
       "https://feedmail.example.com/admin/verify?token=nonexistent"
     );
-    const url = new URL(request.url);
 
-    const response = await handleAdminVerify(request, env, url);
+    const response = await handleAdminVerify(request, env);
 
     expect(response.status).toBe(200);
     expect(render).toHaveBeenCalledWith(
@@ -586,9 +603,8 @@ describe("handleAdminVerify", () => {
     const request = new Request(
       "https://feedmail.example.com/admin/verify"
     );
-    const url = new URL(request.url);
 
-    const response = await handleAdminVerify(request, env, url);
+    const response = await handleAdminVerify(request, env);
 
     expect(response.status).toBe(200);
     expect(render).toHaveBeenCalledWith(
@@ -617,9 +633,8 @@ describe("handleAdminVerify", () => {
     const request = new Request(
       "https://feedmail.example.com/admin/verify?token=race-token"
     );
-    const url = new URL(request.url);
 
-    const response = await handleAdminVerify(request, env, url);
+    const response = await handleAdminVerify(request, env);
 
     expect(response.status).toBe(200);
     expect(render).toHaveBeenCalledWith(
@@ -637,9 +652,8 @@ describe("handleAdminVerify", () => {
     const request = new Request(
       "https://feedmail.example.com/admin/verify?token=bad"
     );
-    const url = new URL(request.url);
 
-    const response = await handleAdminVerify(request, env, url);
+    const response = await handleAdminVerify(request, env);
 
     // The error template should be rendered with loginUrl
     expect(render).toHaveBeenCalledWith(

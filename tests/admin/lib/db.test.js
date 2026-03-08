@@ -36,27 +36,27 @@ describe("admin db helpers", () => {
     it("inserts a token into magic_link_tokens table", async () => {
       const db = mockDb({});
 
-      await createMagicLinkToken(db, "test-token-uuid");
+      await createMagicLinkToken(db, "test-token-uuid", "2025-01-01T12:15:00.000Z");
 
       expect(db.prepare).toHaveBeenCalledWith(
         expect.stringContaining("INSERT INTO magic_link_tokens")
       );
       expect(db._chain.bind).toHaveBeenCalledWith(
         "test-token-uuid",
-        expect.any(String)
+        "2025-01-01T12:15:00.000Z"
       );
       expect(db._chain.run).toHaveBeenCalled();
     });
 
-    it("sets expires_at to 15 minutes from now", async () => {
+    it("binds the provided expiresAt value", async () => {
       const db = mockDb({});
+      const expiresAt = "2025-06-15T12:15:00.000Z";
 
-      await createMagicLinkToken(db, "test-token-uuid");
+      await createMagicLinkToken(db, "test-token-uuid", expiresAt);
 
-      // The bind call should include the token and an expires_at value
-      // that is 900 seconds (15 minutes) in the future
       const bindArgs = db._chain.bind.mock.calls[0];
       expect(bindArgs[0]).toBe("test-token-uuid");
+      expect(bindArgs[1]).toBe(expiresAt);
     });
   });
 
@@ -126,26 +126,27 @@ describe("admin db helpers", () => {
     it("inserts a session into admin_sessions table", async () => {
       const db = mockDb({});
 
-      await createSession(db, "session-token-uuid");
+      await createSession(db, "session-token-uuid", "2025-01-02T12:00:00.000Z");
 
       expect(db.prepare).toHaveBeenCalledWith(
         expect.stringContaining("INSERT INTO admin_sessions")
       );
       expect(db._chain.bind).toHaveBeenCalledWith(
         "session-token-uuid",
-        expect.any(String)
+        "2025-01-02T12:00:00.000Z"
       );
       expect(db._chain.run).toHaveBeenCalled();
     });
 
-    it("sets expires_at to 24 hours from now", async () => {
+    it("binds the provided expiresAt value", async () => {
       const db = mockDb({});
+      const expiresAt = "2025-01-02T12:00:00.000Z";
 
-      await createSession(db, "session-token");
+      await createSession(db, "session-token", expiresAt);
 
-      // The bind call should include the session token and an expires_at value
       const bindArgs = db._chain.bind.mock.calls[0];
       expect(bindArgs[0]).toBe("session-token");
+      expect(bindArgs[1]).toBe(expiresAt);
     });
   });
 

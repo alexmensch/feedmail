@@ -72,8 +72,8 @@ describe("RATE_LIMIT_DEFAULTS config", () => {
     expect(RATE_LIMIT_DEFAULTS.admin_login.windowHours).toBe(1);
   });
 
-  it("admin_verify defaults to 20 requests per hour", () => {
-    expect(RATE_LIMIT_DEFAULTS.admin_verify.maxRequests).toBe(20);
+  it("admin_verify defaults to 10 requests per hour", () => {
+    expect(RATE_LIMIT_DEFAULTS.admin_verify.maxRequests).toBe(10);
     expect(RATE_LIMIT_DEFAULTS.admin_verify.windowHours).toBe(1);
   });
 

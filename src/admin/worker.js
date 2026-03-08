@@ -71,24 +71,24 @@ export default {
       // Route matching
       if (url.pathname === "/admin/login") {
         if (request.method === "GET") {
-          return handleLogin(request, env);
+          return await handleLogin(request, env);
         }
         if (request.method === "POST") {
-          return handleLoginSubmit(request, env);
+          return await handleLoginSubmit(request, env);
         }
         return new Response(null, { status: 405 });
       }
 
       if (url.pathname === "/admin/verify") {
         if (request.method === "GET") {
-          return handleAdminVerify(request, env);
+          return await handleAdminVerify(request, env);
         }
         return new Response(null, { status: 405 });
       }
 
       if (url.pathname === "/admin/logout") {
         if (request.method === "GET") {
-          return handleLogout(request, env);
+          return await handleLogout(request, env);
         }
         return new Response(null, { status: 405 });
       }
