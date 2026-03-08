@@ -193,12 +193,13 @@ To test the full email flow locally:
 
 Requests pass through these checks in order:
 
-1. **CORS preflight** — OPTIONS requests handled immediately
-2. **Method enforcement** — Wrong method on known route → 10s delay + 408; unknown path → immediate 404
-3. **IP rate limiting** — Per-endpoint rolling window via D1; 429 with `Retry-After` header if exceeded
-4. **Authentication** — Bearer token check for `/api/send` and `/api/admin/*`
-5. **Input validation** — Strict field checking on subscribe (rejects unexpected fields)
-6. **Verification rate limiting** — Per-subscriber email send limits
+1. **Trailing-slash normalization** — Strips trailing slashes before any processing (Admin Worker: 301 redirect for GET, silent strip for non-GET; API Worker: silent strip for all methods)
+2. **CORS preflight** — OPTIONS requests handled immediately
+3. **Method enforcement** — Wrong method on known route → 10s delay + 408; unknown path → immediate 404
+4. **IP rate limiting** — Per-endpoint rolling window via D1; 429 with `Retry-After` header if exceeded
+5. **Authentication** — Bearer token check for `/api/send` and `/api/admin/*`
+6. **Input validation** — Strict field checking on subscribe (rejects unexpected fields)
+7. **Verification rate limiting** — Per-subscriber email send limits
 
 ### Configuration
 
@@ -238,5 +239,14 @@ Configured in `wrangler.toml` as `0 */6 * * *` (every 6 hours). Calls `checkFeed
 Three Workers share the zone via pattern-based routing:
 
 - **API Worker** (`feedmail`) — `{DOMAIN}/api/*` — handles API traffic and cron triggers
-- **Admin Worker** (`feedmail-admin`) — `{DOMAIN}/admin/*` — handles admin console
+- **Admin Worker** (`feedmail-admin`) — `{DOMAIN}/admin*` — handles admin console (pattern uses `admin*` not `admin/*` so bare `/admin` is caught)
 - **Website Worker** (separate repo) — handles all other traffic on the domain
+
+### Trailing Slash Normalization
+
+Both workers normalize trailing slashes early in the request pipeline, before rate limiting, authentication, or route matching:
+
+- **Admin Worker:** GET requests with trailing slashes receive a 301 redirect to the canonical URL (query strings preserved). Non-GET requests have trailing slashes silently stripped.
+- **API Worker:** All methods have trailing slashes silently stripped (no redirects — API clients don't benefit from URL bar updates).
+
+Multiple trailing slashes (e.g. `/api/subscribe//`) are handled. Bare `/` is never affected.

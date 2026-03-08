@@ -390,6 +390,158 @@ describe("admin worker — fetch handler", () => {
     });
   });
 
+  describe("trailing-slash normalization", () => {
+    describe("GET requests with trailing slash redirect to canonical URL", () => {
+      it("redirects GET /admin/login/ to /admin/login with 301", async () => {
+        const response = await adminApp.fetch(
+          makeRequest("GET", "/admin/login/"),
+          env
+        );
+
+        expect(response.status).toBe(301);
+        expect(response.headers.get("Location")).toBe("/admin/login");
+        expect(response.body).toBeNull();
+      });
+
+      it("redirects GET /admin/ to /admin with 301", async () => {
+        const response = await adminApp.fetch(
+          makeRequest("GET", "/admin/"),
+          env
+        );
+
+        expect(response.status).toBe(301);
+        expect(response.headers.get("Location")).toBe("/admin");
+      });
+
+      it("redirects GET /admin/verify/ to /admin/verify with 301", async () => {
+        const response = await adminApp.fetch(
+          makeRequest("GET", "/admin/verify/"),
+          env
+        );
+
+        expect(response.status).toBe(301);
+        expect(response.headers.get("Location")).toBe("/admin/verify");
+      });
+
+      it("redirects GET /admin/logout/ to /admin/logout with 301", async () => {
+        const response = await adminApp.fetch(
+          makeRequest("GET", "/admin/logout/"),
+          env
+        );
+
+        expect(response.status).toBe(301);
+        expect(response.headers.get("Location")).toBe("/admin/logout");
+      });
+
+      it("strips multiple trailing slashes on GET redirect", async () => {
+        const response = await adminApp.fetch(
+          makeRequest("GET", "/admin/login///"),
+          env
+        );
+
+        expect(response.status).toBe(301);
+        expect(response.headers.get("Location")).toBe("/admin/login");
+      });
+
+      it("preserves query string on GET redirect", async () => {
+        const response = await adminApp.fetch(
+          makeRequest("GET", "/admin/verify/?token=abc123"),
+          env
+        );
+
+        expect(response.status).toBe(301);
+        expect(response.headers.get("Location")).toBe(
+          "/admin/verify?token=abc123"
+        );
+      });
+
+      it("preserves complex query strings on GET redirect", async () => {
+        const response = await adminApp.fetch(
+          makeRequest("GET", "/admin/login/?redirect=%2Fadmin&foo=bar"),
+          env
+        );
+
+        expect(response.status).toBe(301);
+        expect(response.headers.get("Location")).toBe(
+          "/admin/login?redirect=%2Fadmin&foo=bar"
+        );
+      });
+
+      it("does not redirect GET / (bare root path)", async () => {
+        const response = await adminApp.fetch(makeRequest("GET", "/"), env);
+
+        expect(response.status).not.toBe(301);
+      });
+
+      it("redirect happens before rate limiting", async () => {
+        await adminApp.fetch(makeRequest("GET", "/admin/login/"), env);
+
+        expect(checkRateLimit).not.toHaveBeenCalled();
+      });
+
+      it("redirect happens before session middleware", async () => {
+        await adminApp.fetch(makeRequest("GET", "/admin/"), env);
+
+        expect(requireSession).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("non-GET requests silently strip trailing slashes", () => {
+      it("handles POST /admin/login/ identically to POST /admin/login", async () => {
+        const request = makeRequest("POST", "/admin/login/");
+
+        const response = await adminApp.fetch(request, env);
+
+        expect(response.status).not.toBe(301);
+        expect(handleLoginSubmit).toHaveBeenCalledWith(request, env);
+      });
+
+      it("handles POST with multiple trailing slashes", async () => {
+        const request = makeRequest("POST", "/admin/login///");
+
+        const response = await adminApp.fetch(request, env);
+
+        expect(response.status).not.toBe(301);
+        expect(handleLoginSubmit).toHaveBeenCalledWith(request, env);
+      });
+
+      it("does not strip bare / on non-GET requests", async () => {
+        const response = await adminApp.fetch(makeRequest("POST", "/"), env);
+
+        expect(response.status).not.toBe(301);
+      });
+    });
+
+    describe("paths caught by broadened route pattern return 404", () => {
+      it("returns 404 for GET /adminfoo", async () => {
+        const response = await adminApp.fetch(
+          makeRequest("GET", "/adminfoo"),
+          env
+        );
+
+        expect(response.status).toBe(404);
+      });
+
+      it("returns 404 for GET /administrator", async () => {
+        const response = await adminApp.fetch(
+          makeRequest("GET", "/administrator"),
+          env
+        );
+
+        expect(response.status).toBe(404);
+      });
+
+      it("returns 404 for GET /admin-panel", async () => {
+        const response = await adminApp.fetch(
+          makeRequest("GET", "/admin-panel"),
+          env
+        );
+
+        expect(response.status).toBe(404);
+      });
+    });
+  });
+
   describe("error handling", () => {
     it("catches unhandled errors and returns 500", async () => {
       handleLogin.mockRejectedValue(new Error("Unexpected error"));
