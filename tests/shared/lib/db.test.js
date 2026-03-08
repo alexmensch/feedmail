@@ -39,22 +39,7 @@ import {
   getCredential,
   upsertCredential
 } from "../../../src/shared/lib/db.js";
-
-/**
- * Create a mock D1 database binding.
- */
-function mockDb(returnValue) {
-  const chainable = {
-    bind: vi.fn().mockReturnThis(),
-    first: vi.fn().mockResolvedValue(returnValue),
-    all: vi.fn().mockResolvedValue(returnValue),
-    run: vi.fn().mockResolvedValue(returnValue)
-  };
-  return {
-    prepare: vi.fn().mockReturnValue(chainable),
-    _chain: chainable
-  };
-}
+import { mockDb } from "../../helpers/mock-db.js";
 
 describe("db", () => {
   describe("Subscribers", () => {

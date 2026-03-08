@@ -8,22 +8,7 @@ import {
   deleteSession,
   MAGIC_LINK_TTL_SECONDS
 } from "../../../src/admin/lib/db.js";
-
-/**
- * Create a mock D1 database binding.
- */
-function mockDb(returnValue) {
-  const chainable = {
-    bind: vi.fn().mockReturnThis(),
-    first: vi.fn().mockResolvedValue(returnValue),
-    all: vi.fn().mockResolvedValue(returnValue),
-    run: vi.fn().mockResolvedValue(returnValue)
-  };
-  return {
-    prepare: vi.fn().mockReturnValue(chainable),
-    _chain: chainable
-  };
-}
+import { mockDb } from "../../helpers/mock-db.js";
 
 describe("admin db helpers", () => {
   describe("MAGIC_LINK_TTL_SECONDS", () => {
