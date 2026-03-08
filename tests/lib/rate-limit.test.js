@@ -54,12 +54,27 @@ function mockDbWithCleanupBehavior(cleanupRun) {
 }
 
 describe("RATE_LIMIT_DEFAULTS config", () => {
-  it("has entries for all five endpoints", () => {
+  it("has entries for all five API endpoints", () => {
     expect(RATE_LIMIT_DEFAULTS).toHaveProperty("subscribe");
     expect(RATE_LIMIT_DEFAULTS).toHaveProperty("verify");
     expect(RATE_LIMIT_DEFAULTS).toHaveProperty("unsubscribe");
     expect(RATE_LIMIT_DEFAULTS).toHaveProperty("send");
     expect(RATE_LIMIT_DEFAULTS).toHaveProperty("admin");
+  });
+
+  it("has entries for admin auth endpoints", () => {
+    expect(RATE_LIMIT_DEFAULTS).toHaveProperty("admin_login");
+    expect(RATE_LIMIT_DEFAULTS).toHaveProperty("admin_verify");
+  });
+
+  it("admin_login defaults to 10 requests per hour", () => {
+    expect(RATE_LIMIT_DEFAULTS.admin_login.maxRequests).toBe(10);
+    expect(RATE_LIMIT_DEFAULTS.admin_login.windowHours).toBe(1);
+  });
+
+  it("admin_verify defaults to 20 requests per hour", () => {
+    expect(RATE_LIMIT_DEFAULTS.admin_verify.maxRequests).toBe(20);
+    expect(RATE_LIMIT_DEFAULTS.admin_verify.windowHours).toBe(1);
   });
 
   it("all entries have positive maxRequests and windowHours", () => {
@@ -447,5 +462,21 @@ describe("getEndpointName", () => {
 
   it("returns null for /api/admin (no trailing slash)", () => {
     expect(getEndpointName("/api/admin")).toBeNull();
+  });
+
+  it("returns 'admin_login' for /admin/login", () => {
+    expect(getEndpointName("/admin/login")).toBe("admin_login");
+  });
+
+  it("returns 'admin_verify' for /admin/verify", () => {
+    expect(getEndpointName("/admin/verify")).toBe("admin_verify");
+  });
+
+  it("returns null for /admin/logout (not rate limited)", () => {
+    expect(getEndpointName("/admin/logout")).toBeNull();
+  });
+
+  it("returns null for /admin (no rate limiting on protected routes)", () => {
+    expect(getEndpointName("/admin")).toBeNull();
   });
 });

@@ -35,7 +35,9 @@ import {
   getFeedById,
   insertFeed,
   updateFeed,
-  deleteFeed
+  deleteFeed,
+  getCredential,
+  upsertCredential
 } from "../../src/lib/db.js";
 
 /**
@@ -1191,6 +1193,106 @@ describe("db", () => {
             s.bind.mock.calls.some((args) => args.includes(42))
         );
         expect(boundWithFeedId).toBe(true);
+      });
+    });
+  });
+
+  describe("Credentials", () => {
+    describe("getCredential", () => {
+      it("queries credentials table by key", async () => {
+        const db = mockDb({ key: "admin_email", value: "admin@example.com" });
+
+        const result = await getCredential(db, "admin_email");
+
+        expect(db.prepare).toHaveBeenCalledWith(
+          expect.stringContaining("credentials")
+        );
+        expect(db.prepare).toHaveBeenCalledWith(
+          expect.stringContaining("key = ?")
+        );
+        expect(db._chain.bind).toHaveBeenCalledWith("admin_email");
+        expect(db._chain.first).toHaveBeenCalled();
+      });
+
+      it("returns the value when credential exists", async () => {
+        const db = mockDb({ key: "admin_email", value: "admin@example.com" });
+
+        const result = await getCredential(db, "admin_email");
+
+        // Should return just the value, not the entire row
+        expect(result).toBe("admin@example.com");
+      });
+
+      it("returns null when credential does not exist", async () => {
+        const db = mockDb(null);
+
+        const result = await getCredential(db, "nonexistent_key");
+
+        expect(result).toBeNull();
+      });
+
+      it("can retrieve resend_api_key credential", async () => {
+        const db = mockDb({
+          key: "resend_api_key",
+          value: "re_test_12345"
+        });
+
+        const result = await getCredential(db, "resend_api_key");
+
+        expect(result).toBe("re_test_12345");
+        expect(db._chain.bind).toHaveBeenCalledWith("resend_api_key");
+      });
+
+      it("can retrieve admin_api_key credential", async () => {
+        const db = mockDb({
+          key: "admin_api_key",
+          value: "admin-secret-key-value"
+        });
+
+        const result = await getCredential(db, "admin_api_key");
+
+        expect(result).toBe("admin-secret-key-value");
+        expect(db._chain.bind).toHaveBeenCalledWith("admin_api_key");
+      });
+    });
+
+    describe("upsertCredential", () => {
+      it("inserts or updates a credential by key", async () => {
+        const db = mockDb({});
+
+        await upsertCredential(db, "admin_email", "admin@example.com");
+
+        expect(db.prepare).toHaveBeenCalledWith(
+          expect.stringContaining("credentials")
+        );
+        expect(db._chain.bind).toHaveBeenCalledWith(
+          "admin_email",
+          "admin@example.com"
+        );
+        expect(db._chain.run).toHaveBeenCalled();
+      });
+
+      it("uses INSERT OR REPLACE / ON CONFLICT for upsert behavior", async () => {
+        const db = mockDb({});
+
+        await upsertCredential(db, "admin_email", "new@example.com");
+
+        const sql = db.prepare.mock.calls[0][0];
+        // Should use some form of upsert (INSERT ... ON CONFLICT or INSERT OR REPLACE)
+        expect(
+          sql.includes("ON CONFLICT") || sql.includes("OR REPLACE")
+        ).toBe(true);
+      });
+
+      it("can upsert different credential keys", async () => {
+        const db = mockDb({});
+
+        await upsertCredential(db, "resend_api_key", "re_new_key");
+
+        expect(db._chain.bind).toHaveBeenCalledWith(
+          "resend_api_key",
+          "re_new_key"
+        );
       });
     });
   });
