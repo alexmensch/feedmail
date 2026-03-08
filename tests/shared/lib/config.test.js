@@ -313,6 +313,46 @@ describe("config (async DB-backed)", () => {
       expect(config.subscribe).toHaveProperty("windowSeconds");
       expect(config.subscribe.windowSeconds).toBe(7200); // 2 hours * 3600
     });
+
+    it("includes admin_login endpoint with defaults", async () => {
+      getRateLimitConfigs.mockResolvedValue({});
+
+      const config = await getRateLimitConfig(makeEnv());
+
+      expect(config).toHaveProperty("admin_login");
+      expect(config.admin_login.maxRequests).toBeGreaterThan(0);
+      expect(config.admin_login.windowHours).toBeGreaterThan(0);
+      expect(config.admin_login.windowSeconds).toBe(
+        config.admin_login.windowHours * 3600
+      );
+    });
+
+    it("includes admin_verify endpoint with defaults", async () => {
+      getRateLimitConfigs.mockResolvedValue({});
+
+      const config = await getRateLimitConfig(makeEnv());
+
+      expect(config).toHaveProperty("admin_verify");
+      expect(config.admin_verify.maxRequests).toBeGreaterThan(0);
+      expect(config.admin_verify.windowHours).toBeGreaterThan(0);
+      expect(config.admin_verify.windowSeconds).toBe(
+        config.admin_verify.windowHours * 3600
+      );
+    });
+
+    it("allows DB overrides for admin_login and admin_verify", async () => {
+      getRateLimitConfigs.mockResolvedValue({
+        admin_login: { windowHours: 2, maxRequests: 5 },
+        admin_verify: { windowHours: 2, maxRequests: 10 }
+      });
+
+      const config = await getRateLimitConfig(makeEnv());
+
+      expect(config.admin_login.maxRequests).toBe(5);
+      expect(config.admin_login.windowHours).toBe(2);
+      expect(config.admin_verify.maxRequests).toBe(10);
+      expect(config.admin_verify.windowHours).toBe(2);
+    });
   });
 
   describe("DOMAIN validation", () => {
