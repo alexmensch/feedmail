@@ -579,6 +579,193 @@ describe("index.js — fetch handler", () => {
     });
   });
 
+  describe("trailing-slash normalization", () => {
+    describe("trailing slashes are silently stripped (no redirect)", () => {
+      it("handles POST /api/subscribe/ same as POST /api/subscribe", async () => {
+        const request = makeRequest("POST", "/api/subscribe/");
+
+        const response = await app.fetch(request, env);
+
+        expect(response.status).not.toBe(301);
+        expect(handleSubscribe).toHaveBeenCalledWith(request, env);
+      });
+
+      it("handles GET /api/verify/ same as GET /api/verify", async () => {
+        const request = makeRequest("GET", "/api/verify/?token=abc");
+
+        const response = await app.fetch(request, env);
+
+        expect(response.status).not.toBe(301);
+        expect(handleVerify).toHaveBeenCalledWith(
+          request,
+          env,
+          expect.any(URL)
+        );
+      });
+
+      it("preserves query string after stripping trailing slash", async () => {
+        const request = makeRequest("GET", "/api/verify/?token=abc");
+
+        await app.fetch(request, env);
+
+        const passedUrl = handleVerify.mock.calls[0][2];
+        expect(passedUrl.searchParams.get("token")).toBe("abc");
+      });
+
+      it("handles GET /api/unsubscribe/ same as GET /api/unsubscribe", async () => {
+        await app.fetch(
+          makeRequest("GET", "/api/unsubscribe/?token=xyz"),
+          env
+        );
+
+        expect(handleUnsubscribe).toHaveBeenCalledWith(
+          expect.any(Request),
+          env,
+          expect.any(URL)
+        );
+      });
+
+      it("handles POST /api/unsubscribe/ same as POST /api/unsubscribe", async () => {
+        await app.fetch(
+          makeRequest("POST", "/api/unsubscribe/?token=xyz"),
+          env
+        );
+
+        expect(handleUnsubscribe).toHaveBeenCalledWith(
+          expect.any(Request),
+          env,
+          expect.any(URL)
+        );
+      });
+
+      it("handles POST /api/send/ same as POST /api/send", async () => {
+        await app.fetch(
+          makeRequest("POST", "/api/send/", {
+            Authorization: "Bearer test-admin-key"
+          }),
+          env
+        );
+
+        expect(handleSend).toHaveBeenCalledWith(expect.any(Request), env);
+      });
+
+      it("handles GET /api/admin/stats/ same as GET /api/admin/stats", async () => {
+        await app.fetch(
+          makeRequest("GET", "/api/admin/stats/", {
+            Authorization: "Bearer test-admin-key"
+          }),
+          env
+        );
+
+        expect(handleAdmin).toHaveBeenCalledWith(
+          expect.any(Request),
+          env,
+          expect.any(URL)
+        );
+      });
+
+      it("strips multiple trailing slashes", async () => {
+        const request = makeRequest("POST", "/api/subscribe///");
+
+        await app.fetch(request, env);
+
+        expect(handleSubscribe).toHaveBeenCalledWith(request, env);
+      });
+    });
+
+    describe("method enforcement works with trailing slashes", () => {
+      beforeEach(() => {
+        vi.useFakeTimers();
+      });
+
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      it("returns 408 timeout for GET /api/subscribe/ (wrong method)", async () => {
+        const responsePromise = app.fetch(
+          makeRequest("GET", "/api/subscribe/"),
+          env
+        );
+        await vi.advanceTimersByTimeAsync(10_000);
+        const response = await responsePromise;
+
+        expect(response.status).toBe(408);
+        expect(handleSubscribe).not.toHaveBeenCalled();
+      });
+
+      it("returns 408 timeout for DELETE /api/verify/ (wrong method)", async () => {
+        const responsePromise = app.fetch(
+          makeRequest("DELETE", "/api/verify/"),
+          env
+        );
+        await vi.advanceTimersByTimeAsync(10_000);
+        const response = await responsePromise;
+
+        expect(response.status).toBe(408);
+        expect(handleVerify).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("bare / is not affected", () => {
+      it("returns 404 for GET / (not treated differently)", async () => {
+        const response = await app.fetch(makeRequest("GET", "/"), env);
+
+        expect(response.status).toBe(404);
+        expect(response.body).toBeNull();
+      });
+    });
+
+    describe("unknown paths with trailing slashes still return 404", () => {
+      it("returns 404 for GET /api/unknown/", async () => {
+        const response = await app.fetch(
+          makeRequest("GET", "/api/unknown/"),
+          env
+        );
+
+        expect(response.status).toBe(404);
+        expect(response.body).toBeNull();
+      });
+
+      it("returns 404 for GET /api/unknown///", async () => {
+        const response = await app.fetch(
+          makeRequest("GET", "/api/unknown///"),
+          env
+        );
+
+        expect(response.status).toBe(404);
+        expect(response.body).toBeNull();
+      });
+    });
+
+    describe("normalization runs before rate limiting and auth", () => {
+      it("uses the normalized pathname for rate limiting", async () => {
+        await app.fetch(
+          makeRequest("POST", "/api/subscribe/", {
+            "CF-Connecting-IP": "1.2.3.4"
+          }),
+          env
+        );
+
+        expect(getEndpointName).toHaveBeenCalledWith("/api/subscribe");
+      });
+
+      it("rate limits requests with trailing slashes correctly", async () => {
+        checkRateLimit.mockResolvedValue({ allowed: false, retryAfter: 60 });
+
+        const response = await app.fetch(
+          makeRequest("POST", "/api/subscribe/", {
+            "CF-Connecting-IP": "1.2.3.4"
+          }),
+          env
+        );
+
+        expect(response.status).toBe(429);
+        expect(handleSubscribe).not.toHaveBeenCalled();
+      });
+    });
+  });
+
   describe("error handling", () => {
     it("catches unhandled errors and returns 500", async () => {
       handleSubscribe.mockRejectedValue(new Error("Unexpected error"));
