@@ -58,17 +58,14 @@ import {
   getMagicLinkToken,
   markMagicLinkTokenUsed,
   createSession,
-  deleteSession,
-  getSession
+  deleteSession
 } from "../../../src/admin/lib/db.js";
 import { getCredential, getResendApiKey } from "../../../src/shared/lib/db.js";
 import { sendEmail } from "../../../src/shared/lib/email.js";
 import { render } from "../../../src/shared/lib/templates.js";
 import {
   requireSession,
-  getSessionFromCookie,
-  createSessionCookie,
-  clearSessionCookie
+  getSessionFromCookie
 } from "../../../src/admin/lib/session.js";
 
 const env = {
@@ -88,10 +85,7 @@ describe("handleLogin", () => {
     const response = await handleLogin(request, env);
 
     expect(response.status).toBe(200);
-    expect(render).toHaveBeenCalledWith(
-      "adminLogin",
-      expect.any(Object)
-    );
+    expect(render).toHaveBeenCalledWith("adminLogin", expect.any(Object));
   });
 
   it("returns HTML content type", async () => {
@@ -122,7 +116,7 @@ describe("handleLogin", () => {
       "https://feedmail.example.com/admin/login?redirect=%2Fadmin%2Fchannels"
     );
 
-    const response = await handleLogin(request, env);
+    await handleLogin(request, env);
 
     // Should pass redirect to the template as a hidden field
     expect(render).toHaveBeenCalledWith(
@@ -437,10 +431,7 @@ describe("handleAdminVerify", () => {
 
     const response = await handleAdminVerify(request, env);
 
-    expect(markMagicLinkTokenUsed).toHaveBeenCalledWith(
-      env.DB,
-      "valid-token"
-    );
+    expect(markMagicLinkTokenUsed).toHaveBeenCalledWith(env.DB, "valid-token");
     expect(createSession).toHaveBeenCalledWith(
       env.DB,
       "mock-session-token-uuid",
@@ -470,7 +461,9 @@ describe("handleAdminVerify", () => {
     const response = await handleAdminVerify(request, env);
 
     const setCookie = response.headers.get("Set-Cookie");
-    expect(setCookie).toContain("feedmail_admin_session=mock-session-token-uuid");
+    expect(setCookie).toContain(
+      "feedmail_admin_session=mock-session-token-uuid"
+    );
     expect(setCookie).toContain("HttpOnly");
     expect(setCookie).toContain("Secure");
     expect(setCookie).toContain("SameSite=Strict");
@@ -600,9 +593,7 @@ describe("handleAdminVerify", () => {
   });
 
   it("shows error when token query parameter is missing", async () => {
-    const request = new Request(
-      "https://feedmail.example.com/admin/verify"
-    );
+    const request = new Request("https://feedmail.example.com/admin/verify");
 
     const response = await handleAdminVerify(request, env);
 
@@ -653,7 +644,7 @@ describe("handleAdminVerify", () => {
       "https://feedmail.example.com/admin/verify?token=bad"
     );
 
-    const response = await handleAdminVerify(request, env);
+    await handleAdminVerify(request, env);
 
     // The error template should be rendered with loginUrl
     expect(render).toHaveBeenCalledWith(

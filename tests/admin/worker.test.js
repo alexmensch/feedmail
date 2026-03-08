@@ -103,8 +103,12 @@ describe("admin worker — fetch handler", () => {
     getRateLimitConfig.mockResolvedValue(RATE_LIMITS);
     checkRateLimit.mockResolvedValue({ allowed: true });
     getEndpointName.mockImplementation((pathname) => {
-      if (pathname === "/admin/login") return "admin_login";
-      if (pathname === "/admin/verify") return "admin_verify";
+      if (pathname === "/admin/login") {
+        return "admin_login";
+      }
+      if (pathname === "/admin/verify") {
+        return "admin_verify";
+      }
       return null;
     });
   });
@@ -289,8 +293,7 @@ describe("admin worker — fetch handler", () => {
         response: new Response(null, {
           status: 302,
           headers: {
-            Location:
-              "/admin/login?redirect=%2Fadmin%2Fchannels%2F123%2Ffeeds"
+            Location: "/admin/login?redirect=%2Fadmin%2Fchannels%2F123%2Ffeeds"
           }
         })
       });
@@ -312,7 +315,7 @@ describe("admin worker — fetch handler", () => {
 
       const request = makeRequest("GET", "/admin");
 
-      const response = await adminApp.fetch(request, env);
+      await adminApp.fetch(request, env);
 
       // Since requireSession returned null (allowed), the worker should
       // proceed to handle the /admin route

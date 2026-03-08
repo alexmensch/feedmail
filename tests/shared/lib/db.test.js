@@ -1187,7 +1187,7 @@ describe("db", () => {
       it("queries credentials table by key", async () => {
         const db = mockDb({ key: "admin_email", value: "admin@example.com" });
 
-        const result = await getCredential(db, "admin_email");
+        await getCredential(db, "admin_email");
 
         expect(db.prepare).toHaveBeenCalledWith(
           expect.stringContaining("credentials")
@@ -1264,9 +1264,9 @@ describe("db", () => {
 
         const sql = db.prepare.mock.calls[0][0];
         // Should use some form of upsert (INSERT ... ON CONFLICT or INSERT OR REPLACE)
-        expect(
-          sql.includes("ON CONFLICT") || sql.includes("OR REPLACE")
-        ).toBe(true);
+        expect(sql.includes("ON CONFLICT") || sql.includes("OR REPLACE")).toBe(
+          true
+        );
       });
 
       it("can upsert different credential keys", async () => {

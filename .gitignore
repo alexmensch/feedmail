@@ -5,6 +5,7 @@ wrangler.admin.prod.toml
 .dev.vars
 .env
 dist/
+dist-admin/
 coverage/
 src/templates/compiled/
 .DS_Store

@@ -17,7 +17,11 @@ import {
 import { requireSession } from "./lib/session.js";
 
 /** Routes exempt from session middleware. */
-const PUBLIC_ROUTES = new Set(["/admin/login", "/admin/verify", "/admin/logout"]);
+const PUBLIC_ROUTES = new Set([
+  "/admin/login",
+  "/admin/verify",
+  "/admin/logout"
+]);
 
 export default {
   /**
@@ -36,8 +40,7 @@ export default {
         const rateLimitMap = await getRateLimitConfig(env);
         const limits = rateLimitMap[endpointName];
         if (limits) {
-          const ip =
-            request.headers.get("CF-Connecting-IP") || "unknown";
+          const ip = request.headers.get("CF-Connecting-IP") || "unknown";
           const result = await checkRateLimit(
             env.DB,
             ip,
@@ -62,7 +65,7 @@ export default {
 
       // Session middleware for protected routes
       if (!PUBLIC_ROUTES.has(url.pathname)) {
-        const { session, response } = await requireSession(request, env);
+        const { response } = await requireSession(request, env);
         if (response) {
           return response;
         }

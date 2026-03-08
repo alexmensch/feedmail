@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   createMagicLinkToken,
   getMagicLinkToken,
@@ -21,7 +21,11 @@ describe("admin db helpers", () => {
     it("inserts a token into magic_link_tokens table", async () => {
       const db = mockDb({});
 
-      await createMagicLinkToken(db, "test-token-uuid", "2025-01-01T12:15:00.000Z");
+      await createMagicLinkToken(
+        db,
+        "test-token-uuid",
+        "2025-01-01T12:15:00.000Z"
+      );
 
       expect(db.prepare).toHaveBeenCalledWith(
         expect.stringContaining("INSERT INTO magic_link_tokens")

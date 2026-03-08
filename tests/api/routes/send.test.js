@@ -40,7 +40,10 @@ import { handleSend, checkFeedsAndSend } from "../../../src/api/routes/send.js";
 import { getChannels, getChannelById } from "../../../src/shared/lib/config.js";
 import { fetchAndParseFeed } from "../../../src/api/lib/feed-parser.js";
 import { sendEmail } from "../../../src/shared/lib/email.js";
-import { htmlToText, constrainImages } from "../../../src/api/lib/html-to-text.js";
+import {
+  htmlToText,
+  constrainImages
+} from "../../../src/api/lib/html-to-text.js";
 import { render } from "../../../src/shared/lib/templates.js";
 import {
   isFeedSeeded,
@@ -49,8 +52,7 @@ import {
   getVerifiedSubscribers,
   isItemSentToSubscriber,
   insertSubscriberSend,
-  deleteSubscriberSends,
-  getResendApiKey
+  deleteSubscriberSends
 } from "../../../src/shared/lib/db.js";
 
 const CHANNEL = {

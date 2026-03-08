@@ -22,7 +22,10 @@ vi.mock("../../../src/shared/lib/db.js", () => ({
 }));
 
 import { handleSubscribe } from "../../../src/api/routes/subscribe.js";
-import { getChannelById, getVerifyLimits } from "../../../src/shared/lib/config.js";
+import {
+  getChannelById,
+  getVerifyLimits
+} from "../../../src/shared/lib/config.js";
 import { sendEmail } from "../../../src/shared/lib/email.js";
 import { render } from "../../../src/shared/lib/templates.js";
 import {
@@ -31,8 +34,7 @@ import {
   resetSubscriberToPending,
   updateVerifyToken,
   countRecentVerificationAttempts,
-  insertVerificationAttempt,
-  getResendApiKey
+  insertVerificationAttempt
 } from "../../../src/shared/lib/db.js";
 
 const CHANNEL = {
