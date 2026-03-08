@@ -52,7 +52,8 @@ import {
   getVerifiedSubscribers,
   isItemSentToSubscriber,
   insertSubscriberSend,
-  deleteSubscriberSends
+  deleteSubscriberSends,
+  getResendApiKey
 } from "../../../src/shared/lib/db.js";
 
 const CHANNEL = {
@@ -157,6 +158,7 @@ describe("checkFeedsAndSend", () => {
     getVerifiedSubscribers.mockResolvedValue([]);
     sendEmail.mockResolvedValue({ success: true });
     isItemSentToSubscriber.mockResolvedValue(false);
+    getResendApiKey.mockResolvedValue("re_test");
   });
 
   describe("channel filtering", () => {
@@ -361,6 +363,18 @@ describe("checkFeedsAndSend", () => {
         "item-1",
         "https://example.com/feed.xml"
       );
+    });
+
+    it("sends 0 emails when Resend API key is not configured", async () => {
+      getResendApiKey.mockResolvedValue(null);
+      isItemSent.mockResolvedValue(false);
+      getVerifiedSubscribers.mockResolvedValue([subscriber1, subscriber2]);
+
+      const result = await checkFeedsAndSend(env);
+
+      expect(sendEmail).not.toHaveBeenCalled();
+      expect(result.sent).toBe(0);
+      expect(result.items[0].complete).toBe(false);
     });
   });
 

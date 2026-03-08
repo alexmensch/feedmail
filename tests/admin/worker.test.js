@@ -55,6 +55,8 @@ import {
   checkRateLimit,
   getEndpointName
 } from "../../src/shared/lib/rate-limit.js";
+import { getCredential } from "../../src/shared/lib/db.js";
+import { render } from "../../src/shared/lib/templates.js";
 
 const RATE_LIMITS = {
   admin_login: { maxRequests: 10, windowSeconds: 3600 },
@@ -144,6 +146,22 @@ describe("admin worker — fetch handler", () => {
       await adminApp.fetch(request, env);
 
       expect(handleLogout).toHaveBeenCalledWith(request, env);
+    });
+
+    it("returns 405 for POST /admin/verify", async () => {
+      const request = makeRequest("POST", "/admin/verify");
+
+      const response = await adminApp.fetch(request, env);
+
+      expect(response.status).toBe(405);
+    });
+
+    it("returns 405 for POST /admin/logout", async () => {
+      const request = makeRequest("POST", "/admin/logout");
+
+      const response = await adminApp.fetch(request, env);
+
+      expect(response.status).toBe(405);
     });
 
     it("returns 404 for unknown /admin paths", async () => {
@@ -320,6 +338,55 @@ describe("admin worker — fetch handler", () => {
       // Since requireSession returned null (allowed), the worker should
       // proceed to handle the /admin route
       expect(requireSession).toHaveBeenCalled();
+    });
+  });
+
+  describe("admin dashboard placeholder", () => {
+    it("renders placeholder when admin email is configured", async () => {
+      requireSession.mockResolvedValue({
+        session: { id: 1, token: "test-session" },
+        response: null
+      });
+      getCredential.mockResolvedValue("admin@example.com");
+
+      const request = makeRequest("GET", "/admin");
+
+      const response = await adminApp.fetch(request, env);
+
+      expect(getCredential).toHaveBeenCalledWith(env.DB, "admin_email");
+      expect(render).toHaveBeenCalledWith("adminPlaceholder", {});
+      expect(response.status).toBe(200);
+    });
+
+    it("renders setup error when admin email is not configured", async () => {
+      requireSession.mockResolvedValue({
+        session: { id: 1, token: "test-session" },
+        response: null
+      });
+      getCredential.mockResolvedValue(null);
+
+      const request = makeRequest("GET", "/admin");
+
+      const response = await adminApp.fetch(request, env);
+
+      expect(render).toHaveBeenCalledWith(
+        "adminPlaceholder",
+        expect.objectContaining({ setupError: expect.any(String) })
+      );
+      expect(response.status).toBe(200);
+    });
+
+    it("returns 405 for non-GET requests to /admin", async () => {
+      requireSession.mockResolvedValue({
+        session: { id: 1, token: "test-session" },
+        response: null
+      });
+
+      const request = makeRequest("POST", "/admin");
+
+      const response = await adminApp.fetch(request, env);
+
+      expect(response.status).toBe(405);
     });
   });
 

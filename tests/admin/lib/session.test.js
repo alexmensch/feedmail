@@ -8,6 +8,8 @@ vi.mock("../../../src/admin/lib/db.js", () => ({
 import {
   requireSession,
   getSessionFromCookie,
+  createSessionCookie,
+  clearSessionCookie,
   SESSION_COOKIE_NAME,
   SESSION_TTL_SECONDS
 } from "../../../src/admin/lib/session.js";
@@ -24,6 +26,57 @@ describe("session constants", () => {
     it("equals 86400 (24 hours)", () => {
       expect(SESSION_TTL_SECONDS).toBe(86400);
     });
+  });
+});
+
+describe("createSessionCookie", () => {
+  it("builds a Set-Cookie header value with the session token", () => {
+    const cookie = createSessionCookie("test-token-123");
+
+    expect(cookie).toContain("feedmail_admin_session=test-token-123");
+  });
+
+  it("sets HttpOnly, Secure, and SameSite=Strict flags", () => {
+    const cookie = createSessionCookie("test-token");
+
+    expect(cookie).toContain("HttpOnly");
+    expect(cookie).toContain("Secure");
+    expect(cookie).toContain("SameSite=Strict");
+  });
+
+  it("scopes to /admin path", () => {
+    const cookie = createSessionCookie("test-token");
+
+    expect(cookie).toContain("Path=/admin");
+  });
+
+  it("sets Max-Age to SESSION_TTL_SECONDS", () => {
+    const cookie = createSessionCookie("test-token");
+
+    expect(cookie).toContain("Max-Age=86400");
+  });
+});
+
+describe("clearSessionCookie", () => {
+  it("clears the session cookie value", () => {
+    const cookie = clearSessionCookie();
+
+    expect(cookie).toContain("feedmail_admin_session=;");
+  });
+
+  it("sets Max-Age to 0", () => {
+    const cookie = clearSessionCookie();
+
+    expect(cookie).toContain("Max-Age=0");
+  });
+
+  it("preserves security flags", () => {
+    const cookie = clearSessionCookie();
+
+    expect(cookie).toContain("HttpOnly");
+    expect(cookie).toContain("Secure");
+    expect(cookie).toContain("SameSite=Strict");
+    expect(cookie).toContain("Path=/admin");
   });
 });
 

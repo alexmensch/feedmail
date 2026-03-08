@@ -37,7 +37,8 @@ import {
   updateFeed,
   deleteFeed,
   getCredential,
-  upsertCredential
+  upsertCredential,
+  getResendApiKey
 } from "../../../src/shared/lib/db.js";
 import { mockDb } from "../../helpers/mock-db.js";
 
@@ -1279,6 +1280,43 @@ describe("db", () => {
           "re_new_key"
         );
       });
+    });
+  });
+
+  describe("getResendApiKey", () => {
+    it("returns env var when RESEND_API_KEY is set", async () => {
+      const env = { RESEND_API_KEY: "re_env_key", DB: {} };
+
+      const result = await getResendApiKey(env);
+
+      expect(result).toBe("re_env_key");
+    });
+
+    it("falls back to D1 credential when env var is not set", async () => {
+      const db = mockDb({ key: "resend_api_key", value: "re_db_key" });
+      const env = { DB: db };
+
+      const result = await getResendApiKey(env);
+
+      expect(result).toBe("re_db_key");
+    });
+
+    it("returns null when neither env var nor DB is available", async () => {
+      const env = {};
+
+      const result = await getResendApiKey(env);
+
+      expect(result).toBeNull();
+    });
+
+    it("prefers env var over D1 credential", async () => {
+      const db = mockDb({ key: "resend_api_key", value: "re_db_key" });
+      const env = { RESEND_API_KEY: "re_env_key", DB: db };
+
+      const result = await getResendApiKey(env);
+
+      expect(result).toBe("re_env_key");
+      expect(db.prepare).not.toHaveBeenCalled();
     });
   });
 });

@@ -34,7 +34,8 @@ import {
   resetSubscriberToPending,
   updateVerifyToken,
   countRecentVerificationAttempts,
-  insertVerificationAttempt
+  insertVerificationAttempt,
+  getResendApiKey
 } from "../../../src/shared/lib/db.js";
 
 const CHANNEL = {
@@ -925,6 +926,24 @@ describe("handleSubscribe", () => {
       const emailCall = sendEmail.mock.calls[0];
       const textBody = emailCall[1].text;
       expect(textBody).toContain("123 Main St");
+    });
+  });
+
+  describe("Resend API key not configured", () => {
+    it("skips sending verification email when key is null", async () => {
+      getResendApiKey.mockResolvedValue(null);
+      getChannelById.mockReturnValue(CHANNEL);
+      getSubscriberByEmail.mockResolvedValue(null);
+      insertSubscriber.mockResolvedValue({ meta: { last_row_id: 1 } });
+      countRecentVerificationAttempts.mockResolvedValue(0);
+
+      const response = await handleSubscribe(
+        makeRequest({ email: "a@b.com", channelId: "test-site" }),
+        env
+      );
+
+      expect(sendEmail).not.toHaveBeenCalled();
+      expect(response.status).toBe(200);
     });
   });
 });
