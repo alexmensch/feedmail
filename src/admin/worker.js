@@ -155,10 +155,7 @@ export default {
       if (url.pathname === "/admin/passkeys") {
         if (request.method === "GET") {
           // Redirect to settings page
-          return Response.redirect(
-            `https://${env.DOMAIN}/admin/settings`,
-            302
-          );
+          return Response.redirect(`https://${env.DOMAIN}/admin/settings`, 302);
         }
         return new Response(null, { status: 405 });
       }

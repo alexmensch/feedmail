@@ -133,9 +133,7 @@ describe("callApi", () => {
     });
 
     it("sends DELETE request without body", async () => {
-      globalThis.fetch.mockResolvedValue(
-        new Response(null, { status: 204 })
-      );
+      globalThis.fetch.mockResolvedValue(new Response(null, { status: 204 }));
 
       await callApi(env, "DELETE", "/admin/channels/test-ch");
 
@@ -262,9 +260,7 @@ describe("callApi", () => {
     });
 
     it("handles DNS resolution failure gracefully", async () => {
-      globalThis.fetch.mockRejectedValue(
-        new TypeError("Failed to fetch")
-      );
+      globalThis.fetch.mockRejectedValue(new TypeError("Failed to fetch"));
 
       const result = await callApi(env, "GET", "/admin/stats");
 
@@ -288,9 +284,7 @@ describe("callApi", () => {
     });
 
     it("handles empty response body (204 No Content)", async () => {
-      globalThis.fetch.mockResolvedValue(
-        new Response(null, { status: 204 })
-      );
+      globalThis.fetch.mockResolvedValue(new Response(null, { status: 204 }));
 
       const result = await callApi(env, "DELETE", "/admin/channels/test");
 

@@ -94,7 +94,10 @@ import {
   checkRateLimit,
   getEndpointName
 } from "../../src/shared/lib/rate-limit.js";
-import { handleDashboard, handleSendTrigger } from "../../src/admin/routes/dashboard.js";
+import {
+  handleDashboard,
+  handleSendTrigger
+} from "../../src/admin/routes/dashboard.js";
 import {
   handleChannelList,
   handleChannelNew,
@@ -254,33 +257,21 @@ describe("admin worker — new route dispatching", () => {
       const request = makeRequest("GET", "/admin/channels/test-ch");
       await adminApp.fetch(request, env);
 
-      expect(handleChannelDetail).toHaveBeenCalledWith(
-        request,
-        env,
-        "test-ch"
-      );
+      expect(handleChannelDetail).toHaveBeenCalledWith(request, env, "test-ch");
     });
 
     it("routes POST /admin/channels/{id} to handleChannelUpdate", async () => {
       const request = makeRequest("POST", "/admin/channels/test-ch");
       await adminApp.fetch(request, env);
 
-      expect(handleChannelUpdate).toHaveBeenCalledWith(
-        request,
-        env,
-        "test-ch"
-      );
+      expect(handleChannelUpdate).toHaveBeenCalledWith(request, env, "test-ch");
     });
 
     it("routes POST /admin/channels/{id}/delete to handleChannelDelete", async () => {
       const request = makeRequest("POST", "/admin/channels/test-ch/delete");
       await adminApp.fetch(request, env);
 
-      expect(handleChannelDelete).toHaveBeenCalledWith(
-        request,
-        env,
-        "test-ch"
-      );
+      expect(handleChannelDelete).toHaveBeenCalledWith(request, env, "test-ch");
     });
 
     it("returns 405 for DELETE /admin/channels/{id}", async () => {
@@ -294,20 +285,14 @@ describe("admin worker — new route dispatching", () => {
 
   describe("feed routes", () => {
     it("routes GET /admin/channels/{id}/feeds/new to handleFeedNew", async () => {
-      const request = makeRequest(
-        "GET",
-        "/admin/channels/test-ch/feeds/new"
-      );
+      const request = makeRequest("GET", "/admin/channels/test-ch/feeds/new");
       await adminApp.fetch(request, env);
 
       expect(handleFeedNew).toHaveBeenCalledWith(request, env, "test-ch");
     });
 
     it("routes POST /admin/channels/{id}/feeds to handleFeedCreate", async () => {
-      const request = makeRequest(
-        "POST",
-        "/admin/channels/test-ch/feeds"
-      );
+      const request = makeRequest("POST", "/admin/channels/test-ch/feeds");
       await adminApp.fetch(request, env);
 
       expect(handleFeedCreate).toHaveBeenCalledWith(request, env, "test-ch");
@@ -320,19 +305,11 @@ describe("admin worker — new route dispatching", () => {
       );
       await adminApp.fetch(request, env);
 
-      expect(handleFeedEdit).toHaveBeenCalledWith(
-        request,
-        env,
-        "test-ch",
-        "1"
-      );
+      expect(handleFeedEdit).toHaveBeenCalledWith(request, env, "test-ch", "1");
     });
 
     it("routes POST /admin/channels/{id}/feeds/{feedId} to handleFeedUpdate", async () => {
-      const request = makeRequest(
-        "POST",
-        "/admin/channels/test-ch/feeds/1"
-      );
+      const request = makeRequest("POST", "/admin/channels/test-ch/feeds/1");
       await adminApp.fetch(request, env);
 
       expect(handleFeedUpdate).toHaveBeenCalledWith(
@@ -498,10 +475,7 @@ describe("admin worker — new route dispatching", () => {
         })
       });
 
-      const request = makeRequest(
-        "GET",
-        "/admin/channels/test-ch/feeds/new"
-      );
+      const request = makeRequest("GET", "/admin/channels/test-ch/feeds/new");
       const response = await adminApp.fetch(request, env);
 
       expect(requireSession).toHaveBeenCalled();

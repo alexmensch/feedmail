@@ -80,15 +80,13 @@ describe("channel creation without feeds (requireFeeds: false)", () => {
       feeds: []
     };
 
-    getChannelById
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        id: "new-channel",
-        siteName: "Test Site",
-        siteUrl: "https://example.com",
-        fromUser: "hello",
-        fromName: "Test Sender"
-      });
+    getChannelById.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: "new-channel",
+      siteName: "Test Site",
+      siteUrl: "https://example.com",
+      fromUser: "hello",
+      fromName: "Test Sender"
+    });
 
     const { request, url } = makeRequest(
       "POST",
@@ -114,12 +112,10 @@ describe("channel creation without feeds (requireFeeds: false)", () => {
       feeds: [{ name: "Main", url: "https://example.com/feed.xml" }]
     };
 
-    getChannelById
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        id: "new-channel",
-        siteName: "Test Site"
-      });
+    getChannelById.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: "new-channel",
+      siteName: "Test Site"
+    });
     getFeedsByChannelId.mockResolvedValue([
       { id: 1, name: "Main", url: "https://example.com/feed.xml" }
     ]);

@@ -56,9 +56,7 @@ describe("handleChannelList", () => {
       data: { channels: [CHANNEL] }
     });
 
-    const request = new Request(
-      "https://feedmail.example.com/admin/channels"
-    );
+    const request = new Request("https://feedmail.example.com/admin/channels");
     const response = await handleChannelList(request, env);
 
     expect(response.status).toBe(200);
@@ -79,9 +77,7 @@ describe("handleChannelList", () => {
       data: { channels: [] }
     });
 
-    const request = new Request(
-      "https://feedmail.example.com/admin/channels"
-    );
+    const request = new Request("https://feedmail.example.com/admin/channels");
     const response = await handleChannelList(request, env);
 
     expect(response.status).toBe(200);
@@ -100,9 +96,7 @@ describe("handleChannelList", () => {
       data: { error: "Internal error" }
     });
 
-    const request = new Request(
-      "https://feedmail.example.com/admin/channels"
-    );
+    const request = new Request("https://feedmail.example.com/admin/channels");
     const response = await handleChannelList(request, env);
 
     expect(response.status).toBe(200);
@@ -191,14 +185,11 @@ describe("handleChannelCreate", () => {
       data: { id: "new-ch", siteName: "New Channel" }
     });
 
-    const request = new Request(
-      "https://feedmail.example.com/admin/channels",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: "id=new-ch&siteName=New+Channel&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender"
-      }
-    );
+    const request = new Request("https://feedmail.example.com/admin/channels", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "id=new-ch&siteName=New+Channel&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender"
+    });
 
     const response = await handleChannelCreate(request, env);
 
@@ -230,14 +221,11 @@ describe("handleChannelCreate", () => {
 
     const corsText =
       "https://example.com\nhttps://other.com\n\nhttps://third.com";
-    const request = new Request(
-      "https://feedmail.example.com/admin/channels",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: `id=ch&siteName=Test&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender&corsOrigins=${encodeURIComponent(corsText)}`
-      }
-    );
+    const request = new Request("https://feedmail.example.com/admin/channels", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `id=ch&siteName=Test&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender&corsOrigins=${encodeURIComponent(corsText)}`
+    });
 
     await handleChannelCreate(request, env);
 
@@ -258,14 +246,11 @@ describe("handleChannelCreate", () => {
     });
 
     const corsText = "\n\nhttps://example.com\n  \n";
-    const request = new Request(
-      "https://feedmail.example.com/admin/channels",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: `id=ch&siteName=Test&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender&corsOrigins=${encodeURIComponent(corsText)}`
-      }
-    );
+    const request = new Request("https://feedmail.example.com/admin/channels", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `id=ch&siteName=Test&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender&corsOrigins=${encodeURIComponent(corsText)}`
+    });
 
     await handleChannelCreate(request, env);
 
@@ -281,14 +266,11 @@ describe("handleChannelCreate", () => {
       data: { id: "ch" }
     });
 
-    const request = new Request(
-      "https://feedmail.example.com/admin/channels",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: "id=ch&siteName=Test&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender&replyTo=&companyName=&companyAddress=&corsOrigins="
-      }
-    );
+    const request = new Request("https://feedmail.example.com/admin/channels", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "id=ch&siteName=Test&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender&replyTo=&companyName=&companyAddress=&corsOrigins="
+    });
 
     await handleChannelCreate(request, env);
 
@@ -306,14 +288,11 @@ describe("handleChannelCreate", () => {
       data: { error: "Invalid site URL" }
     });
 
-    const request = new Request(
-      "https://feedmail.example.com/admin/channels",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: "id=ch&siteName=Test&siteUrl=bad-url&fromUser=hello&fromName=Sender"
-      }
-    );
+    const request = new Request("https://feedmail.example.com/admin/channels", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "id=ch&siteName=Test&siteUrl=bad-url&fromUser=hello&fromName=Sender"
+    });
 
     const response = await handleChannelCreate(request, env);
 
@@ -339,14 +318,11 @@ describe("handleChannelCreate", () => {
       data: { error: "Channel ID already exists" }
     });
 
-    const request = new Request(
-      "https://feedmail.example.com/admin/channels",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: "id=existing-ch&siteName=Test&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender"
-      }
-    );
+    const request = new Request("https://feedmail.example.com/admin/channels", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "id=existing-ch&siteName=Test&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender"
+    });
 
     const response = await handleChannelCreate(request, env);
 

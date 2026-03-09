@@ -59,12 +59,24 @@ describe("handleDashboard", () => {
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        data: { total: 10, verified: 5, pending: 3, unsubscribed: 2, sentItems: 100 }
+        data: {
+          total: 10,
+          verified: 5,
+          pending: 3,
+          unsubscribed: 2,
+          sentItems: 100
+        }
       })
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        data: { total: 20, verified: 15, pending: 4, unsubscribed: 1, sentItems: 200 }
+        data: {
+          total: 20,
+          verified: 15,
+          pending: 4,
+          unsubscribed: 1,
+          sentItems: 200
+        }
       });
 
     const request = makeRequest("GET", "/admin");
@@ -190,12 +202,7 @@ describe("handleSendTrigger", () => {
 
     const response = await handleSendTrigger(request, env);
 
-    expect(callApi).toHaveBeenCalledWith(
-      env,
-      "POST",
-      "/send",
-      undefined
-    );
+    expect(callApi).toHaveBeenCalledWith(env, "POST", "/send", undefined);
     expect(response.status).toBe(302);
     const location = response.headers.get("Location");
     expect(location).toContain("/admin");

@@ -11,12 +11,19 @@ import { htmlResponse } from "../../shared/lib/response.js";
  */
 export async function handleFeedNew(request, env, channelId) {
   // Verify channel exists
-  const channelResult = await callApi(env, "GET", `/admin/channels/${encodeURIComponent(channelId)}`);
+  const channelResult = await callApi(
+    env,
+    "GET",
+    `/admin/channels/${encodeURIComponent(channelId)}`
+  );
 
   if (!channelResult.ok) {
     const html = render("adminFeedForm", {
       activePage: "channels",
-      error: channelResult.status === 404 ? "Channel not found" : (channelResult.data?.error || API_UNREACHABLE_ERROR)
+      error:
+        channelResult.status === 404
+          ? "Channel not found"
+          : channelResult.data?.error || API_UNREACHABLE_ERROR
     });
     return htmlResponse(html, channelResult.status === 404 ? 404 : 200);
   }
@@ -53,7 +60,12 @@ export async function handleFeedCreate(request, env, channelId) {
   const name = (formData.get("name") || "").trim();
   const url = (formData.get("url") || "").trim();
 
-  const result = await callApi(env, "POST", `/admin/channels/${encodeURIComponent(channelId)}/feeds`, { name, url });
+  const result = await callApi(
+    env,
+    "POST",
+    `/admin/channels/${encodeURIComponent(channelId)}/feeds`,
+    { name, url }
+  );
 
   if (!result.ok) {
     const html = render("adminFeedForm", {
@@ -77,12 +89,19 @@ export async function handleFeedCreate(request, env, channelId) {
  */
 export async function handleFeedEdit(request, env, channelId, feedId) {
   // Fetch feeds for the channel to find the specific feed
-  const result = await callApi(env, "GET", `/admin/channels/${encodeURIComponent(channelId)}/feeds`);
+  const result = await callApi(
+    env,
+    "GET",
+    `/admin/channels/${encodeURIComponent(channelId)}/feeds`
+  );
 
   if (!result.ok) {
     const html = render("adminFeedForm", {
       activePage: "channels",
-      error: result.status === 404 ? "Channel not found" : (result.data?.error || API_UNREACHABLE_ERROR)
+      error:
+        result.status === 404
+          ? "Channel not found"
+          : result.data?.error || API_UNREACHABLE_ERROR
     });
     return htmlResponse(html, result.status === 404 ? 404 : 200);
   }
@@ -125,7 +144,12 @@ export async function handleFeedUpdate(request, env, channelId, feedId) {
   const name = (formData.get("name") || "").trim();
   const url = (formData.get("url") || "").trim();
 
-  const result = await callApi(env, "PUT", `/admin/channels/${encodeURIComponent(channelId)}/feeds/${feedId}`, { name, url });
+  const result = await callApi(
+    env,
+    "PUT",
+    `/admin/channels/${encodeURIComponent(channelId)}/feeds/${feedId}`,
+    { name, url }
+  );
 
   if (!result.ok) {
     const html = render("adminFeedForm", {
@@ -149,7 +173,11 @@ export async function handleFeedUpdate(request, env, channelId, feedId) {
  * POST /admin/channels/{channelId}/feeds/{feedId}/delete — Delete a feed.
  */
 export async function handleFeedDelete(request, env, channelId, feedId) {
-  const result = await callApi(env, "DELETE", `/admin/channels/${encodeURIComponent(channelId)}/feeds/${feedId}`);
+  const result = await callApi(
+    env,
+    "DELETE",
+    `/admin/channels/${encodeURIComponent(channelId)}/feeds/${feedId}`
+  );
 
   if (!result.ok) {
     return Response.redirect(

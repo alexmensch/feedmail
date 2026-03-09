@@ -59,7 +59,8 @@ export async function handleSubscriberList(request, env) {
       templateData.hasSubscribers = templateData.subscribers.length > 0;
       templateData.showTable = true;
     } else {
-      templateData.error = subscribersResult.data?.error || "Failed to load subscribers";
+      templateData.error =
+        subscribersResult.data?.error || "Failed to load subscribers";
     }
   }
 

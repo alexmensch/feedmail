@@ -58,9 +58,7 @@ describe("handleSettings", () => {
       }
     ]);
 
-    const request = new Request(
-      "https://feedmail.example.com/admin/settings"
-    );
+    const request = new Request("https://feedmail.example.com/admin/settings");
     const response = await handleSettings(request, env);
 
     expect(response.status).toBe(200);
@@ -80,9 +78,7 @@ describe("handleSettings", () => {
   it("shows passkey bootstrap prompt when no passkeys are registered", async () => {
     getPasskeyCredentials.mockResolvedValue([]);
 
-    const request = new Request(
-      "https://feedmail.example.com/admin/settings"
-    );
+    const request = new Request("https://feedmail.example.com/admin/settings");
     const response = await handleSettings(request, env);
 
     expect(response.status).toBe(200);
@@ -97,12 +93,15 @@ describe("handleSettings", () => {
 
   it("does not show passkey bootstrap prompt when passkeys exist", async () => {
     getPasskeyCredentials.mockResolvedValue([
-      { credential_id: "cred-1", name: "Key", created_at: "2025-01-01", counter: 0 }
+      {
+        credential_id: "cred-1",
+        name: "Key",
+        created_at: "2025-01-01",
+        counter: 0
+      }
     ]);
 
-    const request = new Request(
-      "https://feedmail.example.com/admin/settings"
-    );
+    const request = new Request("https://feedmail.example.com/admin/settings");
     const response = await handleSettings(request, env);
 
     expect(response.status).toBe(200);
