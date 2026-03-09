@@ -99,7 +99,11 @@ export async function getPasskeyCredentialCount(db) {
   return result?.count || 0;
 }
 
-export async function updatePasskeyCredentialCounter(db, credentialId, counter) {
+export async function updatePasskeyCredentialCounter(
+  db,
+  credentialId,
+  counter
+) {
   return db
     .prepare(
       "UPDATE passkey_credentials SET counter = ? WHERE credential_id = ?"

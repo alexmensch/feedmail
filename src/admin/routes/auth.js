@@ -41,7 +41,12 @@ export async function handleLogin(request, env) {
   const passkeyCount = await getPasskeyCredentialCount(env.DB);
   const hasPasskeys = passkeyCount > 0;
 
-  const html = render("adminLogin", { redirect, error, hasPasskeys });
+  const html = render("adminLogin", {
+    redirect,
+    error,
+    hasPasskeys,
+    domain: env.DOMAIN
+  });
   return htmlResponse(html);
 }
 
