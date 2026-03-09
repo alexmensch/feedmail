@@ -120,6 +120,42 @@ describe("handleAdminChannels", () => {
     });
   });
 
+  describe("method not allowed", () => {
+    it("returns 405 for PATCH /api/admin/channels", async () => {
+      const { request, url } = makeRequest("PATCH", "/api/admin/channels");
+      const response = await handleAdminChannels(request, env, url);
+      const body = await response.json();
+
+      expect(response.status).toBe(405);
+      expect(body.error).toBe("Method Not Allowed");
+    });
+
+    it("returns 405 for POST /api/admin/channels/{channelId}", async () => {
+      const { request, url } = makeRequest(
+        "POST",
+        "/api/admin/channels/test-channel",
+        { siteName: "Test" }
+      );
+      const response = await handleAdminChannels(request, env, url);
+      const body = await response.json();
+
+      expect(response.status).toBe(405);
+      expect(body.error).toBe("Method Not Allowed");
+    });
+
+    it("returns 405 for PATCH /api/admin/channels/{channelId}", async () => {
+      const { request, url } = makeRequest(
+        "PATCH",
+        "/api/admin/channels/test-channel"
+      );
+      const response = await handleAdminChannels(request, env, url);
+      const body = await response.json();
+
+      expect(response.status).toBe(405);
+      expect(body.error).toBe("Method Not Allowed");
+    });
+  });
+
   describe("GET /api/admin/channels/{channelId} (get)", () => {
     it("returns single channel with feeds", async () => {
       getChannelById.mockResolvedValue(CHANNEL);

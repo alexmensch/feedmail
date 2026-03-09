@@ -228,6 +228,23 @@ describe("requireSession", () => {
     expect(location).toContain(encodeURIComponent("/admin/channels/123/feeds"));
   });
 
+  it("prevents open redirect by defaulting non-admin paths to /admin", async () => {
+    // Simulate a request to a path that doesn't start with /admin
+    // This would only happen if the session middleware is somehow applied
+    // to a non-admin path. The redirect path should default to /admin.
+    const request = new Request("https://example.com/other/path");
+
+    const result = await requireSession(request, { DB: {} });
+
+    expect(result.response.status).toBe(302);
+    const location = result.response.headers.get("Location");
+    const redirectParam = new URL(
+      location,
+      "https://example.com"
+    ).searchParams.get("redirect");
+    expect(redirectParam).toBe("/admin");
+  });
+
   it("validates redirect parameter starts with /admin", async () => {
     // When the middleware generates a redirect, it should only include
     // paths that start with /admin to prevent open redirect attacks

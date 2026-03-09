@@ -939,6 +939,39 @@ describe("db", () => {
     });
 
     describe("deleteChannel", () => {
+      it("cleans up sent_items and subscriber_sends when channel has feeds", async () => {
+        const feedUrls = [
+          { url: "https://example.com/feed1.xml" },
+          { url: "https://example.com/feed2.xml" }
+        ];
+        let callCount = 0;
+        const stmts = [];
+        const db = {
+          prepare: vi.fn().mockImplementation(() => {
+            const stmt = {
+              bind: vi.fn().mockReturnThis(),
+              run: vi.fn().mockResolvedValue({}),
+              first: vi.fn().mockResolvedValue(null),
+              all: vi.fn().mockResolvedValue({
+                results: callCount++ === 0 ? feedUrls : []
+              })
+            };
+            stmts.push(stmt);
+            return stmt;
+          }),
+          batch: vi.fn().mockResolvedValue([])
+        };
+
+        await deleteChannel(db, "ch-with-feeds");
+
+        // Should have DELETE statements for sent_items and subscriber_sends
+        const sqlCalls = db.prepare.mock.calls.map((c) => c[0]);
+        expect(sqlCalls.some((sql) => sql.includes("sent_items"))).toBe(true);
+        expect(sqlCalls.some((sql) => sql.includes("subscriber_sends"))).toBe(
+          true
+        );
+      });
+
       it("deletes channel and cascading data", async () => {
         const stmts = [];
         const db = {
@@ -1132,6 +1165,48 @@ describe("db", () => {
     });
 
     describe("deleteFeed", () => {
+      it("cleans up sent_items and subscriber_sends when feed exists", async () => {
+        const feedRow = { url: "https://example.com/feed.xml" };
+        let callCount = 0;
+        const stmts = [];
+        const db = {
+          prepare: vi.fn().mockImplementation(() => {
+            const stmt = {
+              bind: vi.fn().mockReturnThis(),
+              run: vi.fn().mockResolvedValue({}),
+              // First call returns the feed row, rest return null
+              first: vi
+                .fn()
+                .mockResolvedValue(callCount++ === 0 ? feedRow : null),
+              all: vi.fn().mockResolvedValue({ results: [] })
+            };
+            stmts.push(stmt);
+            return stmt;
+          }),
+          batch: vi.fn().mockResolvedValue([])
+        };
+
+        await deleteFeed(db, 1);
+
+        // Should have DELETE from sent_items and subscriber_sends
+        const sqlCalls = db.prepare.mock.calls.map((c) => c[0]);
+        expect(
+          sqlCalls.some(
+            (sql) => sql.includes("DELETE") && sql.includes("sent_items")
+          )
+        ).toBe(true);
+        expect(
+          sqlCalls.some(
+            (sql) => sql.includes("DELETE") && sql.includes("subscriber_sends")
+          )
+        ).toBe(true);
+        // And the feed URL should be bound
+        const sentItemsStmt = stmts[1]; // second prepare is the sent_items delete
+        expect(sentItemsStmt.bind).toHaveBeenCalledWith(
+          "https://example.com/feed.xml"
+        );
+      });
+
       it("deletes feed and associated data", async () => {
         const stmts = [];
         const db = {

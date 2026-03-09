@@ -10,7 +10,17 @@ vi.mock("../../../src/shared/lib/config.js", async (importOriginal) => {
 vi.mock("../../../src/shared/lib/db.js", () => ({
   getSubscriberStats: vi.fn(),
   getSentItemStats: vi.fn(),
-  getSubscriberList: vi.fn()
+  getSubscriberList: vi.fn(),
+  getChannelById: vi.fn(),
+  getFeedsByChannelId: vi.fn(),
+  getAllChannels: vi.fn(),
+  insertChannel: vi.fn(),
+  updateChannel: vi.fn(),
+  deleteChannel: vi.fn(),
+  insertFeed: vi.fn(),
+  getFeedById: vi.fn(),
+  updateFeed: vi.fn(),
+  deleteFeed: vi.fn()
 }));
 
 import { handleAdmin } from "../../../src/api/routes/admin.js";
@@ -18,7 +28,10 @@ import { getChannelById } from "../../../src/shared/lib/config.js";
 import {
   getSubscriberStats,
   getSentItemStats,
-  getSubscriberList
+  getSubscriberList,
+  getChannelById as dbGetChannelById,
+  getFeedsByChannelId,
+  getAllChannels
 } from "../../../src/shared/lib/db.js";
 
 const CHANNEL = {
@@ -56,6 +69,84 @@ describe("handleAdmin", () => {
       lastSentAt: "2025-01-15 10:00:00"
     });
     getSubscriberList.mockResolvedValue([]);
+    dbGetChannelById.mockResolvedValue(CHANNEL);
+    getFeedsByChannelId.mockResolvedValue([
+      { id: 1, name: "Main Feed", url: "https://example.com/feed.xml" }
+    ]);
+    getAllChannels.mockResolvedValue([CHANNEL]);
+  });
+
+  describe("method not allowed", () => {
+    it("returns 405 for POST /api/admin/stats", async () => {
+      const { request, url } = makeRequest("/api/admin/stats", {
+        channelId: "test-site"
+      });
+      const postRequest = new Request(request.url, { method: "POST" });
+
+      const response = await handleAdmin(postRequest, env, url);
+      const body = await response.json();
+
+      expect(response.status).toBe(405);
+      expect(body.error).toBe("Method Not Allowed");
+    });
+
+    it("returns 405 for POST /api/admin/subscribers", async () => {
+      const { request, url } = makeRequest("/api/admin/subscribers", {
+        channelId: "test-site"
+      });
+      const postRequest = new Request(request.url, { method: "POST" });
+
+      const response = await handleAdmin(postRequest, env, url);
+      const body = await response.json();
+
+      expect(response.status).toBe(405);
+      expect(body.error).toBe("Method Not Allowed");
+    });
+  });
+
+  describe("channel/feed routing delegation", () => {
+    it("delegates /api/admin/channels/{id}/feeds to feeds handler", async () => {
+      // handleAdminFeeds is imported internally by admin.js
+      // We test it returns a response (not 404) for valid feed paths
+      const url = new URL(
+        "https://feedmail.cc/api/admin/channels/test-site/feeds"
+      );
+      const request = new Request(url.toString(), { method: "GET" });
+
+      const response = await handleAdmin(request, env, url);
+
+      // It should delegate to feeds handler, not return 404
+      expect(response.status).not.toBe(404);
+    });
+
+    it("delegates /api/admin/channels to channels handler", async () => {
+      const url = new URL("https://feedmail.cc/api/admin/channels");
+      const request = new Request(url.toString(), { method: "GET" });
+
+      const response = await handleAdmin(request, env, url);
+
+      expect(response.status).not.toBe(404);
+    });
+  });
+
+  describe("stats with empty feeds", () => {
+    it("returns zero sent items when channel has no feeds", async () => {
+      getChannelById.mockReturnValue({
+        ...CHANNEL,
+        feeds: []
+      });
+
+      const { request, url } = makeRequest("/api/admin/stats", {
+        channelId: "test-site"
+      });
+
+      const response = await handleAdmin(request, env, url);
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.sentItems).toEqual({ total: 0, lastSentAt: null });
+      expect(getSentItemStats).not.toHaveBeenCalled();
+    });
   });
 
   describe("routing", () => {

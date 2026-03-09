@@ -314,6 +314,33 @@ describe("handleAdminFeeds", () => {
     });
   });
 
+  describe("method not allowed for feeds/{feedId}", () => {
+    it("returns 405 for GET on a specific feed", async () => {
+      const { request, url } = makeRequest(
+        "GET",
+        "/api/admin/channels/test-channel/feeds/1"
+      );
+      const response = await handleAdminFeeds(request, env, url);
+      const body = await response.json();
+
+      expect(response.status).toBe(405);
+      expect(body.error).toBe("Method Not Allowed");
+    });
+
+    it("returns 405 for POST on a specific feed", async () => {
+      const { request, url } = makeRequest(
+        "POST",
+        "/api/admin/channels/test-channel/feeds/1",
+        { name: "Feed", url: "https://example.com/feed.xml" }
+      );
+      const response = await handleAdminFeeds(request, env, url);
+      const body = await response.json();
+
+      expect(response.status).toBe(405);
+      expect(body.error).toBe("Method Not Allowed");
+    });
+  });
+
   describe("PUT /api/admin/channels/{channelId}/feeds/{feedId} (update)", () => {
     it("updates a feed name and url", async () => {
       getFeedById.mockResolvedValue(FEED_A);
@@ -335,6 +362,56 @@ describe("handleAdminFeeds", () => {
           url: "https://example.com/updated.xml"
         })
       );
+    });
+
+    it("returns 400 for invalid JSON body on update", async () => {
+      const request = new Request(
+        "https://feedmail.cc/api/admin/channels/test-channel/feeds/1",
+        {
+          method: "PUT",
+          body: "not json"
+        }
+      );
+      const url = new URL(
+        "https://feedmail.cc/api/admin/channels/test-channel/feeds/1"
+      );
+      const response = await handleAdminFeeds(request, env, url);
+
+      expect(response.status).toBe(400);
+      const body = await response.json();
+      expect(body.error).toBe("Invalid JSON");
+    });
+
+    it("returns 400 when name is set to empty string", async () => {
+      getFeedById.mockResolvedValue(FEED_A);
+      getFeedsByChannelId.mockResolvedValue([FEED_A, FEED_B]);
+
+      const { request, url } = makeRequest(
+        "PUT",
+        "/api/admin/channels/test-channel/feeds/1",
+        { name: "", url: "https://example.com/a.xml" }
+      );
+      const response = await handleAdminFeeds(request, env, url);
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body.error).toBe("name must be a non-empty string");
+    });
+
+    it("returns 400 when url is set to empty string", async () => {
+      getFeedById.mockResolvedValue(FEED_A);
+      getFeedsByChannelId.mockResolvedValue([FEED_A, FEED_B]);
+
+      const { request, url } = makeRequest(
+        "PUT",
+        "/api/admin/channels/test-channel/feeds/1",
+        { name: "Feed A", url: "" }
+      );
+      const response = await handleAdminFeeds(request, env, url);
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body.error).toBe("url must be a non-empty string");
     });
 
     it("returns 404 when feed not found", async () => {

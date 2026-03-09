@@ -23,6 +23,28 @@ vi.mock("../../../src/templates/compiled/partials/email-footer.js", () => ({
   default: { compiler: [8, ">= 4.3.0"], main: () => "email footer" }
 }));
 
+// Mock admin template imports
+vi.mock("../../../src/templates/compiled/admin-login.js", () => ({
+  default: { compiler: [8, ">= 4.3.0"], main: () => "admin login html" }
+}));
+vi.mock("../../../src/templates/compiled/admin-login-sent.js", () => ({
+  default: { compiler: [8, ">= 4.3.0"], main: () => "admin login sent html" }
+}));
+vi.mock("../../../src/templates/compiled/admin-auth-error.js", () => ({
+  default: { compiler: [8, ">= 4.3.0"], main: () => "admin auth error html" }
+}));
+vi.mock("../../../src/templates/compiled/admin-magic-link.js", () => ({
+  default: { compiler: [8, ">= 4.3.0"], main: () => "admin magic link html" }
+}));
+vi.mock("../../../src/templates/compiled/admin-placeholder.js", () => ({
+  default: { compiler: [8, ">= 4.3.0"], main: () => "admin placeholder html" }
+}));
+
+// Mock config.js for renderErrorPage
+vi.mock("../../../src/shared/lib/config.js", () => ({
+  getChannelById: vi.fn()
+}));
+
 // Mock Handlebars runtime to capture template instantiation
 vi.mock("handlebars/runtime.js", () => {
   const helpers = {};
@@ -46,7 +68,7 @@ vi.mock("handlebars/runtime.js", () => {
   };
 });
 
-import { render } from "../../../src/shared/lib/templates.js";
+import { render, renderErrorPage } from "../../../src/shared/lib/templates.js";
 import Handlebars from "handlebars/runtime.js";
 
 describe("templates", () => {
@@ -93,6 +115,55 @@ describe("templates", () => {
 
     it("throws for null template name", () => {
       expect(() => render(null, {})).toThrow("Unknown template: null");
+    });
+  });
+
+  describe("renderErrorPage", () => {
+    it("renders error page with channel branding when channelId is provided", async () => {
+      // Mock getChannelById (imported inside templates.js from config.js)
+      const { getChannelById } =
+        await import("../../../src/shared/lib/config.js");
+      vi.mocked(getChannelById).mockResolvedValue({
+        siteName: "My Site",
+        siteUrl: "https://example.com"
+      });
+
+      const env = { DB: {} };
+      const response = await renderErrorPage(
+        env,
+        "test-channel",
+        "Token expired"
+      );
+
+      expect(response).toBeInstanceOf(Response);
+      expect(response.status).toBe(200);
+      expect(response.headers.get("Content-Type")).toBe(
+        "text/html; charset=utf-8"
+      );
+    });
+
+    it("renders error page with defaults when channelId is null", async () => {
+      const env = { DB: {} };
+      const response = await renderErrorPage(env, null, "Something went wrong");
+
+      expect(response).toBeInstanceOf(Response);
+      expect(response.status).toBe(200);
+    });
+
+    it("renders error page with defaults when channel is not found", async () => {
+      const { getChannelById } =
+        await import("../../../src/shared/lib/config.js");
+      vi.mocked(getChannelById).mockResolvedValue(null);
+
+      const env = { DB: {} };
+      const response = await renderErrorPage(
+        env,
+        "nonexistent",
+        "Error message"
+      );
+
+      expect(response).toBeInstanceOf(Response);
+      expect(response.status).toBe(200);
     });
   });
 

@@ -241,6 +241,22 @@ describe("checkRateLimit", () => {
     randomSpy.mockRestore();
   });
 
+  it("uses current time as fallback when oldest is null", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+
+    // count >= max but oldest is null
+    const db = mockDb({ count: 10, oldest: null });
+
+    const result = await checkRateLimit(db, "1.2.3.4", "subscribe", 10, 3600);
+
+    expect(result.allowed).toBe(false);
+    // When oldest is null, falls back to new Date(), so retryAfter should be
+    // approximately windowSeconds + jitter
+    expect(result.retryAfter).toBeGreaterThanOrEqual(3600);
+
+    randomSpy.mockRestore();
+  });
+
   it("returns retryAfter of at least 1 second", async () => {
     const now = new Date();
     // Oldest request was 59 minutes 59 seconds ago, window is 1 hour
