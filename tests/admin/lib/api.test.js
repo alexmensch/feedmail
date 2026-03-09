@@ -300,4 +300,22 @@ describe("callApi", () => {
       expect(mockFetch).not.toHaveBeenCalled();
     });
   });
+
+  describe("X-Internal-Request header", () => {
+    it("includes X-Internal-Request header set to 'true' on every request", async () => {
+      mockFetch.mockResolvedValue(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      );
+
+      await callApi(env, "GET", "/admin/channels");
+
+      const fetchCall = mockFetch.mock.calls[0];
+      const options = fetchCall[1];
+      expect(options.headers["X-Internal-Request"]).toBe("true");
+      expect(typeof options.headers["X-Internal-Request"]).toBe("string");
+    });
+  });
 });

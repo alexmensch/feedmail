@@ -31,7 +31,8 @@ export async function callApi(env, method, path, body) {
     method,
     headers: {
       Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      "X-Internal-Request": "true"
     }
   };
 

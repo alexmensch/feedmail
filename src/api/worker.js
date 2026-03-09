@@ -12,6 +12,7 @@ import { handleCORSPreflight, withCORS } from "./lib/cors.js";
 import { getRateLimitConfig } from "../shared/lib/config.js";
 import { checkRateLimit, getEndpointName } from "../shared/lib/rate-limit.js";
 import { getCredential } from "../shared/lib/db.js";
+import { rateLimitResponse } from "../shared/lib/response.js";
 
 /**
  * Allowed HTTP methods per route path.
@@ -30,6 +31,18 @@ const ROUTE_METHODS = {
 
 /** Delay duration (ms) for timeout responses on invalid method/path. */
 const TIMEOUT_DELAY_MS = 10_000;
+
+/** Header added by the Admin Worker to mark requests sent via the Service Binding. */
+const INTERNAL_REQUEST_HEADER = "X-Internal-Request";
+
+/**
+ * Check if the request is an internal request from the Admin Worker.
+ * @param {Request} request
+ * @returns {boolean}
+ */
+function isInternalRequest(request) {
+  return request.headers.get(INTERNAL_REQUEST_HEADER) === "true";
+}
 
 /**
  * Validate the Authorization header against the ADMIN_API_KEY.
@@ -130,26 +143,28 @@ export default {
     }
 
     // IP-based rate limiting (before authentication to protect against brute-force)
+    // Internal admin requests (via Service Binding) defer rate limiting until after auth.
     const endpointName = getEndpointName(url.pathname);
+    const deferRateLimit =
+      endpointName === "admin" && isInternalRequest(request);
+    let rateLimitConfig = null;
     if (endpointName && env.DB) {
       const rateLimitMap = await getRateLimitConfig(env);
-      const limits = rateLimitMap[endpointName];
-      const ip = request.headers.get("CF-Connecting-IP") || "unknown";
-      const result = await checkRateLimit(
-        env.DB,
-        ip,
-        endpointName,
-        limits.maxRequests,
-        limits.windowSeconds
-      );
-      if (!result.allowed) {
-        return new Response(JSON.stringify({ error: "Too Many Requests" }), {
-          status: 429,
-          headers: {
-            "Content-Type": "application/json",
-            "Retry-After": String(result.retryAfter)
-          }
-        });
+      rateLimitConfig = {
+        limits: rateLimitMap[endpointName],
+        ip: request.headers.get("CF-Connecting-IP") || "unknown"
+      };
+      if (!deferRateLimit) {
+        const result = await checkRateLimit(
+          env.DB,
+          rateLimitConfig.ip,
+          endpointName,
+          rateLimitConfig.limits.maxRequests,
+          rateLimitConfig.limits.windowSeconds
+        );
+        if (!result.allowed) {
+          return rateLimitResponse(result.retryAfter);
+        }
       }
     }
 
@@ -178,6 +193,19 @@ export default {
 
       if (url.pathname.startsWith("/api/admin/")) {
         if (!(await isAuthorized(request, env))) {
+          // Retroactive rate limiting for deferred internal requests that fail auth
+          if (deferRateLimit && rateLimitConfig && env.DB) {
+            const result = await checkRateLimit(
+              env.DB,
+              rateLimitConfig.ip,
+              endpointName,
+              rateLimitConfig.limits.maxRequests,
+              rateLimitConfig.limits.windowSeconds
+            );
+            if (!result.allowed) {
+              return rateLimitResponse(result.retryAfter);
+            }
+          }
           return unauthorizedResponse();
         }
         return handleAdmin(request, env, url);

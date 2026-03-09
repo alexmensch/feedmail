@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   jsonResponse,
-  htmlResponse
+  htmlResponse,
+  rateLimitResponse
 } from "../../../src/shared/lib/response.js";
 
 describe("response helpers", () => {
@@ -52,6 +53,33 @@ describe("response helpers", () => {
       const body = await response.text();
 
       expect(body).toBe("<html>hello</html>");
+    });
+  });
+
+  describe("rateLimitResponse", () => {
+    it("returns status 429", () => {
+      const response = rateLimitResponse(60);
+
+      expect(response.status).toBe(429);
+    });
+
+    it("returns JSON content type", () => {
+      const response = rateLimitResponse(60);
+
+      expect(response.headers.get("Content-Type")).toBe("application/json");
+    });
+
+    it("sets Retry-After header as string", () => {
+      const response = rateLimitResponse(120);
+
+      expect(response.headers.get("Retry-After")).toBe("120");
+    });
+
+    it("returns Too Many Requests error body", async () => {
+      const response = rateLimitResponse(60);
+      const body = await response.json();
+
+      expect(body).toEqual({ error: "Too Many Requests" });
     });
   });
 });
