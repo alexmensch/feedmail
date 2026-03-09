@@ -281,6 +281,27 @@ describe("admin worker — new route dispatching", () => {
       // Browser forms can't send DELETE, so this should be handled
       expect(response.status).toBe(405);
     });
+
+    it("returns 405 for PUT /admin/channels", async () => {
+      const request = makeRequest("PUT", "/admin/channels");
+      const response = await adminApp.fetch(request, env);
+
+      expect(response.status).toBe(405);
+    });
+
+    it("returns 405 for POST /admin/channels/new", async () => {
+      const request = makeRequest("POST", "/admin/channels/new");
+      const response = await adminApp.fetch(request, env);
+
+      expect(response.status).toBe(405);
+    });
+
+    it("returns 405 for GET /admin/channels/{id}/delete", async () => {
+      const request = makeRequest("GET", "/admin/channels/test-ch/delete");
+      const response = await adminApp.fetch(request, env);
+
+      expect(response.status).toBe(405);
+    });
   });
 
   describe("feed routes", () => {
