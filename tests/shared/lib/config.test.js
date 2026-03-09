@@ -476,6 +476,18 @@ describe("config (async DB-backed)", () => {
         ).toThrow();
       });
 
+      it("rejects empty corsOrigins array", () => {
+        expect(() =>
+          validateChannelFields(makeChannel({ corsOrigins: [] }))
+        ).toThrow("corsOrigins must be a non-empty array");
+      });
+
+      it("rejects corsOrigins that is not an array", () => {
+        expect(() =>
+          validateChannelFields(makeChannel({ corsOrigins: "https://a.com" }))
+        ).toThrow("corsOrigins must be a non-empty array");
+      });
+
       it("accepts valid fromUser without @ or whitespace", () => {
         expect(() =>
           validateChannelFields(makeChannel({ fromUser: "newsletter" }))

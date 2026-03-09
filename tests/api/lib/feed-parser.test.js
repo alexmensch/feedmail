@@ -100,6 +100,33 @@ describe("parseFeed", () => {
       expect(items[0].link).toBe("https://example.com/alt");
     });
 
+    it("returns string link directly when link is a plain string", () => {
+      const xml = `<?xml version="1.0"?>
+        <feed xmlns="http://www.w3.org/2005/Atom">
+          <entry>
+            <id>1</id>
+            <title>Test</title>
+            <link>https://example.com/plain-string-link</link>
+          </entry>
+        </feed>`;
+      const items = parseFeed(xml);
+      expect(items[0].link).toBe("https://example.com/plain-string-link");
+    });
+
+    it("returns null link when all link objects have non-alternate rel and no href", () => {
+      const xml = `<?xml version="1.0"?>
+        <feed xmlns="http://www.w3.org/2005/Atom">
+          <entry>
+            <id>1</id>
+            <title>Test</title>
+            <link rel="enclosure" type="audio/mpeg"/>
+            <link rel="via" type="text/html"/>
+          </entry>
+        </feed>`;
+      const items = parseFeed(xml);
+      expect(items[0].link).toBe("");
+    });
+
     it("falls back to link with no rel attribute", () => {
       const xml = `<?xml version="1.0"?>
         <feed xmlns="http://www.w3.org/2005/Atom">
