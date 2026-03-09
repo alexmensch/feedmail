@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard — feedmail admin</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; color: #333; }
+    h1 { font-size: 24px; margin: 0 0 20px; }
+    h2 { font-size: 18px; margin: 20px 0 10px; }
+    p { font-size: 16px; line-height: 1.5; }
+    a { color: #0066cc; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 16px; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; }
+    th { font-weight: bold; }
+    .error { color: #c00; background: #fff0f0; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px; }
+    .success { color: #060; background: #f0fff0; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px; }
+    .passkey-prompt { background: #f0f6ff; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <h1>feedmail admin</h1>
+  {{> admin-nav}}
+
+  {{#if error}}
+  <div class="error">{{error}}</div>
+  {{/if}}
+
+  {{#if success}}
+  <div class="success">{{success}}</div>
+  {{/if}}
+
+  {{#if showPasskeyPrompt}}
+  <div class="passkey-prompt">
+    <p><strong>Secure your account with a passkey.</strong> Sign in with a single tap using your device's biometrics or PIN instead of waiting for a magic link email.</p>
+    <p><a href="/admin/settings">Register a passkey</a> | <a href="/admin?dismissed=passkey">Dismiss</a></p>
+  </div>
+  {{/if}}
+
+  {{#if hasChannels}}
+  <form method="POST" action="/admin/send" style="margin-bottom: 20px;">
+    <button type="submit">Check all feeds</button>
+  </form>
+
+  {{#each channels}}
+  <h2><a href="/admin/channels/{{this.id}}">{{this.siteName}}</a></h2>
+  {{#if this.error}}
+  <p class="error">{{this.error}}</p>
+  {{else}}
+  <table>
+    <tr><th>Verified</th><td>{{this.subscribers.verified}}</td></tr>
+    <tr><th>Pending</th><td>{{this.subscribers.pending}}</td></tr>
+    <tr><th>Unsubscribed</th><td>{{this.subscribers.unsubscribed}}</td></tr>
+    <tr><th>Total subscribers</th><td>{{this.subscribers.total}}</td></tr>
+    <tr><th>Items sent</th><td>{{this.sentItems.total}}</td></tr>
+  </table>
+  {{/if}}
+  {{/each}}
+  {{else}}
+  <p>No channels configured. <a href="/admin/channels">Create your first channel</a> to get started.</p>
+  {{/if}}
+</body>
+</html>

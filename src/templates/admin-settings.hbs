@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Settings — feedmail admin</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; color: #333; }
+    h1 { font-size: 24px; margin: 0 0 20px; }
+    h2 { font-size: 18px; margin: 20px 0 10px; }
+    p { font-size: 16px; line-height: 1.5; }
+    a { color: #0066cc; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 16px; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; }
+    th { font-weight: bold; }
+    .error { color: #c00; background: #fff0f0; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px; }
+    .success { color: #060; background: #f0fff0; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Settings</h1>
+  {{> admin-nav}}
+
+  {{#if error}}
+  <p role="alert"><strong>{{error}}</strong></p>
+  {{/if}}
+
+  {{#if success}}
+  <p><strong>{{success}}</strong></p>
+  {{/if}}
+
+  <div id="register-error" role="alert" hidden><strong></strong></div>
+  <div id="register-success" role="alert" hidden><strong></strong></div>
+
+  <h2>Passkeys</h2>
+
+  {{#if credentials.length}}
+  <table>
+    <thead>
+      <tr><th>Name</th><th>Registered</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {{#each credentials}}
+      <tr>
+        <td>
+          <span id="name-display-{{this.credential_id}}">{{#if this.name}}{{this.name}}{{else}}Unnamed passkey{{/if}}</span>
+          <form method="POST" action="/admin/passkeys/{{this.credential_id}}/rename" style="display:inline">
+            <input type="text" name="name" value="{{this.name}}" maxlength="100" placeholder="Passkey name" required>
+            <button type="submit">Rename</button>
+          </form>
+        </td>
+        <td>{{formatDate this.created_at}}</td>
+        <td>
+          <form method="POST" action="/admin/passkeys/{{this.credential_id}}/delete" style="display:inline"
+            onsubmit="return confirm('Delete this passkey? {{#unless ../credentials.[1]}}This is your only passkey — magic link will be the only login method.{{/unless}}')">
+            <button type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+  {{else}}
+  <p>No passkeys registered yet.</p>
+  {{/if}}
+
+  <h2>Register New Passkey</h2>
+  <div id="register-section">
+    <label for="passkey-name">Passkey name (e.g., "MacBook Pro", "iPhone")</label><br>
+    <input type="text" id="passkey-name" maxlength="100" placeholder="My device"><br><br>
+    <button type="button" id="register-btn">Register passkey</button>
+  </div>
+
+  <script>
+  (function() {
+    {{> webauthn-helpers}}
+    var btn = document.getElementById('register-btn');
+    var errEl = document.getElementById('register-error');
+    var successEl = document.getElementById('register-success');
+    if (!window.PublicKeyCredential) {
+      btn.disabled = true;
+      btn.textContent = 'Passkeys not supported in this browser';
+      return;
+    }
+    btn.addEventListener('click', async function() {
+      btn.disabled = true;
+      errEl.hidden = true;
+      successEl.hidden = true;
+      var name = document.getElementById('passkey-name').value.trim();
+      try {
+        var optRes = await fetch('/admin/passkeys/register/options', { method: 'POST' });
+        if (!optRes.ok) throw new Error('Failed to get options');
+        var opts = await optRes.json();
+        opts.challenge = base64urlToBuffer(opts.challenge);
+        opts.user.id = base64urlToBuffer(opts.user.id);
+        if (opts.excludeCredentials) {
+          opts.excludeCredentials = opts.excludeCredentials.map(function(c) {
+            return { id: base64urlToBuffer(c.id), type: c.type, transports: c.transports };
+          });
+        }
+        var cred = await navigator.credentials.create({ publicKey: opts });
+        var body = {
+          name: name || null,
+          response: {
+            id: cred.id,
+            rawId: bufferToBase64url(cred.rawId),
+            response: {
+              attestationObject: bufferToBase64url(cred.response.attestationObject),
+              clientDataJSON: bufferToBase64url(cred.response.clientDataJSON),
+              transports: cred.response.getTransports ? cred.response.getTransports() : undefined
+            },
+            type: cred.type,
+            authenticatorAttachment: cred.authenticatorAttachment || undefined,
+            clientExtensionResults: cred.getClientExtensionResults()
+          }
+        };
+        var verRes = await fetch('/admin/passkeys/register/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        var result = await verRes.json();
+        if (result.verified) {
+          window.location.reload();
+        } else {
+          errEl.querySelector('strong').textContent = result.error || 'Registration failed';
+          errEl.hidden = false;
+          btn.disabled = false;
+        }
+      } catch (e) {
+        if (e.name !== 'NotAllowedError') {
+          errEl.querySelector('strong').textContent = 'Registration failed. Please try again.';
+          errEl.hidden = false;
+        }
+        btn.disabled = false;
+      }
+    });
+  })();
+  </script>
+</body>
+</html>

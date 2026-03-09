@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{#if isNew}}Add Feed{{else}}Edit Feed{{/if}} — feedmail admin</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; color: #333; }
+    h1 { font-size: 24px; margin: 0 0 20px; }
+    p { font-size: 16px; line-height: 1.5; }
+    a { color: #0066cc; }
+    label { display: block; margin-top: 12px; font-weight: bold; }
+    input[type="text"], input[type="url"] { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; }
+    button { margin-top: 12px; padding: 8px 16px; }
+    .error { color: #c00; background: #fff0f0; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px; }
+    .required::after { content: " *"; color: #c00; }
+  </style>
+</head>
+<body>
+  <h1>{{#if isNew}}Add Feed{{else}}Edit Feed{{/if}}</h1>
+  {{> admin-nav}}
+
+  {{#if error}}
+  <div class="error">{{error}}</div>
+  {{/if}}
+
+  {{#if channelId}}
+  <p><a href="/admin/channels/{{channelId}}">&larr; Back to channel</a></p>
+
+  <form method="POST" action="{{#if isNew}}/admin/channels/{{channelId}}/feeds{{else}}/admin/channels/{{channelId}}/feeds/{{feedId}}{{/if}}">
+    <label for="name" class="required">Feed Name</label>
+    <input type="text" id="name" name="name" value="{{feed.name}}" required>
+
+    <label for="url" class="required">Feed URL</label>
+    <input type="url" id="url" name="url" value="{{feed.url}}" required>
+
+    <button type="submit">{{#if isNew}}Add Feed{{else}}Save Changes{{/if}}</button>
+  </form>
+  {{/if}}
+</body>
+</html>

@@ -52,7 +52,7 @@ const CHALLENGE_COOKIE_NAME = "feedmail_webauthn_challenge";
  * @returns {string}
  */
 function passkeyManagementUrl(domain, param, value) {
-  return `https://${domain}/admin/passkeys?${param}=${encodeURIComponent(value)}`;
+  return `https://${domain}/admin/settings?${param}=${encodeURIComponent(value)}`;
 }
 
 /**

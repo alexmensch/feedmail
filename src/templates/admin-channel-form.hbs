@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{#if isNew}}Create Channel{{else}}Edit Channel{{/if}} — feedmail admin</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; color: #333; }
+    h1 { font-size: 24px; margin: 0 0 20px; }
+    h2 { font-size: 18px; margin: 20px 0 10px; }
+    p { font-size: 16px; line-height: 1.5; }
+    a { color: #0066cc; }
+    label { display: block; margin-top: 12px; font-weight: bold; }
+    input[type="text"], input[type="url"], textarea { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; }
+    textarea { height: 80px; }
+    button { margin-top: 12px; padding: 8px 16px; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 16px; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; }
+    th { font-weight: bold; }
+    .error { color: #c00; background: #fff0f0; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px; }
+    .success { color: #060; background: #f0fff0; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px; }
+    .required::after { content: " *"; color: #c00; }
+  </style>
+</head>
+<body>
+  <h1>{{#if isNew}}Create Channel{{else}}Edit Channel{{/if}}</h1>
+  {{> admin-nav}}
+
+  {{#if error}}
+  <div class="error">{{error}}</div>
+  {{/if}}
+
+  {{#if success}}
+  <div class="success">{{success}}</div>
+  {{/if}}
+
+  <p><a href="/admin/channels">&larr; Back to channels</a></p>
+
+  <form method="POST" action="{{#if isNew}}/admin/channels{{else}}/admin/channels/{{channel.id}}{{/if}}">
+    {{#if isNew}}
+    <label for="id" class="required">Channel ID</label>
+    <input type="text" id="id" name="id" value="{{channel.id}}" required>
+    {{else}}
+    <label>Channel ID</label>
+    <p style="margin: 4px 0;">{{channel.id}}</p>
+    {{/if}}
+
+    <label for="siteName" class="required">Site Name</label>
+    <input type="text" id="siteName" name="siteName" value="{{channel.siteName}}" required>
+
+    <label for="siteUrl" class="required">Site URL</label>
+    <input type="url" id="siteUrl" name="siteUrl" value="{{channel.siteUrl}}" required>
+
+    <label for="fromUser" class="required">From User</label>
+    <input type="text" id="fromUser" name="fromUser" value="{{channel.fromUser}}" required>
+
+    <label for="fromName" class="required">From Name</label>
+    <input type="text" id="fromName" name="fromName" value="{{channel.fromName}}" required>
+
+    <label for="replyTo">Reply To</label>
+    <input type="text" id="replyTo" name="replyTo" value="{{channel.replyTo}}">
+
+    <label for="companyName">Company Name</label>
+    <input type="text" id="companyName" name="companyName" value="{{channel.companyName}}">
+
+    <label for="companyAddress">Company Address</label>
+    <input type="text" id="companyAddress" name="companyAddress" value="{{channel.companyAddress}}">
+
+    <label for="corsOrigins" class="required">CORS Origins (one per line)</label>
+    <textarea id="corsOrigins" name="corsOrigins">{{channel.corsOrigins}}</textarea>
+
+    <button type="submit">{{#if isNew}}Create Channel{{else}}Save Changes{{/if}}</button>
+  </form>
+
+  {{#unless isNew}}
+  <hr style="margin: 24px 0;">
+
+  <h2>Feeds</h2>
+  <p><a href="/admin/channels/{{channel.id}}/feeds/new">Add feed</a></p>
+
+  {{#if hasFeeds}}
+  <table>
+    <thead>
+      <tr><th>Name</th><th>URL</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {{#each feeds}}
+      <tr>
+        <td>{{this.name}}</td>
+        <td>{{this.url}}</td>
+        <td>
+          <a href="/admin/channels/{{../channel.id}}/feeds/{{this.id}}/edit">Edit</a>
+          <form method="POST" action="/admin/channels/{{../channel.id}}/feeds/{{this.id}}/delete" style="display:inline"
+            onsubmit="return confirm('Delete feed &quot;{{this.name}}&quot;? This action cannot be undone.')">
+            <button type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+  {{else}}
+  <p>No feeds yet. <a href="/admin/channels/{{channel.id}}/feeds/new">Add a feed</a> to get started.</p>
+  {{/if}}
+
+  <hr style="margin: 24px 0;">
+
+  <h2>Actions</h2>
+  <form method="POST" action="/admin/send" style="display:inline">
+    <input type="hidden" name="channelId" value="{{channel.id}}">
+    <button type="submit">Check feeds</button>
+  </form>
+
+  <form method="POST" action="/admin/channels/{{channel.id}}/delete" style="display:inline; margin-left: 12px;"
+    onsubmit="return confirm('Delete channel &quot;{{channel.id}}&quot;? This will remove all associated subscribers and feeds. This action cannot be undone.')">
+    <button type="submit">Delete channel</button>
+  </form>
+  {{/unless}}
+</body>
+</html>
