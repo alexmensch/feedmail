@@ -18,6 +18,10 @@ database_id = "YOUR_DATABASE_ID"
 pattern = "YOUR_DOMAIN/admin*"
 zone_name = "YOUR_DOMAIN"
 
+[[services]]
+binding = "API_SERVICE"
+service = "YOUR_API_WORKER_NAME"
+
 [vars]
 DOMAIN = "YOUR_DOMAIN"
 
