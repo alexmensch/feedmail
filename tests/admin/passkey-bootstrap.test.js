@@ -7,11 +7,11 @@ vi.mock("../../src/admin/routes/auth.js", () => ({
   handleAdminVerify: vi.fn(),
   handleLogout: vi.fn()
 }));
-vi.mock("../../src/admin/routes/passkey.js", () => ({
-  handlePasskeyRegisterOptions: vi.fn(),
-  handlePasskeyRegisterVerify: vi.fn(),
-  handlePasskeyAuthenticateOptions: vi.fn(),
-  handlePasskeyAuthenticateVerify: vi.fn(),
+vi.mock("../../src/admin/routes/passkeys.js", () => ({
+  handleRegisterOptions: vi.fn(),
+  handleRegisterVerify: vi.fn(),
+  handleAuthenticateOptions: vi.fn(),
+  handleAuthenticateVerify: vi.fn(),
   handlePasskeyManagement: vi.fn(),
   handlePasskeyRename: vi.fn(),
   handlePasskeyDelete: vi.fn()
@@ -106,7 +106,7 @@ describe("admin dashboard — passkey bootstrap prompt", () => {
   });
 
   it("shows passkey setup prompt when no passkeys are registered", async () => {
-    getPasskeyCredentialCount.mockResolvedValue({ count: 0 });
+    getPasskeyCredentialCount.mockResolvedValue(0);
 
     const request = makeRequest("GET", "/admin");
 
@@ -122,7 +122,7 @@ describe("admin dashboard — passkey bootstrap prompt", () => {
   });
 
   it("does not show passkey setup prompt when passkeys are registered", async () => {
-    getPasskeyCredentialCount.mockResolvedValue({ count: 2 });
+    getPasskeyCredentialCount.mockResolvedValue(2);
 
     const request = makeRequest("GET", "/admin");
 
@@ -137,7 +137,7 @@ describe("admin dashboard — passkey bootstrap prompt", () => {
   });
 
   it("hides passkey prompt when dismissed via query parameter", async () => {
-    getPasskeyCredentialCount.mockResolvedValue({ count: 0 });
+    getPasskeyCredentialCount.mockResolvedValue(0);
 
     const request = makeRequest("GET", "/admin?dismissed=passkey");
 
@@ -152,7 +152,7 @@ describe("admin dashboard — passkey bootstrap prompt", () => {
   });
 
   it("still shows prompt on next visit after dismissal (not persisted)", async () => {
-    getPasskeyCredentialCount.mockResolvedValue({ count: 0 });
+    getPasskeyCredentialCount.mockResolvedValue(0);
 
     // First visit with dismissal
     const request1 = makeRequest("GET", "/admin?dismissed=passkey");
@@ -164,7 +164,7 @@ describe("admin dashboard — passkey bootstrap prompt", () => {
       response: null
     });
     getCredential.mockResolvedValue("admin@example.com");
-    getPasskeyCredentialCount.mockResolvedValue({ count: 0 });
+    getPasskeyCredentialCount.mockResolvedValue(0);
     getRateLimitConfig.mockResolvedValue({});
     checkRateLimit.mockResolvedValue({ allowed: true });
     getEndpointName.mockReturnValue(null);
@@ -183,7 +183,7 @@ describe("admin dashboard — passkey bootstrap prompt", () => {
 
   it("does not show passkey prompt when admin email is not configured", async () => {
     getCredential.mockResolvedValue(null);
-    getPasskeyCredentialCount.mockResolvedValue({ count: 0 });
+    getPasskeyCredentialCount.mockResolvedValue(0);
 
     const request = makeRequest("GET", "/admin");
 
@@ -196,46 +196,5 @@ describe("admin dashboard — passkey bootstrap prompt", () => {
         setupError: expect.any(String)
       })
     );
-  });
-});
-
-// ─── Login Page Passkey Integration ──────────────────────────────────────
-
-describe("login page — passkey button integration", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-
-    requireSession.mockResolvedValue({
-      session: null,
-      response: null
-    });
-
-    getRateLimitConfig.mockResolvedValue({
-      admin_login: { maxRequests: 10, windowSeconds: 3600 }
-    });
-    checkRateLimit.mockResolvedValue({ allowed: true });
-    getEndpointName.mockImplementation((pathname) => {
-      if (pathname === "/admin/login") return "admin_login";
-      return null;
-    });
-  });
-
-  it("passes hasPasskeys=true to login template when passkeys exist", async () => {
-    getPasskeyCredentialCount.mockResolvedValue({ count: 1 });
-
-    // We need to test handleLogin directly since the worker delegates to it
-    // The worker test verifies routing; this tests the handler behavior
-    // Import the actual auth handler to check it passes hasPasskeys
-    const { handleLogin } = await import("../../src/admin/routes/auth.js");
-
-    // handleLogin is mocked at module level, so we test via the worker
-    // The worker should call handleLogin which should pass hasPasskeys
-    // Since handleLogin is mocked, we verify via the worker passing the right data
-    const request = makeRequest("GET", "/admin/login");
-    await adminApp.fetch(request, env);
-
-    // The mock handleLogin was called; in the real implementation,
-    // handleLogin should query passkey count and pass hasPasskeys to the template
-    expect(handleLogin).toHaveBeenCalled();
   });
 });

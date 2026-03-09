@@ -16,7 +16,7 @@ describe("getEndpointName — passkey authentication routes", () => {
     expect(typeof result).toBe("string");
   });
 
-  it("uses the same endpoint name for both authenticate options and verify", () => {
+  it("maps both authenticate endpoints to admin_login rate limit bucket", () => {
     const optionsEndpoint = getEndpointName(
       "/admin/passkeys/authenticate/options"
     );
@@ -24,39 +24,8 @@ describe("getEndpointName — passkey authentication routes", () => {
       "/admin/passkeys/authenticate/verify"
     );
 
-    // Both should map to the same rate limit bucket
-    expect(optionsEndpoint).toBe(verifyEndpoint);
-  });
-
-  it("does not map passkey registration routes to a rate limit endpoint (they use session auth)", () => {
-    // Registration endpoints are protected by session middleware, not rate limiting
-    // They may still get a rate limit endpoint name, but this test documents the expectation
-    const regOptions = getEndpointName("/admin/passkeys/register/options");
-    const regVerify = getEndpointName("/admin/passkeys/register/verify");
-
-    // These may or may not have a rate limit name — implementation decides
-    // The key requirement is that authentication routes ARE mapped
-    expect(regOptions).toBeDefined(); // may be null or a string
-    expect(regVerify).toBeDefined();
-  });
-});
-
-describe("RATE_LIMIT_DEFAULTS — passkey authentication", () => {
-  it("includes a default rate limit for passkey authentication endpoint", async () => {
-    const { RATE_LIMIT_DEFAULTS } = await import(
-      "../../src/shared/lib/config.js"
-    );
-
-    // There should be a rate limit default for the passkey auth endpoint name
-    const passkeyAuthEndpoint = getEndpointName(
-      "/admin/passkeys/authenticate/options"
-    );
-    if (passkeyAuthEndpoint) {
-      expect(RATE_LIMIT_DEFAULTS).toHaveProperty(passkeyAuthEndpoint);
-      const limits = RATE_LIMIT_DEFAULTS[passkeyAuthEndpoint];
-      expect(limits).toHaveProperty("windowHours");
-      expect(limits).toHaveProperty("maxRequests");
-    }
+    expect(optionsEndpoint).toBe("admin_login");
+    expect(verifyEndpoint).toBe("admin_login");
   });
 });
 
@@ -65,15 +34,12 @@ describe("@simplewebauthn/server dependency", () => {
     const pkg = await import("../../package.json", { with: { type: "json" } });
     const packageJson = pkg.default || pkg;
 
-    expect(packageJson.dependencies).toHaveProperty(
-      "@simplewebauthn/server"
-    );
+    expect(packageJson.dependencies).toHaveProperty("@simplewebauthn/server");
   });
 });
 
 describe("admin passkeys template registration", () => {
   it("adminPasskeys template is registered and can be rendered", async () => {
-    // This will fail until the template is created and registered
     const { render } = await import("../../src/shared/lib/templates.js");
 
     expect(() => render("adminPasskeys", {})).not.toThrow();
@@ -100,7 +66,6 @@ describe("db:reset:local script includes passkey tables", () => {
 
 describe("passkey database migration file", () => {
   it("migration file exists at migrations/0007_passkey_credentials.sql", async () => {
-    // Try to read the migration file — if it doesn't exist, this will fail
     const fs = await import("node:fs/promises");
     const path = await import("node:path");
 

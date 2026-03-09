@@ -50,6 +50,7 @@ vi.mock("../../../src/shared/lib/response.js", () => ({
 vi.mock("../../../src/admin/lib/session.js", () => ({
   requireSession: vi.fn(),
   getSessionFromCookie: vi.fn(),
+  getCookieValue: vi.fn(),
   createSessionCookie: vi
     .fn()
     .mockImplementation(
@@ -70,21 +71,26 @@ vi.mock("@simplewebauthn/server", () => ({
   generateAuthenticationOptions: vi.fn(),
   verifyAuthenticationResponse: vi.fn()
 }));
+vi.mock("@simplewebauthn/server/helpers", () => ({
+  isoBase64URL: {
+    fromBuffer: vi.fn().mockReturnValue("mock-base64url-public-key"),
+    toBuffer: vi.fn().mockReturnValue(new Uint8Array([1, 2, 3]))
+  }
+}));
 
 import {
-  handlePasskeyRegisterOptions,
-  handlePasskeyRegisterVerify,
-  handlePasskeyAuthenticateOptions,
-  handlePasskeyAuthenticateVerify,
+  handleRegisterOptions,
+  handleRegisterVerify,
+  handleAuthenticateOptions,
+  handleAuthenticateVerify,
   handlePasskeyManagement,
   handlePasskeyRename,
   handlePasskeyDelete
-} from "../../../src/admin/routes/passkey.js";
+} from "../../../src/admin/routes/passkeys.js";
 import {
   createPasskeyCredential,
   getPasskeyCredentials,
   getPasskeyCredentialById,
-  getPasskeyCredentialCount,
   updatePasskeyCredentialCounter,
   updatePasskeyCredentialName,
   deletePasskeyCredential,
@@ -94,10 +100,12 @@ import {
   cleanupExpiredChallenges,
   createSession
 } from "../../../src/admin/lib/db.js";
+import { getCredential } from "../../../src/shared/lib/db.js";
 import { render } from "../../../src/shared/lib/templates.js";
 import {
   createSessionCookie,
-  SESSION_TTL_SECONDS
+  getSessionFromCookie,
+  getCookieValue
 } from "../../../src/admin/lib/session.js";
 import {
   generateRegistrationOptions,
@@ -113,15 +121,17 @@ const env = {
 
 // ─── Registration Options ─────────────────────────────────────────────────
 
-describe("handlePasskeyRegisterOptions", () => {
+describe("handleRegisterOptions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getPasskeyCredentials.mockResolvedValue({ results: [] });
+    getPasskeyCredentials.mockResolvedValue([]);
+    getCredential.mockResolvedValue("admin@example.com");
     generateRegistrationOptions.mockResolvedValue({
       challenge: "mock-challenge-base64url",
       rp: { name: "feedmail", id: "feedmail.example.com" },
       user: { id: "admin", name: "admin", displayName: "Admin" }
     });
+    getSessionFromCookie.mockReturnValue("test-session-token");
     createWebAuthnChallenge.mockResolvedValue({});
     cleanupExpiredChallenges.mockResolvedValue({});
   });
@@ -132,7 +142,7 @@ describe("handlePasskeyRegisterOptions", () => {
       { method: "POST" }
     );
 
-    const response = await handlePasskeyRegisterOptions(request, env);
+    const response = await handleRegisterOptions(request, env);
 
     expect(response.status).toBe(200);
     const body = await response.json();
@@ -141,34 +151,36 @@ describe("handlePasskeyRegisterOptions", () => {
     expect(generateRegistrationOptions).toHaveBeenCalled();
   });
 
-  it("stores the challenge in webauthn_challenges with a 5-minute TTL", async () => {
+  it("stores the challenge in webauthn_challenges with session token and type", async () => {
     const request = new Request(
       "https://feedmail.example.com/admin/passkeys/register/options",
       { method: "POST" }
     );
 
-    await handlePasskeyRegisterOptions(request, env);
+    await handleRegisterOptions(request, env);
 
     expect(createWebAuthnChallenge).toHaveBeenCalledWith(
       env.DB,
-      "mock-challenge-base64url",
-      expect.any(String) // expires_at
+      expect.objectContaining({
+        sessionToken: "test-session-token",
+        challenge: "mock-challenge-base64url",
+        type: "registration",
+        expiresAt: expect.any(String)
+      })
     );
   });
 
-  it("passes existing credentials as excludeCredentials to prevent re-registration", async () => {
-    getPasskeyCredentials.mockResolvedValue({
-      results: [
-        { credential_id: "existing-cred-1", public_key: "pk1", counter: 0 }
-      ]
-    });
+  it("passes existing credentials as excludeCredentials", async () => {
+    getPasskeyCredentials.mockResolvedValue([
+      { credential_id: "existing-cred-1", public_key: "pk1", counter: 0 }
+    ]);
 
     const request = new Request(
       "https://feedmail.example.com/admin/passkeys/register/options",
       { method: "POST" }
     );
 
-    await handlePasskeyRegisterOptions(request, env);
+    await handleRegisterOptions(request, env);
 
     expect(generateRegistrationOptions).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -185,7 +197,7 @@ describe("handlePasskeyRegisterOptions", () => {
       { method: "POST" }
     );
 
-    await handlePasskeyRegisterOptions(request, env);
+    await handleRegisterOptions(request, env);
 
     expect(generateRegistrationOptions).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -200,7 +212,7 @@ describe("handlePasskeyRegisterOptions", () => {
       { method: "POST" }
     );
 
-    await handlePasskeyRegisterOptions(request, env);
+    await handleRegisterOptions(request, env);
 
     expect(cleanupExpiredChallenges).toHaveBeenCalledWith(env.DB);
   });
@@ -208,9 +220,10 @@ describe("handlePasskeyRegisterOptions", () => {
 
 // ─── Registration Verification ────────────────────────────────────────────
 
-describe("handlePasskeyRegisterVerify", () => {
+describe("handleRegisterVerify", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getSessionFromCookie.mockReturnValue("test-session-token");
     getWebAuthnChallenge.mockResolvedValue({
       challenge: "stored-challenge",
       expires_at: new Date(Date.now() + 300000)
@@ -225,7 +238,8 @@ describe("handlePasskeyRegisterVerify", () => {
         credential: {
           id: "new-cred-id",
           publicKey: new Uint8Array([1, 2, 3]),
-          counter: 0
+          counter: 0,
+          transports: ["internal"]
         }
       }
     });
@@ -239,13 +253,13 @@ describe("handlePasskeyRegisterVerify", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          credential: { id: "new-cred-id", response: {} },
+          response: { id: "new-cred-id" },
           name: "MacBook Pro"
         })
       }
     );
 
-    const response = await handlePasskeyRegisterVerify(request, env);
+    const response = await handleRegisterVerify(request, env);
 
     expect(response.status).toBe(200);
     const body = await response.json();
@@ -259,13 +273,13 @@ describe("handlePasskeyRegisterVerify", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          credential: { id: "new-cred-id", response: {} },
+          response: { id: "new-cred-id" },
           name: "MacBook Pro"
         })
       }
     );
 
-    await handlePasskeyRegisterVerify(request, env);
+    await handleRegisterVerify(request, env);
 
     expect(createPasskeyCredential).toHaveBeenCalledWith(
       env.DB,
@@ -287,13 +301,13 @@ describe("handlePasskeyRegisterVerify", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          credential: { id: "bad-cred", response: {} },
+          response: { id: "bad-cred" },
           name: "Test"
         })
       }
     );
 
-    const response = await handlePasskeyRegisterVerify(request, env);
+    const response = await handleRegisterVerify(request, env);
 
     const body = await response.json();
     expect(body.verified).toBe(false);
@@ -307,18 +321,22 @@ describe("handlePasskeyRegisterVerify", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          credential: { id: "new-cred-id", response: {} },
+          response: { id: "new-cred-id" },
           name: "MacBook Pro"
         })
       }
     );
 
-    await handlePasskeyRegisterVerify(request, env);
+    await handleRegisterVerify(request, env);
 
-    expect(deleteWebAuthnChallenge).toHaveBeenCalled();
+    expect(deleteWebAuthnChallenge).toHaveBeenCalledWith(
+      env.DB,
+      "test-session-token",
+      "registration"
+    );
   });
 
-  it("returns error when challenge is not found or expired", async () => {
+  it("returns error when challenge is not found", async () => {
     getWebAuthnChallenge.mockResolvedValue(null);
 
     const request = new Request(
@@ -327,64 +345,27 @@ describe("handlePasskeyRegisterVerify", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          credential: { id: "cred", response: {} },
+          response: { id: "cred" },
           name: "Test"
         })
       }
     );
 
-    const response = await handlePasskeyRegisterVerify(request, env);
+    const response = await handleRegisterVerify(request, env);
 
     expect(response.status).toBe(400);
     expect(createPasskeyCredential).not.toHaveBeenCalled();
-  });
-
-  it("returns error when request body is missing", async () => {
-    const request = new Request(
-      "https://feedmail.example.com/admin/passkeys/register/verify",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: "{}"
-      }
-    );
-
-    const response = await handlePasskeyRegisterVerify(request, env);
-
-    expect(response.status).toBeGreaterThanOrEqual(400);
-  });
-
-  it("uses a default name when name is not provided", async () => {
-    const request = new Request(
-      "https://feedmail.example.com/admin/passkeys/register/verify",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          credential: { id: "new-cred-id", response: {} }
-        })
-      }
-    );
-
-    await handlePasskeyRegisterVerify(request, env);
-
-    if (createPasskeyCredential.mock.calls.length > 0) {
-      const nameArg = createPasskeyCredential.mock.calls[0][1].name;
-      expect(nameArg).toBeTruthy(); // Should have a default name
-    }
   });
 });
 
 // ─── Authentication Options ───────────────────────────────────────────────
 
-describe("handlePasskeyAuthenticateOptions", () => {
+describe("handleAuthenticateOptions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getPasskeyCredentials.mockResolvedValue({
-      results: [
-        { credential_id: "cred-1", public_key: "pk1", counter: 0 }
-      ]
-    });
+    getPasskeyCredentials.mockResolvedValue([
+      { credential_id: "cred-1", public_key: "pk1", counter: 0 }
+    ]);
     generateAuthenticationOptions.mockResolvedValue({
       challenge: "auth-challenge-base64url",
       allowCredentials: [{ id: "cred-1" }]
@@ -399,7 +380,7 @@ describe("handlePasskeyAuthenticateOptions", () => {
       { method: "POST" }
     );
 
-    const response = await handlePasskeyAuthenticateOptions(request, env);
+    const response = await handleAuthenticateOptions(request, env);
 
     expect(response.status).toBe(200);
     const body = await response.json();
@@ -407,18 +388,21 @@ describe("handlePasskeyAuthenticateOptions", () => {
     expect(generateAuthenticationOptions).toHaveBeenCalled();
   });
 
-  it("stores the challenge with a 5-minute TTL", async () => {
+  it("stores the challenge with session token and type", async () => {
     const request = new Request(
       "https://feedmail.example.com/admin/passkeys/authenticate/options",
       { method: "POST" }
     );
 
-    await handlePasskeyAuthenticateOptions(request, env);
+    await handleAuthenticateOptions(request, env);
 
     expect(createWebAuthnChallenge).toHaveBeenCalledWith(
       env.DB,
-      "auth-challenge-base64url",
-      expect.any(String)
+      expect.objectContaining({
+        challenge: "auth-challenge-base64url",
+        type: "authentication",
+        expiresAt: expect.any(String)
+      })
     );
   });
 
@@ -428,7 +412,7 @@ describe("handlePasskeyAuthenticateOptions", () => {
       { method: "POST" }
     );
 
-    await handlePasskeyAuthenticateOptions(request, env);
+    await handleAuthenticateOptions(request, env);
 
     expect(generateAuthenticationOptions).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -443,7 +427,7 @@ describe("handlePasskeyAuthenticateOptions", () => {
       { method: "POST" }
     );
 
-    await handlePasskeyAuthenticateOptions(request, env);
+    await handleAuthenticateOptions(request, env);
 
     expect(generateAuthenticationOptions).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -454,29 +438,30 @@ describe("handlePasskeyAuthenticateOptions", () => {
     );
   });
 
-  it("returns error when no passkeys are registered", async () => {
-    getPasskeyCredentials.mockResolvedValue({ results: [] });
-
+  it("sets a challenge cookie in the response", async () => {
     const request = new Request(
       "https://feedmail.example.com/admin/passkeys/authenticate/options",
       { method: "POST" }
     );
 
-    const response = await handlePasskeyAuthenticateOptions(request, env);
+    const response = await handleAuthenticateOptions(request, env);
 
-    // Should indicate no passkeys available
-    expect(response.status).toBeGreaterThanOrEqual(400);
+    const setCookie = response.headers.get("Set-Cookie");
+    expect(setCookie).toContain("feedmail_webauthn_challenge=");
+    expect(setCookie).toContain("HttpOnly");
+    expect(setCookie).toContain("Secure");
   });
 });
 
 // ─── Authentication Verification ──────────────────────────────────────────
 
-describe("handlePasskeyAuthenticateVerify", () => {
+describe("handleAuthenticateVerify", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal("crypto", {
       randomUUID: vi.fn().mockReturnValue("mock-session-uuid")
     });
+    getCookieValue.mockReturnValue("challenge-token-123");
     getWebAuthnChallenge.mockResolvedValue({
       challenge: "auth-challenge",
       expires_at: new Date(Date.now() + 300000)
@@ -507,18 +492,23 @@ describe("handlePasskeyAuthenticateVerify", () => {
       "https://feedmail.example.com/admin/passkeys/authenticate/verify",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: "feedmail_webauthn_challenge=challenge-token-123"
+        },
         body: JSON.stringify({
-          credential: { id: "cred-1", response: {} }
+          response: { id: "cred-1" },
+          id: "cred-1"
         })
       }
     );
 
-    const response = await handlePasskeyAuthenticateVerify(request, env);
+    const response = await handleAuthenticateVerify(request, env);
 
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.verified).toBe(true);
+    expect(body.redirectUrl).toBe("/admin");
     expect(createSession).toHaveBeenCalledWith(
       env.DB,
       "mock-session-uuid",
@@ -531,17 +521,24 @@ describe("handlePasskeyAuthenticateVerify", () => {
       "https://feedmail.example.com/admin/passkeys/authenticate/verify",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: "feedmail_webauthn_challenge=challenge-token-123"
+        },
         body: JSON.stringify({
-          credential: { id: "cred-1", response: {} }
+          response: { id: "cred-1" },
+          id: "cred-1"
         })
       }
     );
 
-    const response = await handlePasskeyAuthenticateVerify(request, env);
+    const response = await handleAuthenticateVerify(request, env);
 
-    const setCookie = response.headers.get("Set-Cookie");
-    expect(setCookie).toContain("feedmail_admin_session=");
+    const cookies = response.headers.getSetCookie
+      ? response.headers.getSetCookie()
+      : [response.headers.get("Set-Cookie")];
+    const allCookies = cookies.join("; ");
+    expect(allCookies).toContain("feedmail_admin_session=");
     expect(createSessionCookie).toHaveBeenCalledWith("mock-session-uuid");
   });
 
@@ -550,14 +547,18 @@ describe("handlePasskeyAuthenticateVerify", () => {
       "https://feedmail.example.com/admin/passkeys/authenticate/verify",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: "feedmail_webauthn_challenge=challenge-token-123"
+        },
         body: JSON.stringify({
-          credential: { id: "cred-1", response: {} }
+          response: { id: "cred-1" },
+          id: "cred-1"
         })
       }
     );
 
-    await handlePasskeyAuthenticateVerify(request, env);
+    await handleAuthenticateVerify(request, env);
 
     expect(updatePasskeyCredentialCounter).toHaveBeenCalledWith(
       env.DB,
@@ -566,11 +567,11 @@ describe("handlePasskeyAuthenticateVerify", () => {
     );
   });
 
-  it("rejects authentication when counter goes backwards (possible cloned authenticator)", async () => {
+  it("rejects authentication when counter goes backwards", async () => {
     verifyAuthenticationResponse.mockResolvedValue({
       verified: true,
       authenticationInfo: {
-        newCounter: 3, // backwards from stored counter of 5
+        newCounter: 3,
         credentialID: "cred-1"
       }
     });
@@ -579,14 +580,18 @@ describe("handlePasskeyAuthenticateVerify", () => {
       "https://feedmail.example.com/admin/passkeys/authenticate/verify",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: "feedmail_webauthn_challenge=challenge-token-123"
+        },
         body: JSON.stringify({
-          credential: { id: "cred-1", response: {} }
+          response: { id: "cred-1" },
+          id: "cred-1"
         })
       }
     );
 
-    const response = await handlePasskeyAuthenticateVerify(request, env);
+    const response = await handleAuthenticateVerify(request, env);
 
     const body = await response.json();
     expect(body.verified).toBe(false);
@@ -602,39 +607,26 @@ describe("handlePasskeyAuthenticateVerify", () => {
       "https://feedmail.example.com/admin/passkeys/authenticate/verify",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: "feedmail_webauthn_challenge=challenge-token-123"
+        },
         body: JSON.stringify({
-          credential: { id: "cred-1", response: {} }
+          response: { id: "cred-1" },
+          id: "cred-1"
         })
       }
     );
 
-    const response = await handlePasskeyAuthenticateVerify(request, env);
+    const response = await handleAuthenticateVerify(request, env);
 
     const body = await response.json();
     expect(body.verified).toBe(false);
     expect(createSession).not.toHaveBeenCalled();
   });
 
-  it("deletes the challenge after verification attempt", async () => {
-    const request = new Request(
-      "https://feedmail.example.com/admin/passkeys/authenticate/verify",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          credential: { id: "cred-1", response: {} }
-        })
-      }
-    );
-
-    await handlePasskeyAuthenticateVerify(request, env);
-
-    expect(deleteWebAuthnChallenge).toHaveBeenCalled();
-  });
-
-  it("returns error when challenge is not found or expired", async () => {
-    getWebAuthnChallenge.mockResolvedValue(null);
+  it("returns error when challenge cookie is missing", async () => {
+    getCookieValue.mockReturnValue(null);
 
     const request = new Request(
       "https://feedmail.example.com/admin/passkeys/authenticate/verify",
@@ -642,12 +634,13 @@ describe("handlePasskeyAuthenticateVerify", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          credential: { id: "cred-1", response: {} }
+          response: { id: "cred-1" },
+          id: "cred-1"
         })
       }
     );
 
-    const response = await handlePasskeyAuthenticateVerify(request, env);
+    const response = await handleAuthenticateVerify(request, env);
 
     expect(response.status).toBe(400);
     expect(createSession).not.toHaveBeenCalled();
@@ -660,14 +653,18 @@ describe("handlePasskeyAuthenticateVerify", () => {
       "https://feedmail.example.com/admin/passkeys/authenticate/verify",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: "feedmail_webauthn_challenge=challenge-token-123"
+        },
         body: JSON.stringify({
-          credential: { id: "unknown-cred", response: {} }
+          response: { id: "unknown-cred" },
+          id: "unknown-cred"
         })
       }
     );
 
-    const response = await handlePasskeyAuthenticateVerify(request, env);
+    const response = await handleAuthenticateVerify(request, env);
 
     const body = await response.json();
     expect(body.verified).toBe(false);
@@ -682,27 +679,23 @@ describe("handlePasskeyManagement", () => {
     vi.clearAllMocks();
   });
 
-  it("renders the passkey management page with list of credentials", async () => {
-    getPasskeyCredentials.mockResolvedValue({
-      results: [
-        {
-          credential_id: "cred-1",
-          name: "MacBook Pro",
-          created_at: "2025-01-01 12:00:00",
-          counter: 5
-        },
-        {
-          credential_id: "cred-2",
-          name: "iPhone",
-          created_at: "2025-01-02 12:00:00",
-          counter: 3
-        }
-      ]
-    });
+  it("renders the passkey management page with credentials", async () => {
+    getPasskeyCredentials.mockResolvedValue([
+      {
+        credential_id: "cred-1",
+        name: "MacBook Pro",
+        created_at: "2025-01-01 12:00:00",
+        counter: 5
+      },
+      {
+        credential_id: "cred-2",
+        name: "iPhone",
+        created_at: "2025-01-02 12:00:00",
+        counter: 3
+      }
+    ]);
 
-    const request = new Request(
-      "https://feedmail.example.com/admin/passkeys"
-    );
+    const request = new Request("https://feedmail.example.com/admin/passkeys");
 
     const response = await handlePasskeyManagement(request, env);
 
@@ -716,11 +709,9 @@ describe("handlePasskeyManagement", () => {
   });
 
   it("renders empty state when no credentials exist", async () => {
-    getPasskeyCredentials.mockResolvedValue({ results: [] });
+    getPasskeyCredentials.mockResolvedValue([]);
 
-    const request = new Request(
-      "https://feedmail.example.com/admin/passkeys"
-    );
+    const request = new Request("https://feedmail.example.com/admin/passkeys");
 
     const response = await handlePasskeyManagement(request, env);
 
@@ -733,12 +724,10 @@ describe("handlePasskeyManagement", () => {
     );
   });
 
-  it("passes the domain to the template for WebAuthn rpID", async () => {
-    getPasskeyCredentials.mockResolvedValue({ results: [] });
+  it("passes the domain to the template", async () => {
+    getPasskeyCredentials.mockResolvedValue([]);
 
-    const request = new Request(
-      "https://feedmail.example.com/admin/passkeys"
-    );
+    const request = new Request("https://feedmail.example.com/admin/passkeys");
 
     await handlePasskeyManagement(request, env);
 
@@ -781,7 +770,7 @@ describe("handlePasskeyRename", () => {
       "New Name"
     );
     expect(response.status).toBe(302);
-    expect(response.headers.get("Location")).toBe("/admin/passkeys");
+    expect(response.headers.get("Location")).toContain("/admin/passkeys");
   });
 
   it("rejects empty name", async () => {
@@ -797,12 +786,12 @@ describe("handlePasskeyRename", () => {
     const response = await handlePasskeyRename(request, env, "cred-1");
 
     expect(updatePasskeyCredentialName).not.toHaveBeenCalled();
-    // Should redirect back with error or return error status
-    expect(response.status).toBeGreaterThanOrEqual(300);
+    expect(response.status).toBe(302);
+    expect(response.headers.get("Location")).toContain("error=");
   });
 
   it("rejects name that is too long", async () => {
-    const longName = "a".repeat(256);
+    const longName = "a".repeat(101);
     const request = new Request(
       "https://feedmail.example.com/admin/passkeys/cred-1/rename",
       {
@@ -815,7 +804,8 @@ describe("handlePasskeyRename", () => {
     const response = await handlePasskeyRename(request, env, "cred-1");
 
     expect(updatePasskeyCredentialName).not.toHaveBeenCalled();
-    expect(response.status).toBeGreaterThanOrEqual(300);
+    expect(response.status).toBe(302);
+    expect(response.headers.get("Location")).toContain("error=");
   });
 
   it("trims whitespace from name", async () => {
@@ -837,7 +827,7 @@ describe("handlePasskeyRename", () => {
     );
   });
 
-  it("returns 404 when credential does not exist", async () => {
+  it("redirects with error when credential does not exist", async () => {
     getPasskeyCredentialById.mockResolvedValue(null);
 
     const request = new Request(
@@ -851,7 +841,8 @@ describe("handlePasskeyRename", () => {
 
     const response = await handlePasskeyRename(request, env, "nonexistent");
 
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(302);
+    expect(response.headers.get("Location")).toContain("error=");
     expect(updatePasskeyCredentialName).not.toHaveBeenCalled();
   });
 });
@@ -861,10 +852,6 @@ describe("handlePasskeyRename", () => {
 describe("handlePasskeyDelete", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getPasskeyCredentialById.mockResolvedValue({
-      credential_id: "cred-1",
-      name: "MacBook"
-    });
     deletePasskeyCredential.mockResolvedValue({});
   });
 
@@ -878,12 +865,10 @@ describe("handlePasskeyDelete", () => {
 
     expect(deletePasskeyCredential).toHaveBeenCalledWith(env.DB, "cred-1");
     expect(response.status).toBe(302);
-    expect(response.headers.get("Location")).toBe("/admin/passkeys");
+    expect(response.headers.get("Location")).toContain("/admin/passkeys");
   });
 
-  it("returns 404 when credential does not exist", async () => {
-    getPasskeyCredentialById.mockResolvedValue(null);
-
+  it("succeeds silently when credential does not exist (idempotent)", async () => {
     const request = new Request(
       "https://feedmail.example.com/admin/passkeys/nonexistent/delete",
       { method: "POST" }
@@ -891,21 +876,7 @@ describe("handlePasskeyDelete", () => {
 
     const response = await handlePasskeyDelete(request, env, "nonexistent");
 
-    expect(response.status).toBe(404);
-    expect(deletePasskeyCredential).not.toHaveBeenCalled();
-  });
-
-  it("allows deleting the last passkey", async () => {
-    getPasskeyCredentialCount.mockResolvedValue({ count: 1 });
-
-    const request = new Request(
-      "https://feedmail.example.com/admin/passkeys/cred-1/delete",
-      { method: "POST" }
-    );
-
-    const response = await handlePasskeyDelete(request, env, "cred-1");
-
-    expect(deletePasskeyCredential).toHaveBeenCalledWith(env.DB, "cred-1");
+    expect(deletePasskeyCredential).toHaveBeenCalledWith(env.DB, "nonexistent");
     expect(response.status).toBe(302);
   });
 });

@@ -33,13 +33,17 @@ vi.mock("../../src/shared/lib/response.js", () => ({
 vi.mock("../../src/admin/lib/session.js", () => ({
   requireSession: vi.fn(),
   getSessionFromCookie: vi.fn(),
-  createSessionCookie: vi.fn().mockImplementation(
-    (token) =>
-      `feedmail_admin_session=${token}; HttpOnly; Secure; SameSite=Strict; Path=/admin; Max-Age=86400`
-  ),
-  clearSessionCookie: vi.fn().mockReturnValue(
-    "feedmail_admin_session=; HttpOnly; Secure; SameSite=Strict; Path=/admin; Max-Age=0"
-  ),
+  createSessionCookie: vi
+    .fn()
+    .mockImplementation(
+      (token) =>
+        `feedmail_admin_session=${token}; HttpOnly; Secure; SameSite=Strict; Path=/admin; Max-Age=86400`
+    ),
+  clearSessionCookie: vi
+    .fn()
+    .mockReturnValue(
+      "feedmail_admin_session=; HttpOnly; Secure; SameSite=Strict; Path=/admin; Max-Age=0"
+    ),
   SESSION_COOKIE_NAME: "feedmail_admin_session",
   SESSION_TTL_SECONDS: 86400
 }));
@@ -61,7 +65,7 @@ describe("handleLogin — passkey integration", () => {
   });
 
   it("passes hasPasskeys=true to login template when passkeys exist in D1", async () => {
-    getPasskeyCredentialCount.mockResolvedValue({ count: 2 });
+    getPasskeyCredentialCount.mockResolvedValue(2);
 
     const request = new Request("https://feedmail.example.com/admin/login");
 
@@ -77,7 +81,7 @@ describe("handleLogin — passkey integration", () => {
   });
 
   it("passes hasPasskeys=false to login template when no passkeys exist", async () => {
-    getPasskeyCredentialCount.mockResolvedValue({ count: 0 });
+    getPasskeyCredentialCount.mockResolvedValue(0);
 
     const request = new Request("https://feedmail.example.com/admin/login");
 
@@ -92,7 +96,7 @@ describe("handleLogin — passkey integration", () => {
   });
 
   it("passes domain to login template for WebAuthn rpID", async () => {
-    getPasskeyCredentialCount.mockResolvedValue({ count: 1 });
+    getPasskeyCredentialCount.mockResolvedValue(1);
 
     const request = new Request("https://feedmail.example.com/admin/login");
 

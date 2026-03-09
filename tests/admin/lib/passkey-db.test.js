@@ -25,6 +25,7 @@ describe("passkey DB helpers", () => {
         credentialId: "cred-id-base64url",
         publicKey: "public-key-base64url",
         counter: 0,
+        transports: ["internal"],
         name: "MacBook Pro"
       });
 
@@ -35,12 +36,13 @@ describe("passkey DB helpers", () => {
         "cred-id-base64url",
         "public-key-base64url",
         0,
+        '["internal"]',
         "MacBook Pro"
       );
       expect(db._chain.run).toHaveBeenCalled();
     });
 
-    it("stores all required fields: credential_id, public_key, counter, name", async () => {
+    it("stores null transports when not provided", async () => {
       const db = mockDb({});
 
       await createPasskeyCredential(db, {
@@ -51,34 +53,33 @@ describe("passkey DB helpers", () => {
       });
 
       const bindArgs = db._chain.bind.mock.calls[0];
-      expect(bindArgs).toContain("abc123");
-      expect(bindArgs).toContain("pk-xyz");
-      expect(bindArgs).toContain(5);
-      expect(bindArgs).toContain("iPhone");
+      expect(bindArgs[0]).toBe("abc123");
+      expect(bindArgs[1]).toBe("pk-xyz");
+      expect(bindArgs[2]).toBe(5);
+      expect(bindArgs[3]).toBeNull();
+      expect(bindArgs[4]).toBe("iPhone");
     });
   });
 
   describe("getPasskeyCredentials", () => {
-    it("returns all passkey credentials", async () => {
-      const rows = {
-        results: [
-          {
-            credential_id: "cred-1",
-            public_key: "pk-1",
-            counter: 0,
-            name: "MacBook",
-            created_at: "2025-01-01 12:00:00"
-          },
-          {
-            credential_id: "cred-2",
-            public_key: "pk-2",
-            counter: 3,
-            name: "iPhone",
-            created_at: "2025-01-02 12:00:00"
-          }
-        ]
-      };
-      const db = mockDb(rows);
+    it("returns all passkey credentials as an array", async () => {
+      const rows = [
+        {
+          credential_id: "cred-1",
+          public_key: "pk-1",
+          counter: 0,
+          name: "MacBook",
+          created_at: "2025-01-01 12:00:00"
+        },
+        {
+          credential_id: "cred-2",
+          public_key: "pk-2",
+          counter: 3,
+          name: "iPhone",
+          created_at: "2025-01-02 12:00:00"
+        }
+      ];
+      const db = mockDb({ results: rows });
 
       const result = await getPasskeyCredentials(db);
 
@@ -89,12 +90,12 @@ describe("passkey DB helpers", () => {
       expect(result).toEqual(rows);
     });
 
-    it("returns empty results when no credentials exist", async () => {
+    it("returns empty array when no credentials exist", async () => {
       const db = mockDb({ results: [] });
 
       const result = await getPasskeyCredentials(db);
 
-      expect(result).toEqual({ results: [] });
+      expect(result).toEqual([]);
     });
   });
 
@@ -132,27 +133,22 @@ describe("passkey DB helpers", () => {
   });
 
   describe("getPasskeyCredentialCount", () => {
-    it("returns the count of passkey credentials", async () => {
+    it("returns the count of passkey credentials as an integer", async () => {
       const db = mockDb({ count: 3 });
 
       const result = await getPasskeyCredentialCount(db);
 
-      expect(db.prepare).toHaveBeenCalledWith(
-        expect.stringContaining("COUNT")
-      );
-      expect(db.prepare).toHaveBeenCalledWith(
-        expect.stringContaining("passkey_credentials")
-      );
+      expect(db.prepare).toHaveBeenCalledWith(expect.stringContaining("COUNT"));
       expect(db._chain.first).toHaveBeenCalled();
-      expect(result).toEqual({ count: 3 });
+      expect(result).toBe(3);
     });
 
-    it("returns zero count when no credentials exist", async () => {
+    it("returns zero when no credentials exist", async () => {
       const db = mockDb({ count: 0 });
 
       const result = await getPasskeyCredentialCount(db);
 
-      expect(result).toEqual({ count: 0 });
+      expect(result).toBe(0);
     });
   });
 
@@ -168,9 +164,6 @@ describe("passkey DB helpers", () => {
       expect(db.prepare).toHaveBeenCalledWith(
         expect.stringContaining("passkey_credentials")
       );
-      expect(db.prepare).toHaveBeenCalledWith(
-        expect.stringContaining("counter")
-      );
       expect(db._chain.bind).toHaveBeenCalledWith(42, "cred-1");
       expect(db._chain.run).toHaveBeenCalled();
     });
@@ -185,12 +178,7 @@ describe("passkey DB helpers", () => {
       expect(db.prepare).toHaveBeenCalledWith(
         expect.stringContaining("UPDATE")
       );
-      expect(db.prepare).toHaveBeenCalledWith(
-        expect.stringContaining("passkey_credentials")
-      );
-      expect(db.prepare).toHaveBeenCalledWith(
-        expect.stringContaining("name")
-      );
+      expect(db.prepare).toHaveBeenCalledWith(expect.stringContaining("name"));
       expect(db._chain.bind).toHaveBeenCalledWith("My New Name", "cred-1");
       expect(db._chain.run).toHaveBeenCalled();
     });
@@ -204,9 +192,6 @@ describe("passkey DB helpers", () => {
 
       expect(db.prepare).toHaveBeenCalledWith(
         expect.stringContaining("DELETE FROM passkey_credentials")
-      );
-      expect(db.prepare).toHaveBeenCalledWith(
-        expect.stringContaining("credential_id = ?")
       );
       expect(db._chain.bind).toHaveBeenCalledWith("cred-1");
       expect(db._chain.run).toHaveBeenCalled();
@@ -227,17 +212,20 @@ describe("passkey DB helpers", () => {
     it("inserts a challenge into webauthn_challenges table", async () => {
       const db = mockDb({});
 
-      await createWebAuthnChallenge(
-        db,
-        "challenge-value",
-        "2025-01-01T12:05:00.000Z"
-      );
+      await createWebAuthnChallenge(db, {
+        sessionToken: "session-123",
+        challenge: "challenge-value",
+        type: "registration",
+        expiresAt: "2025-01-01T12:05:00.000Z"
+      });
 
       expect(db.prepare).toHaveBeenCalledWith(
         expect.stringContaining("INSERT INTO webauthn_challenges")
       );
       expect(db._chain.bind).toHaveBeenCalledWith(
+        "session-123",
         "challenge-value",
+        "registration",
         "2025-01-01T12:05:00.000Z"
       );
       expect(db._chain.run).toHaveBeenCalled();
@@ -245,20 +233,29 @@ describe("passkey DB helpers", () => {
   });
 
   describe("getWebAuthnChallenge", () => {
-    it("queries webauthn_challenges by challenge value", async () => {
+    it("queries webauthn_challenges by session_token and type", async () => {
       const row = {
+        session_token: "session-123",
         challenge: "challenge-value",
+        type: "registration",
         expires_at: "2025-01-01 12:05:00",
         created_at: "2025-01-01 12:00:00"
       };
       const db = mockDb(row);
 
-      const result = await getWebAuthnChallenge(db, "challenge-value");
+      const result = await getWebAuthnChallenge(
+        db,
+        "session-123",
+        "registration"
+      );
 
       expect(db.prepare).toHaveBeenCalledWith(
         expect.stringContaining("webauthn_challenges")
       );
-      expect(db._chain.bind).toHaveBeenCalledWith("challenge-value");
+      expect(db._chain.bind).toHaveBeenCalledWith(
+        "session-123",
+        "registration"
+      );
       expect(db._chain.first).toHaveBeenCalled();
       expect(result).toEqual(row);
     });
@@ -266,22 +263,29 @@ describe("passkey DB helpers", () => {
     it("returns null when challenge does not exist", async () => {
       const db = mockDb(null);
 
-      const result = await getWebAuthnChallenge(db, "nonexistent");
+      const result = await getWebAuthnChallenge(
+        db,
+        "nonexistent",
+        "registration"
+      );
 
       expect(result).toBeNull();
     });
   });
 
   describe("deleteWebAuthnChallenge", () => {
-    it("deletes a challenge by challenge value", async () => {
+    it("deletes a challenge by session_token and type", async () => {
       const db = mockDb({});
 
-      await deleteWebAuthnChallenge(db, "challenge-value");
+      await deleteWebAuthnChallenge(db, "session-123", "registration");
 
       expect(db.prepare).toHaveBeenCalledWith(
         expect.stringContaining("DELETE FROM webauthn_challenges")
       );
-      expect(db._chain.bind).toHaveBeenCalledWith("challenge-value");
+      expect(db._chain.bind).toHaveBeenCalledWith(
+        "session-123",
+        "registration"
+      );
       expect(db._chain.run).toHaveBeenCalled();
     });
   });

@@ -7,11 +7,11 @@ vi.mock("../../src/admin/routes/auth.js", () => ({
   handleAdminVerify: vi.fn(),
   handleLogout: vi.fn()
 }));
-vi.mock("../../src/admin/routes/passkey.js", () => ({
-  handlePasskeyRegisterOptions: vi.fn(),
-  handlePasskeyRegisterVerify: vi.fn(),
-  handlePasskeyAuthenticateOptions: vi.fn(),
-  handlePasskeyAuthenticateVerify: vi.fn(),
+vi.mock("../../src/admin/routes/passkeys.js", () => ({
+  handleRegisterOptions: vi.fn(),
+  handleRegisterVerify: vi.fn(),
+  handleAuthenticateOptions: vi.fn(),
+  handleAuthenticateVerify: vi.fn(),
   handlePasskeyManagement: vi.fn(),
   handlePasskeyRename: vi.fn(),
   handlePasskeyDelete: vi.fn()
@@ -20,6 +20,7 @@ vi.mock("../../src/admin/routes/passkey.js", () => ({
 vi.mock("../../src/admin/lib/session.js", () => ({
   requireSession: vi.fn(),
   getSessionFromCookie: vi.fn(),
+  getCookieValue: vi.fn(),
   SESSION_COOKIE_NAME: "feedmail_admin_session",
   SESSION_TTL_SECONDS: 86400
 }));
@@ -70,14 +71,14 @@ import {
   handleLogout
 } from "../../src/admin/routes/auth.js";
 import {
-  handlePasskeyRegisterOptions,
-  handlePasskeyRegisterVerify,
-  handlePasskeyAuthenticateOptions,
-  handlePasskeyAuthenticateVerify,
+  handleRegisterOptions,
+  handleRegisterVerify,
+  handleAuthenticateOptions,
+  handleAuthenticateVerify,
   handlePasskeyManagement,
   handlePasskeyRename,
   handlePasskeyDelete
-} from "../../src/admin/routes/passkey.js";
+} from "../../src/admin/routes/passkeys.js";
 import { requireSession } from "../../src/admin/lib/session.js";
 import { getPasskeyCredentialCount } from "../../src/admin/lib/db.js";
 import { getRateLimitConfig } from "../../src/shared/lib/config.js";
@@ -86,13 +87,6 @@ import {
   getEndpointName
 } from "../../src/shared/lib/rate-limit.js";
 import { getCredential } from "../../src/shared/lib/db.js";
-import { render } from "../../src/shared/lib/templates.js";
-
-const RATE_LIMITS = {
-  admin_login: { maxRequests: 10, windowSeconds: 3600 },
-  admin_verify: { maxRequests: 20, windowSeconds: 3600 },
-  admin_passkey_auth: { maxRequests: 10, windowSeconds: 3600 }
-};
 
 const env = {
   DB: {},
@@ -133,10 +127,10 @@ describe("admin worker — passkey routing", () => {
         headers: { Location: "/admin/login" }
       })
     );
-    handlePasskeyRegisterOptions.mockResolvedValue(jsonResponse);
-    handlePasskeyRegisterVerify.mockResolvedValue(jsonResponse);
-    handlePasskeyAuthenticateOptions.mockResolvedValue(jsonResponse);
-    handlePasskeyAuthenticateVerify.mockResolvedValue(jsonResponse);
+    handleRegisterOptions.mockResolvedValue(jsonResponse);
+    handleRegisterVerify.mockResolvedValue(jsonResponse);
+    handleAuthenticateOptions.mockResolvedValue(jsonResponse);
+    handleAuthenticateVerify.mockResolvedValue(jsonResponse);
     handlePasskeyManagement.mockResolvedValue(okResponse);
     handlePasskeyRename.mockResolvedValue(redirectResponse);
     handlePasskeyDelete.mockResolvedValue(redirectResponse);
@@ -148,49 +142,47 @@ describe("admin worker — passkey routing", () => {
     });
 
     // Rate limiting defaults: allow all requests
-    getRateLimitConfig.mockResolvedValue(RATE_LIMITS);
+    getRateLimitConfig.mockResolvedValue({
+      admin_login: { maxRequests: 10, windowSeconds: 3600 }
+    });
     checkRateLimit.mockResolvedValue({ allowed: true });
     getEndpointName.mockImplementation((pathname) => {
-      if (pathname === "/admin/login") return "admin_login";
-      if (pathname === "/admin/verify") return "admin_verify";
+      if (pathname === "/admin/login") {
+        return "admin_login";
+      }
+      if (pathname === "/admin/verify") {
+        return "admin_verify";
+      }
       if (
         pathname === "/admin/passkeys/authenticate/options" ||
         pathname === "/admin/passkeys/authenticate/verify"
-      )
-        return "admin_passkey_auth";
+      ) {
+        return "admin_login";
+      }
       return null;
     });
 
     getCredential.mockResolvedValue("admin@example.com");
-    getPasskeyCredentialCount.mockResolvedValue({ count: 0 });
+    getPasskeyCredentialCount.mockResolvedValue(0);
   });
 
   // ─── Registration Routes (Protected) ─────────────────────────────────
 
   describe("passkey registration routes (require session)", () => {
-    it("routes POST /admin/passkeys/register/options to handlePasskeyRegisterOptions", async () => {
-      const request = makeRequest(
-        "POST",
-        "/admin/passkeys/register/options"
-      );
+    it("routes POST /admin/passkeys/register/options to handleRegisterOptions", async () => {
+      const request = makeRequest("POST", "/admin/passkeys/register/options");
 
       await adminApp.fetch(request, env);
 
-      expect(handlePasskeyRegisterOptions).toHaveBeenCalledWith(
-        request,
-        env
-      );
+      expect(handleRegisterOptions).toHaveBeenCalledWith(request, env);
     });
 
-    it("routes POST /admin/passkeys/register/verify to handlePasskeyRegisterVerify", async () => {
-      const request = makeRequest(
-        "POST",
-        "/admin/passkeys/register/verify"
-      );
+    it("routes POST /admin/passkeys/register/verify to handleRegisterVerify", async () => {
+      const request = makeRequest("POST", "/admin/passkeys/register/verify");
 
       await adminApp.fetch(request, env);
 
-      expect(handlePasskeyRegisterVerify).toHaveBeenCalledWith(request, env);
+      expect(handleRegisterVerify).toHaveBeenCalledWith(request, env);
     });
 
     it("applies session middleware to registration options endpoint", async () => {
@@ -202,16 +194,13 @@ describe("admin worker — passkey routing", () => {
         })
       });
 
-      const request = makeRequest(
-        "POST",
-        "/admin/passkeys/register/options"
-      );
+      const request = makeRequest("POST", "/admin/passkeys/register/options");
 
       const response = await adminApp.fetch(request, env);
 
       expect(requireSession).toHaveBeenCalledWith(request, env);
       expect(response.status).toBe(302);
-      expect(handlePasskeyRegisterOptions).not.toHaveBeenCalled();
+      expect(handleRegisterOptions).not.toHaveBeenCalled();
     });
 
     it("applies session middleware to registration verify endpoint", async () => {
@@ -223,23 +212,17 @@ describe("admin worker — passkey routing", () => {
         })
       });
 
-      const request = makeRequest(
-        "POST",
-        "/admin/passkeys/register/verify"
-      );
+      const request = makeRequest("POST", "/admin/passkeys/register/verify");
 
       const response = await adminApp.fetch(request, env);
 
       expect(requireSession).toHaveBeenCalledWith(request, env);
       expect(response.status).toBe(302);
-      expect(handlePasskeyRegisterVerify).not.toHaveBeenCalled();
+      expect(handleRegisterVerify).not.toHaveBeenCalled();
     });
 
     it("returns 405 for GET /admin/passkeys/register/options", async () => {
-      const request = makeRequest(
-        "GET",
-        "/admin/passkeys/register/options"
-      );
+      const request = makeRequest("GET", "/admin/passkeys/register/options");
 
       const response = await adminApp.fetch(request, env);
 
@@ -247,10 +230,7 @@ describe("admin worker — passkey routing", () => {
     });
 
     it("returns 405 for GET /admin/passkeys/register/verify", async () => {
-      const request = makeRequest(
-        "GET",
-        "/admin/passkeys/register/verify"
-      );
+      const request = makeRequest("GET", "/admin/passkeys/register/verify");
 
       const response = await adminApp.fetch(request, env);
 
@@ -261,7 +241,7 @@ describe("admin worker — passkey routing", () => {
   // ─── Authentication Routes (Public) ───────────────────────────────────
 
   describe("passkey authentication routes (public, rate-limited)", () => {
-    it("routes POST /admin/passkeys/authenticate/options to handlePasskeyAuthenticateOptions", async () => {
+    it("routes POST /admin/passkeys/authenticate/options to handleAuthenticateOptions", async () => {
       const request = makeRequest(
         "POST",
         "/admin/passkeys/authenticate/options"
@@ -269,13 +249,10 @@ describe("admin worker — passkey routing", () => {
 
       await adminApp.fetch(request, env);
 
-      expect(handlePasskeyAuthenticateOptions).toHaveBeenCalledWith(
-        request,
-        env
-      );
+      expect(handleAuthenticateOptions).toHaveBeenCalledWith(request, env);
     });
 
-    it("routes POST /admin/passkeys/authenticate/verify to handlePasskeyAuthenticateVerify", async () => {
+    it("routes POST /admin/passkeys/authenticate/verify to handleAuthenticateVerify", async () => {
       const request = makeRequest(
         "POST",
         "/admin/passkeys/authenticate/verify"
@@ -283,10 +260,7 @@ describe("admin worker — passkey routing", () => {
 
       await adminApp.fetch(request, env);
 
-      expect(handlePasskeyAuthenticateVerify).toHaveBeenCalledWith(
-        request,
-        env
-      );
+      expect(handleAuthenticateVerify).toHaveBeenCalledWith(request, env);
     });
 
     it("does NOT apply session middleware to authenticate/options", async () => {
@@ -297,9 +271,7 @@ describe("admin worker — passkey routing", () => {
 
       await adminApp.fetch(request, env);
 
-      // requireSession should not have been called for this route
-      // (if it is called, it should be for something else, not gating this route)
-      expect(handlePasskeyAuthenticateOptions).toHaveBeenCalled();
+      expect(handleAuthenticateOptions).toHaveBeenCalled();
     });
 
     it("does NOT apply session middleware to authenticate/verify", async () => {
@@ -310,12 +282,12 @@ describe("admin worker — passkey routing", () => {
 
       await adminApp.fetch(request, env);
 
-      expect(handlePasskeyAuthenticateVerify).toHaveBeenCalled();
+      expect(handleAuthenticateVerify).toHaveBeenCalled();
     });
 
     it("rate limits authenticate/options endpoint", async () => {
       checkRateLimit.mockResolvedValue({ allowed: false, retryAfter: 60 });
-      getEndpointName.mockReturnValue("admin_passkey_auth");
+      getEndpointName.mockReturnValue("admin_login");
 
       const request = makeRequest(
         "POST",
@@ -326,12 +298,12 @@ describe("admin worker — passkey routing", () => {
       const response = await adminApp.fetch(request, env);
 
       expect(response.status).toBe(429);
-      expect(handlePasskeyAuthenticateOptions).not.toHaveBeenCalled();
+      expect(handleAuthenticateOptions).not.toHaveBeenCalled();
     });
 
     it("rate limits authenticate/verify endpoint", async () => {
       checkRateLimit.mockResolvedValue({ allowed: false, retryAfter: 120 });
-      getEndpointName.mockReturnValue("admin_passkey_auth");
+      getEndpointName.mockReturnValue("admin_login");
 
       const request = makeRequest(
         "POST",
@@ -342,7 +314,7 @@ describe("admin worker — passkey routing", () => {
       const response = await adminApp.fetch(request, env);
 
       expect(response.status).toBe(429);
-      expect(handlePasskeyAuthenticateVerify).not.toHaveBeenCalled();
+      expect(handleAuthenticateVerify).not.toHaveBeenCalled();
     });
 
     it("returns 405 for GET /admin/passkeys/authenticate/options", async () => {
@@ -357,10 +329,7 @@ describe("admin worker — passkey routing", () => {
     });
 
     it("returns 405 for GET /admin/passkeys/authenticate/verify", async () => {
-      const request = makeRequest(
-        "GET",
-        "/admin/passkeys/authenticate/verify"
-      );
+      const request = makeRequest("GET", "/admin/passkeys/authenticate/verify");
 
       const response = await adminApp.fetch(request, env);
 
@@ -410,10 +379,7 @@ describe("admin worker — passkey routing", () => {
 
   describe("passkey rename and delete routes (require session)", () => {
     it("routes POST /admin/passkeys/{credentialId}/rename to handlePasskeyRename", async () => {
-      const request = makeRequest(
-        "POST",
-        "/admin/passkeys/cred-123/rename"
-      );
+      const request = makeRequest("POST", "/admin/passkeys/cred-123/rename");
 
       await adminApp.fetch(request, env);
 
@@ -425,10 +391,7 @@ describe("admin worker — passkey routing", () => {
     });
 
     it("routes POST /admin/passkeys/{credentialId}/delete to handlePasskeyDelete", async () => {
-      const request = makeRequest(
-        "POST",
-        "/admin/passkeys/cred-123/delete"
-      );
+      const request = makeRequest("POST", "/admin/passkeys/cred-123/delete");
 
       await adminApp.fetch(request, env);
 
@@ -448,10 +411,7 @@ describe("admin worker — passkey routing", () => {
         })
       });
 
-      const request = makeRequest(
-        "POST",
-        "/admin/passkeys/cred-123/rename"
-      );
+      const request = makeRequest("POST", "/admin/passkeys/cred-123/rename");
 
       const response = await adminApp.fetch(request, env);
 
@@ -469,10 +429,7 @@ describe("admin worker — passkey routing", () => {
         })
       });
 
-      const request = makeRequest(
-        "POST",
-        "/admin/passkeys/cred-123/delete"
-      );
+      const request = makeRequest("POST", "/admin/passkeys/cred-123/delete");
 
       const response = await adminApp.fetch(request, env);
 
@@ -482,10 +439,7 @@ describe("admin worker — passkey routing", () => {
     });
 
     it("returns 405 for GET /admin/passkeys/{credentialId}/rename", async () => {
-      const request = makeRequest(
-        "GET",
-        "/admin/passkeys/cred-123/rename"
-      );
+      const request = makeRequest("GET", "/admin/passkeys/cred-123/rename");
 
       const response = await adminApp.fetch(request, env);
 
@@ -493,10 +447,7 @@ describe("admin worker — passkey routing", () => {
     });
 
     it("returns 405 for GET /admin/passkeys/{credentialId}/delete", async () => {
-      const request = makeRequest(
-        "GET",
-        "/admin/passkeys/cred-123/delete"
-      );
+      const request = makeRequest("GET", "/admin/passkeys/cred-123/delete");
 
       const response = await adminApp.fetch(request, env);
 
@@ -508,7 +459,6 @@ describe("admin worker — passkey routing", () => {
 
   describe("rate limit endpoint name mapping for passkey auth routes", () => {
     it("maps /admin/passkeys/authenticate/options to a rate limit endpoint", async () => {
-      // This test verifies that getEndpointName is consulted for passkey auth routes
       const request = makeRequest(
         "POST",
         "/admin/passkeys/authenticate/options",
@@ -517,7 +467,6 @@ describe("admin worker — passkey routing", () => {
 
       await adminApp.fetch(request, env);
 
-      // getEndpointName should have been called with the pathname
       expect(getEndpointName).toHaveBeenCalledWith(
         "/admin/passkeys/authenticate/options"
       );

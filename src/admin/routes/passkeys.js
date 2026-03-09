@@ -17,7 +17,6 @@ import {
   createPasskeyCredential,
   getPasskeyCredentials,
   getPasskeyCredentialById,
-  getPasskeyCredentialCount,
   updatePasskeyCredentialCounter,
   updatePasskeyCredentialName,
   deletePasskeyCredential,
@@ -29,6 +28,7 @@ import {
 } from "../lib/db.js";
 import {
   getSessionFromCookie,
+  getCookieValue,
   createSessionCookie,
   SESSION_TTL_SECONDS
 } from "../lib/session.js";
@@ -43,6 +43,51 @@ const CHALLENGE_TTL_SECONDS = 300;
 
 /** Cookie name for linking authentication challenges to browser sessions. */
 const CHALLENGE_COOKIE_NAME = "feedmail_webauthn_challenge";
+
+/**
+ * Build the passkey management page URL with an optional query parameter.
+ * @param {string} domain
+ * @param {string} [param] - Query parameter name ("error" or "success")
+ * @param {string} [value] - Query parameter value
+ * @returns {string}
+ */
+function passkeyManagementUrl(domain, param, value) {
+  const base = `https://${domain}/admin/passkeys`;
+  if (param && value) {
+    return `${base}?${param}=${encodeURIComponent(value)}`;
+  }
+  return base;
+}
+
+/**
+ * Retrieve and consume a WebAuthn challenge in one step.
+ * Deletes the challenge immediately after retrieval and validates expiry.
+ *
+ * @param {object} db - D1 database binding
+ * @param {string} token - Session or challenge token
+ * @param {string} type - "registration" or "authentication"
+ * @returns {Promise<{ challenge: string } | null>} The challenge string, or null if not found/expired
+ */
+async function consumeChallenge(db, token, type) {
+  const row = await getWebAuthnChallenge(db, token, type);
+
+  // Always delete after retrieval
+  if (row) {
+    await deleteWebAuthnChallenge(db, token, type);
+  }
+
+  if (!row) {
+    return null;
+  }
+
+  // Check expiry
+  const expiresAt = new Date(`${row.expires_at}Z`);
+  if (expiresAt <= new Date()) {
+    return null;
+  }
+
+  return { challenge: row.challenge };
+}
 
 // ─── Registration ───────────────────────────────────────────────────────────
 
@@ -109,30 +154,12 @@ export async function handleRegisterVerify(request, env) {
   }
 
   const sessionToken = getSessionFromCookie(request);
-  const challengeRow = await getWebAuthnChallenge(
-    env.DB,
-    sessionToken,
-    "registration"
-  );
+  const result = await consumeChallenge(env.DB, sessionToken, "registration");
 
-  // Always delete the challenge after retrieval
-  if (challengeRow) {
-    await deleteWebAuthnChallenge(env.DB, sessionToken, "registration");
-  }
-
-  if (!challengeRow) {
+  if (!result) {
     return jsonResponse(400, {
       verified: false,
       error: "Challenge not found or expired"
-    });
-  }
-
-  // Check expiry
-  const expiresAt = new Date(`${challengeRow.expires_at}Z`);
-  if (expiresAt <= new Date()) {
-    return jsonResponse(400, {
-      verified: false,
-      error: "Challenge expired"
     });
   }
 
@@ -140,7 +167,7 @@ export async function handleRegisterVerify(request, env) {
   try {
     verification = await verifyRegistrationResponse({
       response: body.response,
-      expectedChallenge: challengeRow.challenge,
+      expectedChallenge: result.challenge,
       expectedOrigin: `https://${env.DOMAIN}`,
       expectedRPID: env.DOMAIN
     });
@@ -235,15 +262,7 @@ export async function handleAuthenticateVerify(request, env) {
   }
 
   // Get challenge token from cookie
-  const cookieHeader = request.headers.get("Cookie") || "";
-  let challengeToken = null;
-  for (const part of cookieHeader.split(";")) {
-    const trimmed = part.trim();
-    if (trimmed.startsWith(`${CHALLENGE_COOKIE_NAME}=`)) {
-      challengeToken = trimmed.slice(CHALLENGE_COOKIE_NAME.length + 1);
-      break;
-    }
-  }
+  const challengeToken = getCookieValue(request, CHALLENGE_COOKIE_NAME);
 
   if (!challengeToken) {
     return jsonResponse(400, {
@@ -252,30 +271,16 @@ export async function handleAuthenticateVerify(request, env) {
     });
   }
 
-  const challengeRow = await getWebAuthnChallenge(
+  const result = await consumeChallenge(
     env.DB,
     challengeToken,
     "authentication"
   );
 
-  // Always delete the challenge after retrieval
-  if (challengeRow) {
-    await deleteWebAuthnChallenge(env.DB, challengeToken, "authentication");
-  }
-
-  if (!challengeRow) {
+  if (!result) {
     return jsonResponse(400, {
       verified: false,
       error: "Challenge not found or expired"
-    });
-  }
-
-  // Check expiry
-  const expiresAt = new Date(`${challengeRow.expires_at}Z`);
-  if (expiresAt <= new Date()) {
-    return jsonResponse(400, {
-      verified: false,
-      error: "Challenge expired"
     });
   }
 
@@ -288,10 +293,7 @@ export async function handleAuthenticateVerify(request, env) {
     });
   }
 
-  const storedCredential = await getPasskeyCredentialById(
-    env.DB,
-    credentialId
-  );
+  const storedCredential = await getPasskeyCredentialById(env.DB, credentialId);
 
   if (!storedCredential) {
     return jsonResponse(400, {
@@ -307,7 +309,7 @@ export async function handleAuthenticateVerify(request, env) {
   try {
     verification = await verifyAuthenticationResponse({
       response: body.response,
-      expectedChallenge: challengeRow.challenge,
+      expectedChallenge: result.challenge,
       expectedOrigin: `https://${env.DOMAIN}`,
       expectedRPID: env.DOMAIN,
       credential: {
@@ -400,23 +402,42 @@ export async function handlePasskeyManagement(request, env) {
  * Rename a passkey credential. Requires authenticated session.
  */
 export async function handlePasskeyRename(request, env, credentialId) {
-  let name = "";
+  // Check credential exists
+  const credential = await getPasskeyCredentialById(env.DB, credentialId);
+  if (!credential) {
+    return Response.redirect(
+      passkeyManagementUrl(env.DOMAIN, "error", "Passkey not found"),
+      302
+    );
+  }
+
+  let name;
   try {
     const formData = await request.formData();
     name = formData.get("name") || "";
   } catch {
     return Response.redirect(
-      `https://${env.DOMAIN}/admin/passkeys?error=${encodeURIComponent("Invalid form data")}`,
+      passkeyManagementUrl(env.DOMAIN, "error", "Invalid form data"),
       302
     );
   }
 
-  // Cap name at 100 chars
-  name = name.trim().slice(0, 100);
+  name = name.trim();
 
   if (!name) {
     return Response.redirect(
-      `https://${env.DOMAIN}/admin/passkeys?error=${encodeURIComponent("Name cannot be empty")}`,
+      passkeyManagementUrl(env.DOMAIN, "error", "Name cannot be empty"),
+      302
+    );
+  }
+
+  if (name.length > 100) {
+    return Response.redirect(
+      passkeyManagementUrl(
+        env.DOMAIN,
+        "error",
+        "Name must be 100 characters or fewer"
+      ),
       302
     );
   }
@@ -424,7 +445,7 @@ export async function handlePasskeyRename(request, env, credentialId) {
   await updatePasskeyCredentialName(env.DB, credentialId, name);
 
   return Response.redirect(
-    `https://${env.DOMAIN}/admin/passkeys?success=${encodeURIComponent("Passkey renamed")}`,
+    passkeyManagementUrl(env.DOMAIN, "success", "Passkey renamed"),
     302
   );
 }
@@ -437,7 +458,7 @@ export async function handlePasskeyDelete(request, env, credentialId) {
   await deletePasskeyCredential(env.DB, credentialId);
 
   return Response.redirect(
-    `https://${env.DOMAIN}/admin/passkeys?success=${encodeURIComponent("Passkey deleted")}`,
+    passkeyManagementUrl(env.DOMAIN, "success", "Passkey deleted"),
     302
   );
 }

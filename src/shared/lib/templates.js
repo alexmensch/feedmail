@@ -12,6 +12,7 @@ import { getChannelById } from "./config.js";
 
 // Import precompiled partial specs
 import emailFooterSpec from "../../templates/compiled/partials/email-footer.js";
+import webauthnHelpersSpec from "../../templates/compiled/partials/webauthn-helpers.js";
 
 // Import precompiled template specs
 import newsletterSpec from "../../templates/compiled/newsletter.js";
@@ -48,6 +49,10 @@ Handlebars.registerHelper("currentYear", () => new Date().getFullYear());
 Handlebars.registerPartial(
   "email-footer",
   Handlebars.template(emailFooterSpec)
+);
+Handlebars.registerPartial(
+  "webauthn-helpers",
+  Handlebars.template(webauthnHelpersSpec)
 );
 
 // Instantiate templates from precompiled specs
