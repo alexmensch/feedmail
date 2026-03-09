@@ -45,18 +45,14 @@ const CHALLENGE_TTL_SECONDS = 300;
 const CHALLENGE_COOKIE_NAME = "feedmail_webauthn_challenge";
 
 /**
- * Build the passkey management page URL with an optional query parameter.
+ * Build the passkey management page URL with a query parameter.
  * @param {string} domain
- * @param {string} [param] - Query parameter name ("error" or "success")
- * @param {string} [value] - Query parameter value
+ * @param {string} param - Query parameter name ("error" or "success")
+ * @param {string} value - Query parameter value
  * @returns {string}
  */
 function passkeyManagementUrl(domain, param, value) {
-  const base = `https://${domain}/admin/passkeys`;
-  if (param && value) {
-    return `${base}?${param}=${encodeURIComponent(value)}`;
-  }
-  return base;
+  return `https://${domain}/admin/passkeys?${param}=${encodeURIComponent(value)}`;
 }
 
 /**

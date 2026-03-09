@@ -216,6 +216,19 @@ describe("handleRegisterOptions", () => {
 
     expect(cleanupExpiredChallenges).toHaveBeenCalledWith(env.DB);
   });
+
+  it("does not fail when challenge cleanup errors", async () => {
+    cleanupExpiredChallenges.mockRejectedValue(new Error("DB error"));
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/passkeys/register/options",
+      { method: "POST" }
+    );
+
+    const response = await handleRegisterOptions(request, env);
+
+    expect(response.status).toBe(200);
+  });
 });
 
 // ─── Registration Verification ────────────────────────────────────────────
@@ -356,6 +369,77 @@ describe("handleRegisterVerify", () => {
     expect(response.status).toBe(400);
     expect(createPasskeyCredential).not.toHaveBeenCalled();
   });
+
+  it("returns error when request body is not valid JSON", async () => {
+    const request = new Request(
+      "https://feedmail.example.com/admin/passkeys/register/verify",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "not json"
+      }
+    );
+
+    const response = await handleRegisterVerify(request, env);
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toBe("Invalid JSON");
+    expect(createPasskeyCredential).not.toHaveBeenCalled();
+  });
+
+  it("returns error when verifyRegistrationResponse throws", async () => {
+    verifyRegistrationResponse.mockRejectedValue(new Error("Bad attestation"));
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/passkeys/register/verify",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          response: { id: "cred" },
+          name: "Test"
+        })
+      }
+    );
+
+    const response = await handleRegisterVerify(request, env);
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.verified).toBe(false);
+    expect(body.error).toBe("Verification failed");
+    expect(createPasskeyCredential).not.toHaveBeenCalled();
+  });
+
+  it("returns error when challenge has expired", async () => {
+    getWebAuthnChallenge.mockResolvedValue({
+      challenge: "stored-challenge",
+      expires_at: new Date(Date.now() - 1000)
+        .toISOString()
+        .replace("T", " ")
+        .replace("Z", "")
+    });
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/passkeys/register/verify",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          response: { id: "cred" },
+          name: "Test"
+        })
+      }
+    );
+
+    const response = await handleRegisterVerify(request, env);
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toBe("Challenge not found or expired");
+    expect(deleteWebAuthnChallenge).toHaveBeenCalled();
+  });
 });
 
 // ─── Authentication Options ───────────────────────────────────────────────
@@ -436,6 +520,19 @@ describe("handleAuthenticateOptions", () => {
         ])
       })
     );
+  });
+
+  it("does not fail when challenge cleanup errors", async () => {
+    cleanupExpiredChallenges.mockRejectedValue(new Error("DB error"));
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/passkeys/authenticate/options",
+      { method: "POST" }
+    );
+
+    const response = await handleAuthenticateOptions(request, env);
+
+    expect(response.status).toBe(200);
   });
 
   it("sets a challenge cookie in the response", async () => {
@@ -646,6 +743,101 @@ describe("handleAuthenticateVerify", () => {
     expect(createSession).not.toHaveBeenCalled();
   });
 
+  it("returns error when request body is not valid JSON", async () => {
+    const request = new Request(
+      "https://feedmail.example.com/admin/passkeys/authenticate/verify",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: "feedmail_webauthn_challenge=challenge-token-123"
+        },
+        body: "not json"
+      }
+    );
+
+    const response = await handleAuthenticateVerify(request, env);
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toBe("Invalid JSON");
+    expect(createSession).not.toHaveBeenCalled();
+  });
+
+  it("returns error when challenge is not found or expired", async () => {
+    getWebAuthnChallenge.mockResolvedValue(null);
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/passkeys/authenticate/verify",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: "feedmail_webauthn_challenge=challenge-token-123"
+        },
+        body: JSON.stringify({
+          response: { id: "cred-1" },
+          id: "cred-1"
+        })
+      }
+    );
+
+    const response = await handleAuthenticateVerify(request, env);
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toBe("Challenge not found or expired");
+    expect(createSession).not.toHaveBeenCalled();
+  });
+
+  it("returns error when credential ID is missing from body", async () => {
+    const request = new Request(
+      "https://feedmail.example.com/admin/passkeys/authenticate/verify",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: "feedmail_webauthn_challenge=challenge-token-123"
+        },
+        body: JSON.stringify({ response: {} })
+      }
+    );
+
+    const response = await handleAuthenticateVerify(request, env);
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toBe("Missing credential ID");
+    expect(createSession).not.toHaveBeenCalled();
+  });
+
+  it("returns error when verifyAuthenticationResponse throws", async () => {
+    verifyAuthenticationResponse.mockRejectedValue(new Error("Bad signature"));
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/passkeys/authenticate/verify",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: "feedmail_webauthn_challenge=challenge-token-123"
+        },
+        body: JSON.stringify({
+          response: { id: "cred-1" },
+          id: "cred-1"
+        })
+      }
+    );
+
+    const response = await handleAuthenticateVerify(request, env);
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.verified).toBe(false);
+    expect(body.error).toBe("Verification failed");
+    expect(createSession).not.toHaveBeenCalled();
+  });
+
   it("returns error when credential is not found in D1", async () => {
     getPasskeyCredentialById.mockResolvedValue(null);
 
@@ -825,6 +1017,23 @@ describe("handlePasskeyRename", () => {
       "cred-1",
       "My MacBook"
     );
+  });
+
+  it("redirects with error when form data is invalid", async () => {
+    const request = new Request(
+      "https://feedmail.example.com/admin/passkeys/cred-1/rename",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "not form data"
+      }
+    );
+
+    const response = await handlePasskeyRename(request, env, "cred-1");
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("Location")).toContain("error=");
+    expect(updatePasskeyCredentialName).not.toHaveBeenCalled();
   });
 
   it("redirects with error when credential does not exist", async () => {
