@@ -830,6 +830,317 @@ describe("index.js — fetch handler", () => {
     });
   });
 
+  describe("X-Internal-Request header — rate limit bypass for internal admin requests", () => {
+    describe("defers rate limiting for internal admin requests", () => {
+      it("skips rate limiting before auth for /api/admin/* with X-Internal-Request: true", async () => {
+        const request = makeRequest("GET", "/api/admin/stats", {
+          Authorization: "Bearer test-admin-key",
+          "X-Internal-Request": "true"
+        });
+
+        await app.fetch(request, env);
+
+        // Rate limiting should not have been called at all for authenticated internal request
+        expect(checkRateLimit).not.toHaveBeenCalled();
+        expect(handleAdmin).toHaveBeenCalled();
+      });
+
+      it("still rate limits /api/admin/* without the X-Internal-Request header", async () => {
+        checkRateLimit.mockResolvedValue({ allowed: false, retryAfter: 60 });
+
+        const response = await app.fetch(
+          makeRequest("GET", "/api/admin/stats", {
+            "CF-Connecting-IP": "1.2.3.4",
+            Authorization: "Bearer test-admin-key"
+          }),
+          env
+        );
+
+        expect(response.status).toBe(429);
+        expect(checkRateLimit).toHaveBeenCalled();
+        expect(handleAdmin).not.toHaveBeenCalled();
+      });
+
+      it("ignores X-Internal-Request header on /api/subscribe — rate limits before auth", async () => {
+        checkRateLimit.mockResolvedValue({ allowed: false, retryAfter: 60 });
+
+        const response = await app.fetch(
+          makeRequest("POST", "/api/subscribe", {
+            "CF-Connecting-IP": "1.2.3.4",
+            "X-Internal-Request": "true"
+          }),
+          env
+        );
+
+        expect(response.status).toBe(429);
+        expect(checkRateLimit).toHaveBeenCalled();
+        expect(handleSubscribe).not.toHaveBeenCalled();
+      });
+
+      it("ignores X-Internal-Request header on /api/send — rate limits before auth", async () => {
+        checkRateLimit.mockResolvedValue({ allowed: false, retryAfter: 60 });
+
+        const response = await app.fetch(
+          makeRequest("POST", "/api/send", {
+            "CF-Connecting-IP": "1.2.3.4",
+            Authorization: "Bearer test-admin-key",
+            "X-Internal-Request": "true"
+          }),
+          env
+        );
+
+        expect(response.status).toBe(429);
+        expect(checkRateLimit).toHaveBeenCalled();
+        expect(handleSend).not.toHaveBeenCalled();
+      });
+
+      it("ignores X-Internal-Request header on /api/verify — rate limits normally", async () => {
+        checkRateLimit.mockResolvedValue({ allowed: false, retryAfter: 60 });
+
+        const response = await app.fetch(
+          makeRequest("GET", "/api/verify?token=abc", {
+            "CF-Connecting-IP": "1.2.3.4",
+            "X-Internal-Request": "true"
+          }),
+          env
+        );
+
+        expect(response.status).toBe(429);
+        expect(checkRateLimit).toHaveBeenCalled();
+        expect(handleVerify).not.toHaveBeenCalled();
+      });
+
+      it("ignores X-Internal-Request header on /api/unsubscribe — rate limits normally", async () => {
+        checkRateLimit.mockResolvedValue({ allowed: false, retryAfter: 60 });
+
+        const response = await app.fetch(
+          makeRequest("GET", "/api/unsubscribe?token=abc", {
+            "CF-Connecting-IP": "1.2.3.4",
+            "X-Internal-Request": "true"
+          }),
+          env
+        );
+
+        expect(response.status).toBe(429);
+        expect(checkRateLimit).toHaveBeenCalled();
+        expect(handleUnsubscribe).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("bypasses rate limiting on successful auth with internal header", () => {
+      it("does not call checkRateLimit when auth succeeds with internal header", async () => {
+        const request = makeRequest("GET", "/api/admin/channels", {
+          Authorization: "Bearer test-admin-key",
+          "X-Internal-Request": "true"
+        });
+
+        const response = await app.fetch(request, env);
+
+        expect(response.status).toBe(200);
+        expect(checkRateLimit).not.toHaveBeenCalled();
+        expect(handleAdmin).toHaveBeenCalled();
+      });
+
+      it("allows unlimited admin console calls without hitting 429", async () => {
+        // Even if rate limit would deny, authenticated internal requests skip it entirely
+        const request = makeRequest("GET", "/api/admin/subscribers", {
+          Authorization: "Bearer test-admin-key",
+          "X-Internal-Request": "true"
+        });
+
+        const response = await app.fetch(request, env);
+
+        expect(response.status).toBe(200);
+        expect(checkRateLimit).not.toHaveBeenCalled();
+      });
+
+      it("calls handleAdmin normally after bypassing rate limit", async () => {
+        const request = makeRequest("GET", "/api/admin/config", {
+          Authorization: "Bearer test-admin-key",
+          "X-Internal-Request": "true"
+        });
+
+        await app.fetch(request, env);
+
+        expect(handleAdmin).toHaveBeenCalledWith(request, env, expect.any(URL));
+      });
+
+      it("bypasses rate limit for internal admin requests using D1 credentials", async () => {
+        const { getCredential } = await import("../../src/shared/lib/db.js");
+        const envNoKey = { DB: {} };
+        vi.mocked(getCredential).mockResolvedValue("db-admin-key");
+
+        const request = makeRequest("GET", "/api/admin/stats", {
+          Authorization: "Bearer db-admin-key",
+          "X-Internal-Request": "true"
+        });
+
+        await app.fetch(request, envNoKey);
+
+        expect(checkRateLimit).not.toHaveBeenCalled();
+        expect(handleAdmin).toHaveBeenCalled();
+      });
+    });
+
+    describe("applies rate limiting on failed auth with internal header", () => {
+      it("rate limits retroactively when auth fails with internal header", async () => {
+        checkRateLimit.mockResolvedValue({ allowed: true });
+
+        const response = await app.fetch(
+          makeRequest("GET", "/api/admin/stats", {
+            Authorization: "Bearer wrong-key",
+            "X-Internal-Request": "true"
+          }),
+          env
+        );
+
+        // Auth failed, so rate limit should have been applied retroactively
+        expect(checkRateLimit).toHaveBeenCalled();
+        expect(response.status).toBe(401);
+      });
+
+      it("returns 429 when retroactive rate limit check denies the request", async () => {
+        checkRateLimit.mockResolvedValue({ allowed: false, retryAfter: 120 });
+
+        const response = await app.fetch(
+          makeRequest("GET", "/api/admin/stats", {
+            Authorization: "Bearer wrong-key",
+            "X-Internal-Request": "true"
+          }),
+          env
+        );
+
+        expect(response.status).toBe(429);
+        expect(response.headers.get("Retry-After")).toBe("120");
+        expect(handleAdmin).not.toHaveBeenCalled();
+      });
+
+      it("uses the admin endpoint rate limit parameters for retroactive check", async () => {
+        checkRateLimit.mockResolvedValue({ allowed: true });
+
+        await app.fetch(
+          makeRequest("GET", "/api/admin/stats", {
+            "CF-Connecting-IP": "10.0.0.1",
+            Authorization: "Bearer wrong-key",
+            "X-Internal-Request": "true"
+          }),
+          env
+        );
+
+        expect(checkRateLimit).toHaveBeenCalledWith(
+          env.DB,
+          "10.0.0.1",
+          "admin",
+          RATE_LIMITS.admin.maxRequests,
+          RATE_LIMITS.admin.windowSeconds
+        );
+      });
+
+      it("falls back to 'unknown' IP for retroactive rate limit when CF-Connecting-IP is absent", async () => {
+        checkRateLimit.mockResolvedValue({ allowed: true });
+
+        await app.fetch(
+          makeRequest("GET", "/api/admin/stats", {
+            Authorization: "Bearer wrong-key",
+            "X-Internal-Request": "true"
+          }),
+          env
+        );
+
+        expect(checkRateLimit).toHaveBeenCalledWith(
+          env.DB,
+          "unknown",
+          "admin",
+          expect.any(Number),
+          expect.any(Number)
+        );
+      });
+
+      it("records rate limit row so repeated failures accumulate", async () => {
+        // First call: allowed (but auth fails)
+        checkRateLimit.mockResolvedValue({ allowed: true });
+
+        await app.fetch(
+          makeRequest("GET", "/api/admin/stats", {
+            "CF-Connecting-IP": "1.2.3.4",
+            Authorization: "Bearer wrong-key",
+            "X-Internal-Request": "true"
+          }),
+          env
+        );
+
+        // checkRateLimit was called, which means a row was recorded
+        expect(checkRateLimit).toHaveBeenCalledTimes(1);
+
+        // Second call: now rate limited
+        checkRateLimit.mockResolvedValue({ allowed: false, retryAfter: 60 });
+
+        const response = await app.fetch(
+          makeRequest("GET", "/api/admin/stats", {
+            "CF-Connecting-IP": "1.2.3.4",
+            Authorization: "Bearer wrong-key",
+            "X-Internal-Request": "true"
+          }),
+          env
+        );
+
+        expect(response.status).toBe(429);
+        expect(checkRateLimit).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    describe("header value strictness", () => {
+      it("treats X-Internal-Request: false as absent — rate limits before auth", async () => {
+        checkRateLimit.mockResolvedValue({ allowed: false, retryAfter: 60 });
+
+        const response = await app.fetch(
+          makeRequest("GET", "/api/admin/stats", {
+            "CF-Connecting-IP": "1.2.3.4",
+            Authorization: "Bearer test-admin-key",
+            "X-Internal-Request": "false"
+          }),
+          env
+        );
+
+        expect(response.status).toBe(429);
+        expect(checkRateLimit).toHaveBeenCalled();
+        expect(handleAdmin).not.toHaveBeenCalled();
+      });
+
+      it("treats empty X-Internal-Request header as absent — rate limits before auth", async () => {
+        checkRateLimit.mockResolvedValue({ allowed: false, retryAfter: 60 });
+
+        const response = await app.fetch(
+          makeRequest("GET", "/api/admin/stats", {
+            "CF-Connecting-IP": "1.2.3.4",
+            Authorization: "Bearer test-admin-key",
+            "X-Internal-Request": ""
+          }),
+          env
+        );
+
+        expect(response.status).toBe(429);
+        expect(checkRateLimit).toHaveBeenCalled();
+        expect(handleAdmin).not.toHaveBeenCalled();
+      });
+
+      it("treats absent X-Internal-Request header as absent — rate limits before auth", async () => {
+        checkRateLimit.mockResolvedValue({ allowed: false, retryAfter: 60 });
+
+        const response = await app.fetch(
+          makeRequest("GET", "/api/admin/stats", {
+            "CF-Connecting-IP": "1.2.3.4",
+            Authorization: "Bearer test-admin-key"
+          }),
+          env
+        );
+
+        expect(response.status).toBe(429);
+        expect(checkRateLimit).toHaveBeenCalled();
+      });
+    });
+  });
+
   describe("admin channel route method allowance", () => {
     it("allows any method through for /api/admin/channels paths", async () => {
       const request = makeRequest("PUT", "/api/admin/channels/test", {

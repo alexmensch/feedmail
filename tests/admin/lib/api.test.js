@@ -300,4 +300,123 @@ describe("callApi", () => {
       expect(mockFetch).not.toHaveBeenCalled();
     });
   });
+
+  describe("X-Internal-Request header", () => {
+    it("includes X-Internal-Request header set to 'true' on GET requests", async () => {
+      mockFetch.mockResolvedValue(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      );
+
+      await callApi(env, "GET", "/admin/channels");
+
+      const fetchCall = mockFetch.mock.calls[0];
+      const options = fetchCall[1];
+      expect(options.headers["X-Internal-Request"]).toBe("true");
+    });
+
+    it("includes X-Internal-Request header set to 'true' on POST requests", async () => {
+      mockFetch.mockResolvedValue(
+        new Response(JSON.stringify({}), {
+          status: 201,
+          headers: { "Content-Type": "application/json" }
+        })
+      );
+
+      await callApi(env, "POST", "/admin/channels", { id: "ch1" });
+
+      const fetchCall = mockFetch.mock.calls[0];
+      const options = fetchCall[1];
+      expect(options.headers["X-Internal-Request"]).toBe("true");
+    });
+
+    it("includes X-Internal-Request header set to 'true' on PUT requests", async () => {
+      mockFetch.mockResolvedValue(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      );
+
+      await callApi(env, "PUT", "/admin/channels/test-ch", {
+        siteName: "Updated"
+      });
+
+      const fetchCall = mockFetch.mock.calls[0];
+      const options = fetchCall[1];
+      expect(options.headers["X-Internal-Request"]).toBe("true");
+    });
+
+    it("includes X-Internal-Request header set to 'true' on DELETE requests", async () => {
+      mockFetch.mockResolvedValue(new Response(null, { status: 204 }));
+
+      await callApi(env, "DELETE", "/admin/channels/test-ch");
+
+      const fetchCall = mockFetch.mock.calls[0];
+      const options = fetchCall[1];
+      expect(options.headers["X-Internal-Request"]).toBe("true");
+    });
+
+    it("includes X-Internal-Request header set to 'true' on PATCH requests", async () => {
+      mockFetch.mockResolvedValue(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      );
+
+      await callApi(env, "PATCH", "/admin/config", { verify_max_attempts: 5 });
+
+      const fetchCall = mockFetch.mock.calls[0];
+      const options = fetchCall[1];
+      expect(options.headers["X-Internal-Request"]).toBe("true");
+    });
+
+    it("header value is the literal string 'true'", async () => {
+      mockFetch.mockResolvedValue(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      );
+
+      await callApi(env, "GET", "/admin/stats");
+
+      const fetchCall = mockFetch.mock.calls[0];
+      const options = fetchCall[1];
+      // Must be exactly the string "true", not a boolean or other value
+      expect(options.headers["X-Internal-Request"]).toBe("true");
+      expect(typeof options.headers["X-Internal-Request"]).toBe("string");
+    });
+
+    it("does not include sensitive information in the header value", async () => {
+      getCredential.mockResolvedValue("secret-api-key-12345");
+      mockFetch.mockResolvedValue(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      );
+
+      await callApi(env, "GET", "/admin/channels");
+
+      const fetchCall = mockFetch.mock.calls[0];
+      const options = fetchCall[1];
+      // The header value must not contain any credential or session information
+      expect(options.headers["X-Internal-Request"]).toBe("true");
+      expect(options.headers["X-Internal-Request"]).not.toContain(
+        "secret-api-key-12345"
+      );
+    });
+
+    it("does not make fetch when admin_api_key is missing so header is irrelevant", async () => {
+      getCredential.mockResolvedValue(null);
+
+      await callApi(env, "GET", "/admin/channels");
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
 });
