@@ -32,18 +32,18 @@ A reader who subscribes to receive feed updates via email. They interact with fe
 
 A plain HTML admin console with all management functionality, a guided first-time setup flow, and a simplified CLI setup script — completing the self-hosting story from deploy to daily operation.
 
-| #   | Feature                                             | Description                                                                                                            | GUID                                   |
-| --- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 1   | [admin-console-functional](./admin-console-functional.md) | Plain HTML forms covering dashboard, channel/feed CRUD, subscriber list, passkey management, confirmations, and errors | `5A963535-83B6-4BA9-AB36-0A8C4F29E7BC` |
-| 2   | [first-time-setup-flow](./first-time-setup-flow.md) | Dashboard empty state guides operators through first channel and feed creation entirely within the browser              | `CFD3690C-0462-4FBB-BA94-4EB2F05B6402` |
-| 3   | [setup-simplification](./setup-simplification.md)   | Reduces setup.sh to infrastructure provisioning (D1, config, credential seeding, deploy) with channel creation deferred to admin UI | `9B3EBAC7-65E7-4F80-BB5C-279D25828FAB` |
+| #   | Feature                                                   | Description                                                                                                                         | GUID                                   |
+| --- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| 1   | [admin-console-functional](./admin-console-functional.md) | Plain HTML forms covering dashboard, channel/feed CRUD, subscriber list, passkey management, confirmations, and errors              | `5A963535-83B6-4BA9-AB36-0A8C4F29E7BC` |
+| 2   | [first-time-setup-flow](./first-time-setup-flow.md)       | Dashboard empty state guides operators through first channel and feed creation entirely within the browser                          | `CFD3690C-0462-4FBB-BA94-4EB2F05B6402` |
+| 3   | [setup-simplification](./setup-simplification.md)         | Reduces setup.sh to infrastructure provisioning (D1, config, credential seeding, deploy) with channel creation deferred to admin UI | `9B3EBAC7-65E7-4F80-BB5C-279D25828FAB` |
 
 ### Release: Admin Console (Styled)
 
 HTMX interactions, CUBE CSS design system, responsive sidebar layout, dark mode, and visual polish for all admin and auth pages.
 
-| #   | Feature                | Description                                                                                                           | GUID |
-| --- | ---------------------- | --------------------------------------------------------------------------------------------------------------------- | ---- |
+| #   | Feature                                           | Description                                                                                                             | GUID                                   |
+| --- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | 4   | [admin-console-styled](./admin-console-styled.md) | HTMX-powered interactions, CUBE CSS with Every Layout primitives, fluid responsive design, dark mode, auth page styling | `D04F43C0-AF8F-4CDA-B9ED-4E9C1D3ACA1B` |
 
 ### Release: Admin Console Enhancements
@@ -62,7 +62,7 @@ Lower-priority infrastructure hygiene and non-user-facing enhancements that keep
 | --- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | 6   | [auth-session-cleanup](./auth-session-cleanup.md)                       | Probabilistic cleanup of expired auth sessions and magic link tokens, with a shared utility that also refactors rate limit cleanup                                                | `E0AC5C7B-3792-44B4-89EB-FCC3B89050C4` |
 | 7   | [remove-credential-env-fallbacks](./remove-credential-env-fallbacks.md) | Removes env-var fallback for ADMIN_API_KEY and RESEND_API_KEY so the D1 credentials table is the single source of truth, with explicit error logging when credentials are missing | `5CBF07F1-6FFE-4FE0-9DF6-221398A0EFDC` |
-| 8   | [rolling-sessions](./rolling-sessions.md)                               | Rolling session expiry (24hr inactivity timeout) with a 7-day absolute cap, replacing the current fixed 24-hour session lifetime                                                 | `26E123A5-1D72-47C8-9E62-AB14F77E55D2` |
+| 8   | [rolling-sessions](./rolling-sessions.md)                               | Rolling session expiry (24hr inactivity timeout) with a 7-day absolute cap, replacing the current fixed 24-hour session lifetime                                                  | `26E123A5-1D72-47C8-9E62-AB14F77E55D2` |
 
 ---
 
@@ -75,5 +75,5 @@ Lower-priority infrastructure hygiene and non-user-facing enhancements that keep
 | [db-backed-configuration](./db-backed-configuration.md)                     | Moves channel/site config from wrangler.toml env vars to D1, with a full admin API for creating and managing channels, feeds, and rate limit settings at runtime | `DCD5EDC1-13F5-40D9-A12B-BA27EE9C1DA9` | #26 |
 | [open-source-packaging](./open-source-packaging.md)                         | Enables self-hosting via a curl-installable bootstrap script and interactive setup wizard, a sanitised wrangler.toml template, and an updated README             | `3C2D77DC-8AB5-439C-B1C8-FB6BB636A83F` | #27 |
 | [admin-auth-magic-link](./admin-auth-magic-link.md)                         | Establishes the admin Worker, session management, and magic link email login with DB-stored credentials (admin email, API keys, Resend key)                      | `233E72F0-C4B3-41A8-8A4E-5AEC156C456E` | #38 |
-| [trailing-slash-normalization](./trailing-slash-normalization.md)            | Fixes routing failures from trailing slashes and bare `/admin` by normalizing paths early in both workers                                                        | `718F6B2C-024C-4E3B-8C65-A75C078EDDD9` | #41 |
+| [trailing-slash-normalization](./trailing-slash-normalization.md)           | Fixes routing failures from trailing slashes and bare `/admin` by normalizing paths early in both workers                                                        | `718F6B2C-024C-4E3B-8C65-A75C078EDDD9` | #41 |
 | [admin-auth-passkey](./admin-auth-passkey.md)                               | Adds passkey (WebAuthn) authentication as the primary login method, with magic link as fallback                                                                  | `FF8F870D-4FD8-491F-9DF2-A4D5E332BE22` | #42 |
