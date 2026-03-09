@@ -11,11 +11,12 @@ export const SESSION_COOKIE_NAME = "feedmail_admin_session";
 export const SESSION_TTL_SECONDS = 86400;
 
 /**
- * Parse the session token from the request's Cookie header.
+ * Parse a named cookie value from the request's Cookie header.
  * @param {Request} request
- * @returns {string|null} Session token or null
+ * @param {string} name - Cookie name
+ * @returns {string|null} Cookie value or null
  */
-export function getSessionFromCookie(request) {
+export function getCookieValue(request, name) {
   const cookieHeader = request.headers.get("Cookie");
   if (!cookieHeader) {
     return null;
@@ -23,11 +24,20 @@ export function getSessionFromCookie(request) {
 
   for (const part of cookieHeader.split(";")) {
     const trimmed = part.trim();
-    if (trimmed.startsWith(`${SESSION_COOKIE_NAME}=`)) {
-      return trimmed.slice(SESSION_COOKIE_NAME.length + 1);
+    if (trimmed.startsWith(`${name}=`)) {
+      return trimmed.slice(name.length + 1);
     }
   }
   return null;
+}
+
+/**
+ * Parse the session token from the request's Cookie header.
+ * @param {Request} request
+ * @returns {string|null} Session token or null
+ */
+export function getSessionFromCookie(request) {
+  return getCookieValue(request, SESSION_COOKIE_NAME);
 }
 
 /**

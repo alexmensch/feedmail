@@ -7,19 +7,92 @@
 </head>
 <body>
   <h1>feedmail admin</h1>
-  <p>Enter your email address to receive a sign-in link.</p>
 
   {{#if error}}
   <p role="alert"><strong>{{error}}</strong></p>
   {{/if}}
 
+  <div id="passkey-error" role="alert" hidden><strong></strong></div>
+
+  {{#if hasPasskeys}}
+  <div id="passkey-login">
+    <button type="button" id="passkey-btn">Sign in with passkey</button>
+    <p>Or use a magic link:</p>
+  </div>
+  {{/if}}
+
   <form method="POST" action="/admin/login">
     <label for="email">Email address</label><br>
-    <input type="email" id="email" name="email" required autofocus><br><br>
+    <input type="email" id="email" name="email" required {{#unless hasPasskeys}}autofocus{{/unless}}><br><br>
     {{#if redirect}}
     <input type="hidden" name="redirect" value="{{redirect}}">
     {{/if}}
     <button type="submit">Send sign-in link</button>
   </form>
+
+  {{#if hasPasskeys}}
+  <script>
+  (function() {
+    {{> webauthn-helpers}}
+    var btn = document.getElementById('passkey-btn');
+    var errEl = document.getElementById('passkey-error');
+    if (!window.PublicKeyCredential) {
+      btn.disabled = true;
+      btn.textContent = 'Passkeys not supported in this browser';
+      return;
+    }
+    btn.addEventListener('click', async function() {
+      btn.disabled = true;
+      errEl.hidden = true;
+      try {
+        var optRes = await fetch('/admin/passkeys/authenticate/options', { method: 'POST' });
+        if (!optRes.ok) throw new Error('Failed to get options');
+        var opts = await optRes.json();
+        opts.challenge = base64urlToBuffer(opts.challenge);
+        if (opts.allowCredentials) {
+          opts.allowCredentials = opts.allowCredentials.map(function(c) {
+            return { id: base64urlToBuffer(c.id), type: c.type, transports: c.transports };
+          });
+        }
+        var cred = await navigator.credentials.get({ publicKey: opts });
+        var body = {
+          response: {
+            id: cred.id,
+            rawId: bufferToBase64url(cred.rawId),
+            response: {
+              authenticatorData: bufferToBase64url(cred.response.authenticatorData),
+              clientDataJSON: bufferToBase64url(cred.response.clientDataJSON),
+              signature: bufferToBase64url(cred.response.signature),
+              userHandle: cred.response.userHandle ? bufferToBase64url(cred.response.userHandle) : null
+            },
+            type: cred.type,
+            authenticatorAttachment: cred.authenticatorAttachment || undefined,
+            clientExtensionResults: cred.getClientExtensionResults()
+          }
+        };
+        var verRes = await fetch('/admin/passkeys/authenticate/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        var result = await verRes.json();
+        if (result.verified) {
+          window.location.href = result.redirectUrl || '/admin';
+        } else {
+          errEl.querySelector('strong').textContent = result.error || 'Authentication failed';
+          errEl.hidden = false;
+          btn.disabled = false;
+        }
+      } catch (e) {
+        if (e.name !== 'NotAllowedError') {
+          errEl.querySelector('strong').textContent = 'Passkey authentication failed. Try magic link instead.';
+          errEl.hidden = false;
+        }
+        btn.disabled = false;
+      }
+    });
+  })();
+  </script>
+  {{/if}}
 </body>
 </html>

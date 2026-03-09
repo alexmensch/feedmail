@@ -12,6 +12,7 @@ import { getChannelById } from "./config.js";
 
 // Import precompiled partial specs
 import emailFooterSpec from "../../templates/compiled/partials/email-footer.js";
+import webauthnHelpersSpec from "../../templates/compiled/partials/webauthn-helpers.js";
 
 // Import precompiled template specs
 import newsletterSpec from "../../templates/compiled/newsletter.js";
@@ -27,6 +28,7 @@ import adminLoginSentSpec from "../../templates/compiled/admin-login-sent.js";
 import adminAuthErrorSpec from "../../templates/compiled/admin-auth-error.js";
 import adminMagicLinkSpec from "../../templates/compiled/admin-magic-link.js";
 import adminPlaceholderSpec from "../../templates/compiled/admin-placeholder.js";
+import adminPasskeysSpec from "../../templates/compiled/admin-passkeys.js";
 
 // Register Handlebars helpers
 Handlebars.registerHelper("formatDate", (dateStr) => {
@@ -48,6 +50,10 @@ Handlebars.registerPartial(
   "email-footer",
   Handlebars.template(emailFooterSpec)
 );
+Handlebars.registerPartial(
+  "webauthn-helpers",
+  Handlebars.template(webauthnHelpersSpec)
+);
 
 // Instantiate templates from precompiled specs
 const templates = {
@@ -61,7 +67,8 @@ const templates = {
   adminLoginSent: Handlebars.template(adminLoginSentSpec),
   adminAuthError: Handlebars.template(adminAuthErrorSpec),
   adminMagicLink: Handlebars.template(adminMagicLinkSpec),
-  adminPlaceholder: Handlebars.template(adminPlaceholderSpec)
+  adminPlaceholder: Handlebars.template(adminPlaceholderSpec),
+  adminPasskeys: Handlebars.template(adminPasskeysSpec)
 };
 
 /**

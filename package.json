@@ -1,6 +1,6 @@
 {
   "name": "feedmail",
-  "version": "2.2.1",
+  "version": "2.3.0",
   "description": "RSS-to-email microservice on Cloudflare Workers. Monitor feeds, manage subscribers, send newsletters.",
   "type": "module",
   "license": "AGPL-3.0",
@@ -13,7 +13,7 @@
     "dev:admin": "wrangler dev --config wrangler.admin.toml",
     "db:migrate": "wrangler d1 migrations apply DB --remote --config wrangler.prod.toml",
     "db:migrate:local": "wrangler d1 migrations apply feedmail --local",
-    "db:reset:local": "wrangler d1 execute feedmail --local --command \"DELETE FROM subscribers; DELETE FROM verification_attempts; DELETE FROM sent_items; DELETE FROM subscriber_sends; DELETE FROM rate_limits; DELETE FROM site_config; DELETE FROM rate_limit_config; DELETE FROM feeds; DELETE FROM channels; DELETE FROM admin_sessions; DELETE FROM magic_link_tokens; DELETE FROM credentials;\"",
+    "db:reset:local": "wrangler d1 execute feedmail --local --command \"DELETE FROM subscribers; DELETE FROM verification_attempts; DELETE FROM sent_items; DELETE FROM subscriber_sends; DELETE FROM rate_limits; DELETE FROM site_config; DELETE FROM rate_limit_config; DELETE FROM feeds; DELETE FROM channels; DELETE FROM admin_sessions; DELETE FROM magic_link_tokens; DELETE FROM credentials; DELETE FROM passkey_credentials; DELETE FROM webauthn_challenges;\"",
     "build:check": "wrangler deploy --dry-run --outdir dist",
     "build:check:admin": "wrangler deploy --dry-run --outdir dist --config wrangler.admin.toml",
     "lint": "eslint .",
@@ -27,6 +27,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@simplewebauthn/server": "^13.1.1",
     "fast-xml-parser": "^5.4.2",
     "handlebars": "^4.7.8"
   },
