@@ -11,6 +11,7 @@ pnpm run dev:test         # Local dev with test channel config (wrangler.test.to
 pnpm run dev:feed         # Serve test feed fixtures on port 8888
 pnpm run deploy           # Deploy API Worker to Cloudflare (uses wrangler.prod.toml)
 pnpm run deploy:admin     # Deploy Admin Worker to Cloudflare (uses wrangler.admin.prod.toml)
+pnpm run upgrade          # Upgrade deployment: install deps, migrate, deploy both workers
 pnpm run db:migrate       # Apply D1 migrations (remote, uses wrangler.prod.toml)
 pnpm run db:migrate:local # Apply D1 migrations (local dev)
 pnpm run db:reset:local   # Clear all local D1 tables

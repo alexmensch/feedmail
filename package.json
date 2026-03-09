@@ -24,7 +24,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "pretest:coverage": "node scripts/precompile-templates.mjs",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "upgrade": "bash scripts/upgrade.sh"
   },
   "dependencies": {
     "@simplewebauthn/server": "^13.1.1",
