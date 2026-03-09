@@ -104,3 +104,16 @@ This feature replaces the placeholder admin dashboard with a fully functional se
 - Credential reading via `getCredential(env.DB, "admin_api_key")` from `src/shared/lib/db.js`
 - Inline styles matching auth pages (sans-serif, max-width 600px, etc.)
 - Confirm dialogs via `onsubmit="return confirm('...')"` (pattern in `admin-passkeys.hbs`)
+
+## Out-of-spec changes
+
+Changes made during code review that were not part of the original specification:
+
+| # | Change | Rationale |
+|---|--------|-----------|
+| 1 | Extract shared CSS into `src/templates/partials/admin-head.hbs` partial; all 6 admin templates reference it via `{{> admin-head}}` | Eliminates duplicated inline `<style>` blocks across all admin templates (DRY) |
+| 2 | Export `API_UNREACHABLE_ERROR` constant from `src/admin/lib/api.js`; all route files import and use it instead of hardcoded strings | Deduplicates the error message string across 4 route files |
+| 3 | Remove `handlePasskeyManagement` from `src/admin/routes/passkeys.js`; remove unused `render`/`htmlResponse` imports; remove `adminPasskeys` template registration from `templates.js` | Dead code — function and template replaced by settings page handler |
+| 4 | Add trailing newline to `src/templates/partials/admin-nav.hbs` | POSIX compliance |
+| 5 | Parallelize dashboard stats fetches using `Promise.all` in `src/admin/routes/dashboard.js` | Sequential `callApi` calls for N channels replaced with parallel execution |
+| 6 | Separate feed validation from feed requirement in `src/shared/lib/config.js` | Feeds were not validated when provided but not required; validation now runs whenever feeds are present |
