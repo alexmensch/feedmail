@@ -74,7 +74,7 @@ src/
       db.js               # All D1 query helpers (subscribers, config, channels, feeds, credentials)
       email.js            # Resend API email sending wrapper
       rate-limit.js       # IP-based rate limiting: config, rolling window check, endpoint name mapping
-      response.js         # Shared HTTP response helpers (jsonResponse, htmlResponse)
+      response.js         # Shared HTTP response helpers (jsonResponse, htmlResponse, rateLimitResponse)
       templates.js        # Handlebars precompiled template rendering — render(name, data)
   templates/              # Handlebars (.hbs) source files, precompiled at build time
     partials/
@@ -147,7 +147,7 @@ To test the full email flow locally:
 - **Structured feeds:** Each feed is an object with `name`, `url`, and integer `id` (auto-increment PK for stable REST URLs).
 - **No info leakage:** Subscribe endpoint always returns the same success response regardless of whether email is new, already subscribed, rate-limited, or unsubscribed. Verify endpoint shows the same error for invalid and expired tokens.
 - **Verification rate limiting:** `verification_attempts` table tracks emails sent per subscriber. Rolling window (default 24h) with max attempts (default 3). Configurable at runtime via admin config API.
-- **IP-based rate limiting:** `rate_limits` table tracks requests per IP per endpoint using a rolling window. Default limits per endpoint (subscribe: 10/hr, verify: 20/hr, unsubscribe: 20/hr, send: 5/hr, admin: 30/hr) stored as `RATE_LIMIT_DEFAULTS` in `config.js`, overridable via `rate_limit_config` DB table and admin config API. Rate limiting runs before authentication to protect against brute-force API key guessing. `Retry-After` header uses oldest-request-expiry strategy with 0–30s random jitter to prevent thundering herd retries. Expired rows for the specific IP+endpoint are cleaned up on every check; rows older than 7 days (from IPs that stopped visiting) are pruned probabilistically — 1% chance per check — via a fire-and-forget global DELETE, distributing cleanup load across normal traffic without blocking request handling.
+- **IP-based rate limiting:** `rate_limits` table tracks requests per IP per endpoint using a rolling window. Default limits per endpoint (subscribe: 10/hr, verify: 20/hr, unsubscribe: 20/hr, send: 5/hr, admin: 30/hr) stored as `RATE_LIMIT_DEFAULTS` in `config.js`, overridable via `rate_limit_config` DB table and admin config API. Rate limiting runs before authentication to protect against brute-force API key guessing. `Retry-After` header uses oldest-request-expiry strategy with 0–30s random jitter to prevent thundering herd retries. Expired rows for the specific IP+endpoint are cleaned up on every check; rows older than 7 days (from IPs that stopped visiting) are pruned probabilistically — 1% chance per check — via a fire-and-forget global DELETE, distributing cleanup load across normal traffic without blocking request handling. **Internal admin requests** (via the Service Binding) are identified by an `X-Internal-Request: true` header set by `callApi()`. For `/api/admin/*` routes, rate limiting is deferred until after auth: authenticated internal requests skip rate limiting entirely; failed-auth internal requests are rate-limited retroactively. Non-admin routes ignore the header. The shared `rateLimitResponse()` helper in `response.js` constructs 429 responses for both workers.
 - **Strict HTTP method enforcement:** `ROUTE_METHODS` in `index.js` explicitly lists every route and its allowed methods. Known routes with wrong methods receive a deliberate 10-second delay then 408 timeout (discourages bot probing). Unknown paths get an immediate 404 with no body.
 - **Strict input validation:** Subscribe endpoint rejects requests with any fields beyond `email` and `channelId` (same error as malformed JSON — no info leak). This enables invisible honeypot fields in the subscribe form.
 - **Feed bootstrapping:** First time a feed URL is seen, all existing items are inserted into `sent_items` with `recipient_count = 0` — prevents blasting historical content on first deployment.
@@ -240,7 +240,7 @@ Requests pass through these checks in order:
 1. **Trailing-slash normalization** — Strips trailing slashes before any processing (Admin Worker: 301 redirect for GET, silent strip for non-GET; API Worker: silent strip for all methods)
 2. **CORS preflight** — OPTIONS requests handled immediately
 3. **Method enforcement** — Wrong method on known route → 10s delay + 408; unknown path → immediate 404
-4. **IP rate limiting** — Per-endpoint rolling window via D1; 429 with `Retry-After` header if exceeded
+4. **IP rate limiting** — Per-endpoint rolling window via D1; 429 with `Retry-After` header if exceeded. Internal admin requests (with `X-Internal-Request: true` header) defer rate limiting to after auth — skipped on success, applied retroactively on failure.
 5. **Authentication** — Bearer token check for `/api/send` and `/api/admin/*`
 6. **Input validation** — Strict field checking on subscribe (rejects unexpected fields)
 7. **Verification rate limiting** — Per-subscriber email send limits
