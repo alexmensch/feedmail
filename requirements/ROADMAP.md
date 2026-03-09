@@ -4,13 +4,13 @@
 
 feedmail is an RSS-to-email microservice for Cloudflare Workers. It monitors RSS/Atom feeds for new items and emails them to verified subscribers via Resend. A single deployment supports multiple channels, each with its own subscriber list, feeds, and sender identity.
 
-The project reached 1.0.0 with a solid core: multi-channel support, per-subscriber personalisation, strict security layering, email deliverability signals (List-Unsubscribe headers, standardised footers), and a well-validated channel configuration schema. The "Open Source Ready" release (2.1.0) completed the goal of making feedmail genuinely distributable: DB-backed configuration provides runtime admin API management, and open-source packaging enables anyone with a Cloudflare account to self-host feedmail with a single curl command.
+The project reached 1.0.0 with a solid core: multi-channel support, per-subscriber personalisation, strict security layering, email deliverability signals, and a well-validated channel configuration schema. The "Open Source Ready" release (2.1.0) completed the goal of making feedmail genuinely distributable: DB-backed configuration provides runtime admin API management, and open-source packaging enables anyone with a Cloudflare account to self-host feedmail with a single curl command. Admin authentication followed with magic link email login and passkey (WebAuthn) support.
 
-The next priority is an admin console — a browser-based interface that gives operators visual access to the management capabilities currently available only through the admin API. The console runs as a separate Cloudflare Worker alongside the existing API Worker, using the admin API as its data layer rather than accessing D1 directly. This keeps the API as the single source of truth and allows the console to be scaled or replaced independently. Authentication uses passkeys as the primary login method with magic link email as a fallback — no passwords, no third-party SSO.
+The next priority is an admin console — a browser-based interface that gives operators visual access to the management capabilities currently available only through the admin API. The console is built in two phases: first a functional version using plain HTML forms that exercises every admin API endpoint, then a styled version that adds HTMX interactions, CUBE CSS design, responsive layout, and dark mode. This split enables user testing of workflows and scope validation before investing in visual polish.
 
-A key architectural principle governs how configuration is managed: all settings, credentials, and application state are stored in D1 and changeable at runtime through the admin UI. Only the `DOMAIN` env var remains as a Wrangler configuration item, since it is fundamental to URL construction, email addresses, and route patterns. API keys (Resend, admin), the admin email, channels, feeds, verification limits, and rate limits all live in the database. The setup script is being simplified to handle only what requires CLI access — D1 creation, config file generation, credential seeding, and worker deployment — with the admin console's first-time setup flow guiding operators through channel and feed creation after deployment.
+All settings, credentials, and application state are stored in D1 and changeable at runtime. Only the `DOMAIN` env var remains as a Wrangler configuration item. The setup script is being simplified to handle only what requires CLI access — D1 creation, config file generation, credential seeding, and worker deployment — with the admin console's first-time setup flow guiding operators through channel and feed creation after deployment.
 
-Features are sequenced so that each step delivers testable, working functionality: magic link auth provides a complete login system first, passkey support layers on top, the styled UI brings it all together, the first-time setup flow and script simplification make the self-hosting experience seamless, and enhancements add pagination, config editing, and credential management after the core console is usable. A final release collects lower-priority operational improvements — infrastructure hygiene tasks like expired session cleanup that keep the system tidy but don't change user-facing behaviour. This release grows over time as non-urgent enhancements are identified.
+Features are sequenced so that each step delivers testable, working functionality. The functional admin console ships alongside the first-time setup flow and setup script simplification, completing the self-hosting story: deploy via CLI, then manage everything from the browser. The styled console follows as a visual and interaction overhaul. Enhancements add pagination, config editing, and credential management after the core console is complete. A final release collects lower-priority operational improvements — infrastructure hygiene tasks that keep the system tidy but don't change user-facing behaviour.
 
 ---
 
@@ -28,22 +28,23 @@ A reader who subscribes to receive feed updates via email. They interact with fe
 
 ## Planned
 
-### Release: Admin Console
+### Release: Admin Console (Functional)
 
-A browser-based admin console with passwordless authentication, giving operators a visual interface for managing channels, feeds, and subscribers without API calls.
+A plain HTML admin console with all management functionality, a guided first-time setup flow, and a simplified CLI setup script — completing the self-hosting story from deploy to daily operation.
 
-| #   | Feature                                   | Description                                                                                                           | GUID                                   |
-| --- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 1   | [admin-console-ui](./admin-console-ui.md) | Server-rendered admin UI with HTMX and CUBE CSS: dashboard, channel/feed CRUD, subscriber list, and styled auth pages | `D108788E-EB05-4EFC-B7AD-FB9840790A69` |
+| #   | Feature                                                   | Description                                                                                                                         | GUID                                   |
+| --- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| 1   | [admin-console-functional](./admin-console-functional.md) | Plain HTML forms covering dashboard, channel/feed CRUD, subscriber list, passkey management, confirmations, and errors              | `5A963535-83B6-4BA9-AB36-0A8C4F29E7BC` |
+| 2   | [first-time-setup-flow](./first-time-setup-flow.md)       | Dashboard empty state guides operators through first channel and feed creation entirely within the browser                          | `CFD3690C-0462-4FBB-BA94-4EB2F05B6402` |
+| 3   | [setup-simplification](./setup-simplification.md)         | Reduces setup.sh to infrastructure provisioning (D1, config, credential seeding, deploy) with channel creation deferred to admin UI | `9B3EBAC7-65E7-4F80-BB5C-279D25828FAB` |
 
-### Release: Admin Console Setup
+### Release: Admin Console (Styled)
 
-Streamlines the self-hosting experience by moving channel and feed creation into the admin UI and reducing the CLI setup script to infrastructure-only provisioning.
+HTMX interactions, CUBE CSS design system, responsive sidebar layout, dark mode, and visual polish for all admin and auth pages.
 
-| #   | Feature                                             | Description                                                                                                                         | GUID                                   |
-| --- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 3   | [first-time-setup-flow](./first-time-setup-flow.md) | Dashboard empty state guides operators through first channel and feed creation entirely within the browser                          | `CFD3690C-0462-4FBB-BA94-4EB2F05B6402` |
-| 4   | [setup-simplification](./setup-simplification.md)   | Reduces setup.sh to infrastructure provisioning (D1, config, credential seeding, deploy) with channel creation deferred to admin UI | `9B3EBAC7-65E7-4F80-BB5C-279D25828FAB` |
+| #   | Feature                                           | Description                                                                                                             | GUID                                   |
+| --- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| 4   | [admin-console-styled](./admin-console-styled.md) | HTMX-powered interactions, CUBE CSS with Every Layout primitives, fluid responsive design, dark mode, auth page styling | `D04F43C0-AF8F-4CDA-B9ED-4E9C1D3ACA1B` |
 
 ### Release: Admin Console Enhancements
 
@@ -61,6 +62,7 @@ Lower-priority infrastructure hygiene and non-user-facing enhancements that keep
 | --- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | 6   | [auth-session-cleanup](./auth-session-cleanup.md)                       | Probabilistic cleanup of expired auth sessions and magic link tokens, with a shared utility that also refactors rate limit cleanup                                                | `E0AC5C7B-3792-44B4-89EB-FCC3B89050C4` |
 | 7   | [remove-credential-env-fallbacks](./remove-credential-env-fallbacks.md) | Removes env-var fallback for ADMIN_API_KEY and RESEND_API_KEY so the D1 credentials table is the single source of truth, with explicit error logging when credentials are missing | `5CBF07F1-6FFE-4FE0-9DF6-221398A0EFDC` |
+| 8   | [rolling-sessions](./rolling-sessions.md)                               | Rolling session expiry (24hr inactivity timeout) with a 7-day absolute cap, replacing the current fixed 24-hour session lifetime                                                  | `26E123A5-1D72-47C8-9E62-AB14F77E55D2` |
 
 ---
 
