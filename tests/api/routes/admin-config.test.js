@@ -29,6 +29,24 @@ function makeRequest(method, body = null) {
 }
 
 describe("handleAdminConfig", () => {
+  describe("method not allowed", () => {
+    it("returns 405 for unsupported methods", async () => {
+      const request = makeRequest("DELETE");
+      const response = await handleAdminConfig(request, env);
+      const body = await response.json();
+
+      expect(response.status).toBe(405);
+      expect(body.error).toBe("Method Not Allowed");
+    });
+
+    it("returns 405 for PUT", async () => {
+      const request = makeRequest("PUT", { verifyMaxAttempts: 5 });
+      const response = await handleAdminConfig(request, env);
+
+      expect(response.status).toBe(405);
+    });
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     getSiteConfig.mockResolvedValue({

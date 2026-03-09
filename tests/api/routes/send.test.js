@@ -556,6 +556,40 @@ describe("checkFeedsAndSend", () => {
       expect(fetchAndParseFeed).toHaveBeenCalledTimes(2);
     });
 
+    it("catches processChannelFeeds error and continues to next channel", async () => {
+      const consoleSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      const site2 = {
+        ...CHANNEL,
+        id: "channel-2",
+        feeds: [{ name: "Other Feed", url: "https://other.com/feed" }]
+      };
+      getChannels.mockReturnValue([CHANNEL, site2]);
+
+      // Both feeds have unseen items
+      isItemSent.mockResolvedValue(false);
+      fetchAndParseFeed.mockResolvedValue([ITEM]);
+
+      // First channel's getVerifiedSubscribers throws (channel-level error)
+      getVerifiedSubscribers
+        .mockRejectedValueOnce(new Error("DB connection lost"))
+        .mockResolvedValueOnce([]);
+
+      const result = await checkFeedsAndSend(env);
+
+      // Should not throw, should log error for first channel
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Error processing channel"),
+        expect.any(Error)
+      );
+      // Second channel should still process
+      expect(result).toBeDefined();
+
+      consoleSpy.mockRestore();
+    });
+
     it("continues to next feed on per-feed error", async () => {
       const site = {
         ...CHANNEL,

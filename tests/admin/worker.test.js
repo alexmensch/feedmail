@@ -243,6 +243,21 @@ describe("admin worker — fetch handler", () => {
       expect(handleAdminVerify).not.toHaveBeenCalled();
     });
 
+    it("skips rate limiting when endpoint has no limits configured", async () => {
+      // getEndpointName returns a name but rateLimitMap has no entry for it
+      getEndpointName.mockReturnValue("some_unknown_endpoint");
+      getRateLimitConfig.mockResolvedValue(RATE_LIMITS);
+
+      const request = makeRequest("GET", "/admin/something", {
+        "CF-Connecting-IP": "1.2.3.4"
+      });
+
+      await adminApp.fetch(request, env);
+
+      // Should not crash, just proceed without rate limiting
+      expect(checkRateLimit).not.toHaveBeenCalled();
+    });
+
     it("allows requests through when rate check passes", async () => {
       checkRateLimit.mockResolvedValue({ allowed: true });
 

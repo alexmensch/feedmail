@@ -28,6 +28,9 @@ vi.mock("../../src/shared/lib/rate-limit.js", () => ({
   checkRateLimit: vi.fn(),
   getEndpointName: vi.fn()
 }));
+vi.mock("../../src/shared/lib/db.js", () => ({
+  getCredential: vi.fn()
+}));
 
 import app from "../../src/api/worker.js";
 import { handleSubscribe } from "../../src/api/routes/subscribe.js";
@@ -760,6 +763,82 @@ describe("index.js — fetch handler", () => {
         expect(response.status).toBe(429);
         expect(handleSubscribe).not.toHaveBeenCalled();
       });
+    });
+  });
+
+  describe("auth fallback to D1 credentials", () => {
+    it("falls back to D1 admin_api_key when ADMIN_API_KEY env var is not set", async () => {
+      // Import getCredential mock
+      const { getCredential } = await import("../../src/shared/lib/db.js");
+
+      // Remove ADMIN_API_KEY from env so it falls through to D1
+      const envNoKey = { DB: {} };
+
+      // Mock getCredential to return a key from D1
+      vi.mocked(getCredential).mockResolvedValue("db-admin-key");
+
+      const request = makeRequest("POST", "/api/send", {
+        Authorization: "Bearer db-admin-key"
+      });
+
+      await app.fetch(request, envNoKey);
+
+      expect(handleSend).toHaveBeenCalledWith(request, envNoKey);
+    });
+
+    it("returns 401 when D1 key does not match", async () => {
+      const { getCredential } = await import("../../src/shared/lib/db.js");
+
+      const envNoKey = { DB: {} };
+      vi.mocked(getCredential).mockResolvedValue("db-admin-key");
+
+      const request = makeRequest("POST", "/api/send", {
+        Authorization: "Bearer wrong-key"
+      });
+
+      const response = await app.fetch(request, envNoKey);
+
+      expect(response.status).toBe(401);
+      expect(handleSend).not.toHaveBeenCalled();
+    });
+
+    it("returns 401 when neither env var nor D1 key is configured", async () => {
+      const { getCredential } = await import("../../src/shared/lib/db.js");
+
+      const envNoKey = { DB: {} };
+      vi.mocked(getCredential).mockResolvedValue(null);
+
+      const request = makeRequest("POST", "/api/send", {
+        Authorization: "Bearer any-key"
+      });
+
+      const response = await app.fetch(request, envNoKey);
+
+      expect(response.status).toBe(401);
+    });
+
+    it("returns 401 when no DB and no env var", async () => {
+      const envEmpty = {};
+
+      const request = makeRequest("POST", "/api/send", {
+        Authorization: "Bearer any-key"
+      });
+
+      const response = await app.fetch(request, envEmpty);
+
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe("admin channel route method allowance", () => {
+    it("allows any method through for /api/admin/channels paths", async () => {
+      const request = makeRequest("PUT", "/api/admin/channels/test", {
+        Authorization: "Bearer test-admin-key"
+      });
+
+      await app.fetch(request, env);
+
+      expect(handleAdmin).toHaveBeenCalled();
     });
   });
 
