@@ -6,9 +6,11 @@ feedmail is a free, self-hosted RSS-to-email service for personal website owners
 
 The project reached 1.0.0 with a solid core: multi-channel support, per-subscriber personalisation, strict security layering, email deliverability signals, and a well-validated channel configuration schema. The "Open Source Ready" release (2.1.0) made feedmail genuinely distributable: DB-backed configuration provides runtime admin API management, and open-source packaging enables anyone with a Cloudflare account to self-host with a single curl command. Admin authentication followed with magic link email login and passkey (WebAuthn) support, and a functional admin console now provides browser-based management of channels, feeds, subscribers, and settings.
 
-The current focus is completing the admin console experience. A rate limit fix for internal service binding requests ships first (the functional console revealed that legitimate admin usage can be throttled), followed by a first-time setup flow and setup script simplification that together complete the self-hosting story: deploy via CLI, then manage everything from the browser. A styled console follows with HTMX interactions, CUBE CSS, responsive layout, and dark mode — this split enables user testing of workflows before investing in visual polish.
+The current focus is completing the admin console experience and then shifting to distribution enablement. A rate limit fix for internal service binding requests ships first (the functional console revealed that legitimate admin usage can be throttled), followed by a first-time setup flow and setup script simplification that together complete the self-hosting story: deploy via CLI, then manage everything from the browser. A styled console follows with HTMX interactions, CUBE CSS, responsive layout, and dark mode — the styled console is intentionally kept before distribution work because a baseline level of visual polish is necessary for people evaluating feedmail to trust it as a serious tool, but the scope of styling is deliberately constrained to avoid polishing before validating with real users.
 
-All settings, credentials, and application state are stored in D1 and changeable at runtime. Only the `DOMAIN` env var remains as a Wrangler configuration item. Features are sequenced so that each step delivers testable, working functionality to the site owner. Console enhancements (pagination, config editing, credential management) come after the core console is complete. An operational improvements release collects infrastructure hygiene tasks. Beyond the console, two aspirational releases lower the barrier to adoption: a "Quick Start" release providing drop-in subscribe form widgets for popular static site generators (Hugo, Jekyll, Eleventy, Astro) and a generic HTML snippet, and a "Migration" release with import tools for moving subscriber lists from Buttondown, Mailchimp, Ghost, Kit (ConvertKit), and MailerLite.
+After the styled console, the Quick Start release prioritises lowering the barrier to adoption. A deployment improvement (approach TBD — Cloudflare Deploy Button, GitHub template repo, and Terraform are all under consideration) comes first to make the deploy-to-running experience reliable and one-step, followed by drop-in subscribe form widgets for popular static site generators. Together, these create the foundation for distribution: a blog post can walk someone from deployment to a working subscribe form on their site. The Quick Start release is sequenced before console enhancements because distribution enablement is more strategically urgent than power-user features — the product's biggest open risk is that nobody outside its creator has used it.
+
+All settings, credentials, and application state are stored in D1 and changeable at runtime. Only the `DOMAIN` env var remains as a Wrangler configuration item. Features are sequenced so that each step delivers testable, working functionality to the site owner. Console enhancements (pagination, config editing, credential management) and operational housekeeping (session cleanup, rolling sessions) are grouped into a single release after Quick Start. Beyond the console, a Migration release with import tools for moving subscriber lists from Buttondown, Mailchimp, Ghost, Kit (ConvertKit), and MailerLite completes the planned roadmap.
 
 ---
 
@@ -44,35 +46,29 @@ HTMX interactions, CUBE CSS design system, responsive sidebar layout, dark mode,
 | --- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | 4   | [admin-console-styled](./admin-console-styled/admin-console-styled.md) | HTMX-powered interactions, CUBE CSS with Every Layout primitives, fluid responsive design, dark mode, auth page styling | `D04F43C0-AF8F-4CDA-B9ED-4E9C1D3ACA1B` |
 
-### Release: Admin Console Enhancements
-
-Paginated subscriber lists, in-browser site configuration editing, and credential management (admin email, API keys) without CLI access.
-
-| #   | Feature                                                                                  | Description                                                                                                                                               | GUID                                   |
-| --- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 5   | [admin-console-enhancements](./admin-console-enhancements/admin-console-enhancements.md) | Server-side subscriber list pagination, site config editing, admin email change with verification, admin API key regeneration, and Resend API key editing | `0921300D-83E6-4423-AE32-DFB5ED5BD88A` |
-
-### Release: Operational Improvements
-
-Lower-priority infrastructure hygiene and non-user-facing enhancements that keep the system tidy as it matures.
-
-| #   | Feature                                                                                          | Description                                                                                                                                                                       | GUID                                   |
-| --- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 6   | [auth-session-cleanup](./operational-improvements/auth-session-cleanup.md)                       | Probabilistic cleanup of expired auth sessions and magic link tokens, with a shared utility that also refactors rate limit cleanup                                                | `E0AC5C7B-3792-44B4-89EB-FCC3B89050C4` |
-| 7   | [remove-credential-env-fallbacks](./operational-improvements/remove-credential-env-fallbacks.md) | Removes env-var fallback for ADMIN_API_KEY and RESEND_API_KEY so the D1 credentials table is the single source of truth, with explicit error logging when credentials are missing | `5CBF07F1-6FFE-4FE0-9DF6-221398A0EFDC` |
-| 8   | [rolling-sessions](./operational-improvements/rolling-sessions.md)                               | Rolling session expiry (24hr inactivity timeout) with a 7-day absolute cap, replacing the current fixed 24-hour session lifetime                                                  | `26E123A5-1D72-47C8-9E62-AB14F77E55D2` |
-
 ### Release: Quick Start
 
-Drop-in subscribe form widgets so site owners can add email subscriptions to their static sites in minutes without writing integration code. SSG selection based on [CloudCannon's top SSGs for 2025](https://cloudcannon.com/blog/the-top-five-static-site-generators-for-2025-and-when-to-use-them/) and [Kinsta's top SSGs for 2026](https://kinsta.com/blog/static-site-generator/), filtered for personal blog relevance.
+Reliable one-step deployment and drop-in subscribe form widgets so site owners can go from zero to working email subscriptions in minutes. The deployment improvement comes first because distribution content ("here's how to add email subscriptions to your site") needs a flawless setup experience behind it. SSG selection based on [CloudCannon's top SSGs for 2025](https://cloudcannon.com/blog/the-top-five-static-site-generators-for-2025-and-when-to-use-them/) and [Kinsta's top SSGs for 2026](https://kinsta.com/blog/static-site-generator/), filtered for personal blog relevance.
 
-| #   | Feature                                                                 | Description                                                                                | GUID                                   |
-| --- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------- |
-| 9   | [subscribe-widget-html](./quick-start/subscribe-widget-html.md)         | Generic HTML/JS subscribe form snippet that works on any site with no framework dependency | `CB3C539D-2E07-430E-845C-14B909E8850E` |
-| 10  | [subscribe-widget-hugo](./quick-start/subscribe-widget-hugo.md)         | Hugo partial/shortcode for embedding the feedmail subscribe form                           | `C659F727-3A89-4D58-A570-ED320883665B` |
-| 11  | [subscribe-widget-jekyll](./quick-start/subscribe-widget-jekyll.md)     | Jekyll include for embedding the feedmail subscribe form                                   | `8C1C41E5-267E-423A-9A2C-D4991AB94570` |
-| 12  | [subscribe-widget-eleventy](./quick-start/subscribe-widget-eleventy.md) | Eleventy shortcode/plugin for embedding the feedmail subscribe form                        | `21B22062-FC7C-44A8-8B9F-91F5F40FD4EF` |
-| 13  | [subscribe-widget-astro](./quick-start/subscribe-widget-astro.md)       | Astro component for embedding the feedmail subscribe form                                  | `9DE93ABB-0DFF-4637-98CE-7A08B7A65A0D` |
+| #   | Feature                                                                 | Description                                                                                                                  | GUID                                   |
+| --- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| 5   | [one-line-deploy](./quick-start/one-line-deploy.md)                     | Single-command deployment replacing the current interactive shell scripts (approach TBD — placeholder, needs define-feature) | `F4E2A891-6C3D-4B7F-A852-9D1E0F3C6B48` |
+| 6   | [subscribe-widget-html](./quick-start/subscribe-widget-html.md)         | Generic HTML/JS subscribe form snippet that works on any site with no framework dependency                                  | `CB3C539D-2E07-430E-845C-14B909E8850E` |
+| 7   | [subscribe-widget-hugo](./quick-start/subscribe-widget-hugo.md)         | Hugo partial/shortcode for embedding the feedmail subscribe form                                                            | `C659F727-3A89-4D58-A570-ED320883665B` |
+| 8   | [subscribe-widget-jekyll](./quick-start/subscribe-widget-jekyll.md)     | Jekyll include for embedding the feedmail subscribe form                                                                    | `8C1C41E5-267E-423A-9A2C-D4991AB94570` |
+| 9   | [subscribe-widget-eleventy](./quick-start/subscribe-widget-eleventy.md) | Eleventy shortcode/plugin for embedding the feedmail subscribe form                                                         | `21B22062-FC7C-44A8-8B9F-91F5F40FD4EF` |
+| 10  | [subscribe-widget-astro](./quick-start/subscribe-widget-astro.md)       | Astro component for embedding the feedmail subscribe form                                                                   | `9DE93ABB-0DFF-4637-98CE-7A08B7A65A0D` |
+
+### Release: Admin Console Enhancements
+
+Paginated subscriber lists, in-browser configuration editing, credential management, and operational housekeeping (session lifecycle, credential source cleanup) grouped into a single release of internal improvements.
+
+| #   | Feature                                                                                            | Description                                                                                                                                              | GUID                                   |
+| --- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| 11  | [admin-console-enhancements](./admin-console-enhancements/admin-console-enhancements.md)           | Server-side subscriber list pagination, site config editing, admin email change with verification, admin API key regeneration, and Resend API key editing | `0921300D-83E6-4423-AE32-DFB5ED5BD88A` |
+| 12  | [auth-session-cleanup](./admin-console-enhancements/auth-session-cleanup.md)                       | Probabilistic cleanup of expired auth sessions and magic link tokens, with a shared utility that also refactors rate limit cleanup                       | `E0AC5C7B-3792-44B4-89EB-FCC3B89050C4` |
+| 13  | [remove-credential-env-fallbacks](./admin-console-enhancements/remove-credential-env-fallbacks.md) | Removes env-var fallback for ADMIN_API_KEY and RESEND_API_KEY so the D1 credentials table is the single source of truth                                 | `5CBF07F1-6FFE-4FE0-9DF6-221398A0EFDC` |
+| 14  | [rolling-sessions](./admin-console-enhancements/rolling-sessions.md)                               | Rolling session expiry (24hr inactivity timeout) with a 7-day absolute cap, replacing the current fixed 24-hour session lifetime                         | `26E123A5-1D72-47C8-9E62-AB14F77E55D2` |
 
 ### Release: Migration
 
@@ -80,12 +76,12 @@ Import tools so users of existing newsletter services can bring their subscriber
 
 | #   | Feature                                                 | Description                                                                                       | GUID                                   |
 | --- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 14  | [migrate-core](./migration/migrate-core.md)             | Core migration framework with subscriber import, validation, deduplication, and verification flow | `56CA7165-1B19-4712-ACCA-3847AD552ACE` |
-| 15  | [migrate-buttondown](./migration/migrate-buttondown.md) | Import subscribers from a Buttondown export                                                       | `4FBDF5E9-7D3D-48E6-8855-CB746B654EF9` |
-| 16  | [migrate-mailchimp](./migration/migrate-mailchimp.md)   | Import subscribers from a Mailchimp audience export                                               | `02C7344A-5C06-4A99-B348-FD07FDBC7219` |
-| 17  | [migrate-ghost](./migration/migrate-ghost.md)           | Import subscribers from a Ghost member/newsletter export                                          | `FBBAA31E-4397-4841-8026-7E75CEA5C30E` |
-| 18  | [migrate-kit](./migration/migrate-kit.md)               | Import subscribers from a Kit (formerly ConvertKit) export                                        | `910B6DD6-8567-40B1-99E6-2CE029E2D4B0` |
-| 19  | [migrate-mailerlite](./migration/migrate-mailerlite.md) | Import subscribers from a MailerLite export                                                       | `AB244D19-86FB-47A5-974C-FAEB85970FA7` |
+| 15  | [migrate-core](./migration/migrate-core.md)             | Core migration framework with subscriber import, validation, deduplication, and verification flow | `56CA7165-1B19-4712-ACCA-3847AD552ACE` |
+| 16  | [migrate-buttondown](./migration/migrate-buttondown.md) | Import subscribers from a Buttondown export                                                       | `4FBDF5E9-7D3D-48E6-8855-CB746B654EF9` |
+| 17  | [migrate-mailchimp](./migration/migrate-mailchimp.md)   | Import subscribers from a Mailchimp audience export                                               | `02C7344A-5C06-4A99-B348-FD07FDBC7219` |
+| 18  | [migrate-ghost](./migration/migrate-ghost.md)           | Import subscribers from a Ghost member/newsletter export                                          | `FBBAA31E-4397-4841-8026-7E75CEA5C30E` |
+| 19  | [migrate-kit](./migration/migrate-kit.md)               | Import subscribers from a Kit (formerly ConvertKit) export                                        | `910B6DD6-8567-40B1-99E6-2CE029E2D4B0` |
+| 20  | [migrate-mailerlite](./migration/migrate-mailerlite.md) | Import subscribers from a MailerLite export                                                       | `AB244D19-86FB-47A5-974C-FAEB85970FA7` |
 
 ---
 
