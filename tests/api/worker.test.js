@@ -31,6 +31,18 @@ vi.mock("../../src/shared/lib/rate-limit.js", () => ({
 vi.mock("../../src/shared/lib/db.js", () => ({
   getCredential: vi.fn()
 }));
+vi.mock("../../src/shared/lib/response.js", () => ({
+  rateLimitResponse: vi.fn().mockImplementation(
+    (retryAfter) =>
+      new Response(JSON.stringify({ error: "Too Many Requests" }), {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": String(retryAfter)
+        }
+      })
+  )
+}));
 
 import app from "../../src/api/worker.js";
 import { handleSubscribe } from "../../src/api/routes/subscribe.js";

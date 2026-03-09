@@ -6,6 +6,7 @@
 
 import { getRateLimitConfig } from "../shared/lib/config.js";
 import { checkRateLimit, getEndpointName } from "../shared/lib/rate-limit.js";
+import { rateLimitResponse } from "../shared/lib/response.js";
 import {
   handleLogin,
   handleLoginSubmit,
@@ -86,16 +87,7 @@ export default {
             limits.windowSeconds
           );
           if (!result.allowed) {
-            return new Response(
-              JSON.stringify({ error: "Too Many Requests" }),
-              {
-                status: 429,
-                headers: {
-                  "Content-Type": "application/json",
-                  "Retry-After": String(result.retryAfter)
-                }
-              }
-            );
+            return rateLimitResponse(result.retryAfter);
           }
         }
       }

@@ -12,6 +12,7 @@ import { handleCORSPreflight, withCORS } from "./lib/cors.js";
 import { getRateLimitConfig } from "../shared/lib/config.js";
 import { checkRateLimit, getEndpointName } from "../shared/lib/rate-limit.js";
 import { getCredential } from "../shared/lib/db.js";
+import { rateLimitResponse } from "../shared/lib/response.js";
 
 /**
  * Allowed HTTP methods per route path.
@@ -162,13 +163,7 @@ export default {
           rateLimitConfig.limits.windowSeconds
         );
         if (!result.allowed) {
-          return new Response(JSON.stringify({ error: "Too Many Requests" }), {
-            status: 429,
-            headers: {
-              "Content-Type": "application/json",
-              "Retry-After": String(result.retryAfter)
-            }
-          });
+          return rateLimitResponse(result.retryAfter);
         }
       }
     }
@@ -208,16 +203,7 @@ export default {
               rateLimitConfig.limits.windowSeconds
             );
             if (!result.allowed) {
-              return new Response(
-                JSON.stringify({ error: "Too Many Requests" }),
-                {
-                  status: 429,
-                  headers: {
-                    "Content-Type": "application/json",
-                    "Retry-After": String(result.retryAfter)
-                  }
-                }
-              );
+              return rateLimitResponse(result.retryAfter);
             }
           }
           return unauthorizedResponse();

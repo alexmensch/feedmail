@@ -79,6 +79,16 @@ vi.mock("../../src/shared/lib/response.js", () => ({
         status,
         headers: { "Content-Type": "text/html; charset=utf-8" }
       })
+  ),
+  rateLimitResponse: vi.fn().mockImplementation(
+    (retryAfter) =>
+      new Response(JSON.stringify({ error: "Too Many Requests" }), {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": String(retryAfter)
+        }
+      })
   )
 }));
 // Mock shared db
