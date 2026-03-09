@@ -30,8 +30,8 @@ A reader who follows a personal website or blog and prefers to receive new posts
 
 A plain HTML admin console with all management functionality, a guided first-time setup flow, and a simplified CLI setup script — completing the self-hosting story from deploy to daily operation.
 
-| #   | Feature                                                 | Description                                                                                                                         | GUID                                   |
-| --- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| #   | Feature                                                                          | Description                                                                                                                         | GUID                                   |
+| --- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | 1   | [admin-rate-limit-bypass](./admin-console-functional/admin-rate-limit-bypass.md) | Exempts authenticated service binding requests from API Worker rate limiting so active admin console usage is never throttled       | `958A5E88-B87B-45D8-991E-3F236EF869A3` |
 | 2   | [first-time-setup-flow](./admin-console-functional/first-time-setup-flow.md)     | Dashboard empty state guides operators through first channel and feed creation entirely within the browser                          | `CFD3690C-0462-4FBB-BA94-4EB2F05B6402` |
 | 3   | [setup-simplification](./admin-console-functional/setup-simplification.md)       | Reduces setup.sh to infrastructure provisioning (D1, config, credential seeding, deploy) with channel creation deferred to admin UI | `9B3EBAC7-65E7-4F80-BB5C-279D25828FAB` |
@@ -40,24 +40,24 @@ A plain HTML admin console with all management functionality, a guided first-tim
 
 HTMX interactions, CUBE CSS design system, responsive sidebar layout, dark mode, and visual polish for all admin and auth pages.
 
-| #   | Feature                                           | Description                                                                                                             | GUID                                   |
-| --- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| #   | Feature                                                                | Description                                                                                                             | GUID                                   |
+| --- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | 4   | [admin-console-styled](./admin-console-styled/admin-console-styled.md) | HTMX-powered interactions, CUBE CSS with Every Layout primitives, fluid responsive design, dark mode, auth page styling | `D04F43C0-AF8F-4CDA-B9ED-4E9C1D3ACA1B` |
 
 ### Release: Admin Console Enhancements
 
 Paginated subscriber lists, in-browser site configuration editing, and credential management (admin email, API keys) without CLI access.
 
-| #   | Feature                                                       | Description                                                                                                                                               | GUID                                   |
-| --- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| #   | Feature                                                                                  | Description                                                                                                                                               | GUID                                   |
+| --- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | 5   | [admin-console-enhancements](./admin-console-enhancements/admin-console-enhancements.md) | Server-side subscriber list pagination, site config editing, admin email change with verification, admin API key regeneration, and Resend API key editing | `0921300D-83E6-4423-AE32-DFB5ED5BD88A` |
 
 ### Release: Operational Improvements
 
 Lower-priority infrastructure hygiene and non-user-facing enhancements that keep the system tidy as it matures.
 
-| #   | Feature                                                                 | Description                                                                                                                                                                       | GUID                                   |
-| --- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| #   | Feature                                                                                          | Description                                                                                                                                                                       | GUID                                   |
+| --- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | 6   | [auth-session-cleanup](./operational-improvements/auth-session-cleanup.md)                       | Probabilistic cleanup of expired auth sessions and magic link tokens, with a shared utility that also refactors rate limit cleanup                                                | `E0AC5C7B-3792-44B4-89EB-FCC3B89050C4` |
 | 7   | [remove-credential-env-fallbacks](./operational-improvements/remove-credential-env-fallbacks.md) | Removes env-var fallback for ADMIN_API_KEY and RESEND_API_KEY so the D1 credentials table is the single source of truth, with explicit error logging when credentials are missing | `5CBF07F1-6FFE-4FE0-9DF6-221398A0EFDC` |
 | 8   | [rolling-sessions](./operational-improvements/rolling-sessions.md)                               | Rolling session expiry (24hr inactivity timeout) with a 7-day absolute cap, replacing the current fixed 24-hour session lifetime                                                  | `26E123A5-1D72-47C8-9E62-AB14F77E55D2` |
@@ -66,8 +66,8 @@ Lower-priority infrastructure hygiene and non-user-facing enhancements that keep
 
 Drop-in subscribe form widgets so site owners can add email subscriptions to their static sites in minutes without writing integration code. SSG selection based on [CloudCannon's top SSGs for 2025](https://cloudcannon.com/blog/the-top-five-static-site-generators-for-2025-and-when-to-use-them/) and [Kinsta's top SSGs for 2026](https://kinsta.com/blog/static-site-generator/), filtered for personal blog relevance.
 
-| #   | Feature                                                     | Description                                                                                | GUID                                   |
-| --- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------- |
+| #   | Feature                                                                 | Description                                                                                | GUID                                   |
+| --- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------- |
 | 9   | [subscribe-widget-html](./quick-start/subscribe-widget-html.md)         | Generic HTML/JS subscribe form snippet that works on any site with no framework dependency | `CB3C539D-2E07-430E-845C-14B909E8850E` |
 | 10  | [subscribe-widget-hugo](./quick-start/subscribe-widget-hugo.md)         | Hugo partial/shortcode for embedding the feedmail subscribe form                           | `C659F727-3A89-4D58-A570-ED320883665B` |
 | 11  | [subscribe-widget-jekyll](./quick-start/subscribe-widget-jekyll.md)     | Jekyll include for embedding the feedmail subscribe form                                   | `8C1C41E5-267E-423A-9A2C-D4991AB94570` |
@@ -78,8 +78,8 @@ Drop-in subscribe form widgets so site owners can add email subscriptions to the
 
 Import tools so users of existing newsletter services can bring their subscriber list to feedmail without starting from scratch. Platform selection based on [Marketer Milk's newsletter platforms for 2026](https://www.marketermilk.com/blog/best-newsletter-platforms), [Inbox Collective's indie newsletter ESP comparison](https://inboxcollective.com/aweber-beehiiv-convertkit-ghost-mailchimp-substack-which-is-the-right-esp-for-your-indie-newsletter/), and [Reddit recommendations for small-audience newsletter tools](https://websiteseostats.com/6-newsletter-tools-reddit-says-are-underrated-but-powerful-for-small-audiences/), filtered for personal blog relevance.
 
-| #   | Feature                                       | Description                                                                                       | GUID                                   |
-| --- | --------------------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| #   | Feature                                                 | Description                                                                                       | GUID                                   |
+| --- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | 14  | [migrate-core](./migration/migrate-core.md)             | Core migration framework with subscriber import, validation, deduplication, and verification flow | `56CA7165-1B19-4712-ACCA-3847AD552ACE` |
 | 15  | [migrate-buttondown](./migration/migrate-buttondown.md) | Import subscribers from a Buttondown export                                                       | `4FBDF5E9-7D3D-48E6-8855-CB746B654EF9` |
 | 16  | [migrate-mailchimp](./migration/migrate-mailchimp.md)   | Import subscribers from a Mailchimp audience export                                               | `02C7344A-5C06-4A99-B348-FD07FDBC7219` |
@@ -91,8 +91,8 @@ Import tools so users of existing newsletter services can bring their subscriber
 
 ## Shipped
 
-| Feature                                                                     | Description                                                                                                                                                      | GUID                                   | PR  |
-| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | --- |
+| Feature                                                                             | Description                                                                                                                                                      | GUID                                   | PR  |
+| ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | --- |
 | [email-deliverability-improvements](./shipped/email-deliverability-improvements.md) | Added List-Unsubscribe headers to verification emails and standardised the email footer with an optional company name/address block                              | `33B92369-DA50-4B57-8CD7-87CC1CBF37D2` | #19 |
 | [channel-config-restructuring](./shipped/channel-config-restructuring.md)           | Restructured config from SITES/BASE_URL to CHANNELS/DOMAIN with fromUser email local parts, structured feed objects, and startup config validation               | `9C58F879-27FF-48F6-B7A4-D2D3F53F5E71` | #22 |
 | [db-backed-configuration](./shipped/db-backed-configuration.md)                     | Moves channel/site config from wrangler.toml env vars to D1, with a full admin API for creating and managing channels, feeds, and rate limit settings at runtime | `DCD5EDC1-13F5-40D9-A12B-BA27EE9C1DA9` | #26 |
