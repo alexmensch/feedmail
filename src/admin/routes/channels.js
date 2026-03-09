@@ -88,7 +88,7 @@ export async function handleChannelList(request, env) {
 /**
  * GET /admin/channels/new — Channel creation form.
  */
-export async function handleChannelNew(request, env) {
+export async function handleChannelNew(_request, _env) {
   const html = render("adminChannelForm", {
     activePage: "channels",
     isEdit: false,
@@ -150,7 +150,11 @@ export async function handleChannelDetail(request, env, channelId) {
   const success = url.searchParams.get("success") || "";
   const error = url.searchParams.get("error") || "";
 
-  const result = await callApi(env, "GET", `/admin/channels/${encodeURIComponent(channelId)}`);
+  const result = await callApi(
+    env,
+    "GET",
+    `/admin/channels/${encodeURIComponent(channelId)}`
+  );
 
   if (!result.ok) {
     if (result.status === 404) {
@@ -200,11 +204,20 @@ export async function handleChannelUpdate(request, env, channelId) {
 
   const body = buildChannelBody(formData);
 
-  const result = await callApi(env, "PUT", `/admin/channels/${encodeURIComponent(channelId)}`, body);
+  const result = await callApi(
+    env,
+    "PUT",
+    `/admin/channels/${encodeURIComponent(channelId)}`,
+    body
+  );
 
   if (!result.ok) {
     // Fetch the current channel to show the form with error
-    const channelResult = await callApi(env, "GET", `/admin/channels/${encodeURIComponent(channelId)}`);
+    const channelResult = await callApi(
+      env,
+      "GET",
+      `/admin/channels/${encodeURIComponent(channelId)}`
+    );
     const currentChannel = channelResult.ok ? channelResult.data : {};
 
     const html = render("adminChannelForm", {
@@ -232,7 +245,11 @@ export async function handleChannelUpdate(request, env, channelId) {
  * POST /admin/channels/{id}/delete — Delete a channel.
  */
 export async function handleChannelDelete(request, env, channelId) {
-  const result = await callApi(env, "DELETE", `/admin/channels/${encodeURIComponent(channelId)}`);
+  const result = await callApi(
+    env,
+    "DELETE",
+    `/admin/channels/${encodeURIComponent(channelId)}`
+  );
 
   if (!result.ok) {
     return Response.redirect(

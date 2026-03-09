@@ -38,7 +38,11 @@ export async function handleDashboard(request, env) {
   // Fetch stats for all channels in parallel
   const channelStats = await Promise.all(
     channels.map(async (channel) => {
-      const statsResult = await callApi(env, "GET", `/admin/stats?channelId=${encodeURIComponent(channel.id)}`);
+      const statsResult = await callApi(
+        env,
+        "GET",
+        `/admin/stats?channelId=${encodeURIComponent(channel.id)}`
+      );
       if (statsResult.ok) {
         return {
           id: channel.id,

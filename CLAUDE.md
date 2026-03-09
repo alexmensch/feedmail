@@ -58,8 +58,14 @@ src/
     worker.js             # Admin fetch handler: routing, rate limiting, session middleware
     routes/
       auth.js             # Login, magic link verification, logout handlers
+      channels.js         # Channel CRUD: list, new, create, detail, update, delete
+      dashboard.js        # Dashboard with per-channel stats, send trigger
+      feeds.js            # Feed CRUD: new, create, edit, update, delete
       passkeys.js         # WebAuthn passkey registration, authentication, management
+      settings.js         # Settings page (passkey management with bootstrap prompt)
+      subscribers.js      # Subscriber list with channel/status filtering
     lib/
+      api.js              # API client helper: callApi(env, method, path, body?) + API_UNREACHABLE_ERROR constant
       db.js               # Admin D1 helpers (magic link tokens, sessions, passkey credentials, WebAuthn challenges)
       session.js          # Session middleware, cookie/session helpers, getCookieValue utility
   shared/                 # Shared modules used by both Workers
@@ -72,6 +78,8 @@ src/
       templates.js        # Handlebars precompiled template rendering — render(name, data)
   templates/              # Handlebars (.hbs) source files, precompiled at build time
     partials/
+      admin-head.hbs      # Shared CSS partial for all admin console pages
+      admin-nav.hbs       # Navigation bar partial with activePage highlighting
       email-footer.hbs    # Shared email footer partial (copyright, unsubscribe, company info)
       webauthn-helpers.hbs  # Shared base64url conversion functions for WebAuthn inline JS
     newsletter.hbs        # HTML newsletter email (table-based, inline styles)
@@ -84,8 +92,12 @@ src/
     admin-login-sent.hbs  # "Check your email" confirmation
     admin-auth-error.hbs  # Auth error page (expired/used magic link)
     admin-magic-link.hbs  # Magic link email body
-    admin-passkeys.hbs   # Passkey management page (register, rename, delete)
-    admin-placeholder.hbs # Admin dashboard placeholder
+    admin-dashboard.hbs   # Dashboard with per-channel stats and passkey bootstrap prompt
+    admin-channels.hbs    # Channel list page
+    admin-channel-form.hbs # Channel create/edit form with feed list
+    admin-feed-form.hbs   # Feed create/edit form
+    admin-subscribers.hbs # Subscriber table with channel/status filter dropdowns
+    admin-settings.hbs    # Settings page with passkey management
 migrations/
   0001_initial.sql        # D1 schema: subscribers, verification_attempts, sent_items
   0002_subscriber_sends.sql  # Per-subscriber send tracking for partial send recovery
@@ -125,6 +137,7 @@ To test the full email flow locally:
 ### Key Design Decisions
 
 - **Two-worker architecture:** The API Worker (`src/api/worker.js`) handles `/api/*` routes and cron triggers. The Admin Worker (`src/admin/worker.js`) handles `/admin/*` routes for the browser-based admin console. Both share the same D1 database and shared modules in `src/shared/`. Each Worker has its own wrangler config (`wrangler.toml` / `wrangler.admin.toml`).
+- **Admin console as API proxy:** The Admin Worker renders server-side HTML and acts as a proxy to the API Worker. All data operations go through `callApi()` in `src/admin/lib/api.js`, which reads `admin_api_key` from D1 and makes authenticated HTTP requests to the API Worker. Route handlers parse form data, call the API, and either render a template or redirect with query-param feedback (`?success=` / `?error=`). Templates use `isEdit` boolean to toggle between create and edit modes. Channel creation does not require feeds (feeds can be added after).
 - **Admin authentication:** Passkey (WebAuthn) authentication as primary login method, with magic link email as fallback. Uses `@simplewebauthn/server` for server-side WebAuthn operations; client-side ceremony code is inline JS (no `@simplewebauthn/browser`). A single admin email is stored in the `credentials` table. Passkey credentials are stored in `passkey_credentials` with public keys as base64url TEXT. WebAuthn challenges are stored in `webauthn_challenges` (Workers are stateless — no in-memory storage). Login page shows passkey button when credentials exist, with magic link form always available. Session cookie is `HttpOnly; Secure; SameSite=Strict; Path=/admin`. Magic link tokens expire after 15 minutes; WebAuthn challenges expire after 5 minutes; sessions expire after 24 hours. Single admin user model — fixed UUID for WebAuthn user ID. Dashboard shows a passkey bootstrap prompt when no passkeys are registered.
 - **Credentials in D1:** Secrets (`resend_api_key`, `admin_api_key`, `admin_email`) are stored in the `credentials` table. The shared `getResendApiKey(env)` helper checks `env.RESEND_API_KEY` first (backward compat) then falls back to D1. The Admin Worker has no Wrangler secrets — it reads all credentials from D1.
 - **DB-backed configuration:** Channel, feed, site settings, and rate limit config are stored in D1 tables (not env vars). Config is read asynchronously via `config.js` helpers that accept the `env` object. Admin API endpoints provide runtime CRUD management without redeployment. `RATE_LIMIT_DEFAULTS` in `config.js` provides hardcoded fallbacks when no DB rows exist.
@@ -197,8 +210,22 @@ To test the full email flow locally:
 - `POST /admin/login` — Request magic link email
 - `GET /admin/verify?token=` — Validate magic link, create session, redirect
 - `GET /admin/logout` — Destroy session, redirect to login
-- `GET /admin` — Dashboard placeholder (requires session)
-- `GET /admin/passkeys` — Passkey management page (requires session)
+- `GET /admin` — Dashboard with per-channel subscriber/send stats (requires session)
+- `POST /admin/send` — Trigger feed check and send, optional channelId (requires session)
+- `GET /admin/channels` — Channel list (requires session)
+- `GET /admin/channels/new` — Channel creation form (requires session)
+- `POST /admin/channels` — Create a new channel (requires session)
+- `GET /admin/channels/{id}` — Channel detail/edit form with feed list (requires session)
+- `POST /admin/channels/{id}` — Update a channel (requires session)
+- `POST /admin/channels/{id}/delete` — Delete a channel (requires session)
+- `GET /admin/channels/{id}/feeds/new` — Feed creation form (requires session)
+- `POST /admin/channels/{id}/feeds` — Create a new feed (requires session)
+- `GET /admin/channels/{id}/feeds/{feedId}/edit` — Feed edit form (requires session)
+- `POST /admin/channels/{id}/feeds/{feedId}` — Update a feed (requires session)
+- `POST /admin/channels/{id}/feeds/{feedId}/delete` — Delete a feed (requires session)
+- `GET /admin/subscribers` — Subscriber list with channel/status filtering (requires session)
+- `GET /admin/settings` — Settings page with passkey management (requires session)
+- `GET /admin/passkeys` — Redirects to /admin/settings (requires session)
 - `POST /admin/passkeys/register/options` — Generate WebAuthn registration options (requires session)
 - `POST /admin/passkeys/register/verify` — Verify registration and store credential (requires session)
 - `POST /admin/passkeys/authenticate/options` — Generate WebAuthn authentication options (public, rate-limited)

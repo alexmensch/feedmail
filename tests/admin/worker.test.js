@@ -99,8 +99,6 @@ import {
   checkRateLimit,
   getEndpointName
 } from "../../src/shared/lib/rate-limit.js";
-import { getCredential } from "../../src/shared/lib/db.js";
-import { render } from "../../src/shared/lib/templates.js";
 import { handleDashboard } from "../../src/admin/routes/dashboard.js";
 
 const RATE_LIMITS = {

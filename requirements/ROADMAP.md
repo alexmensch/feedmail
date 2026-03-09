@@ -32,10 +32,10 @@ A reader who subscribes to receive feed updates via email. They interact with fe
 
 A plain HTML admin console with all management functionality, a guided first-time setup flow, and a simplified CLI setup script — completing the self-hosting story from deploy to daily operation.
 
-| #   | Feature                                                   | Description                                                                                                                         | GUID                                   |
-| --- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 1   | [first-time-setup-flow](./first-time-setup-flow.md)       | Dashboard empty state guides operators through first channel and feed creation entirely within the browser                          | `CFD3690C-0462-4FBB-BA94-4EB2F05B6402` |
-| 2   | [setup-simplification](./setup-simplification.md)         | Reduces setup.sh to infrastructure provisioning (D1, config, credential seeding, deploy) with channel creation deferred to admin UI | `9B3EBAC7-65E7-4F80-BB5C-279D25828FAB` |
+| #   | Feature                                             | Description                                                                                                                         | GUID                                   |
+| --- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| 1   | [first-time-setup-flow](./first-time-setup-flow.md) | Dashboard empty state guides operators through first channel and feed creation entirely within the browser                          | `CFD3690C-0462-4FBB-BA94-4EB2F05B6402` |
+| 2   | [setup-simplification](./setup-simplification.md)   | Reduces setup.sh to infrastructure provisioning (D1, config, credential seeding, deploy) with channel creation deferred to admin UI | `9B3EBAC7-65E7-4F80-BB5C-279D25828FAB` |
 
 ### Release: Admin Console (Styled)
 

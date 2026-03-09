@@ -100,7 +100,6 @@ import {
   createSession
 } from "../../../src/admin/lib/db.js";
 import { getCredential } from "../../../src/shared/lib/db.js";
-import { render } from "../../../src/shared/lib/templates.js";
 import {
   createSessionCookie,
   getSessionFromCookie,

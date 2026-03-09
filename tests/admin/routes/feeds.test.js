@@ -182,7 +182,7 @@ describe("handleFeedCreate", () => {
       }
     );
 
-    const response = await handleFeedCreate(request, env, "nonexistent");
+    await handleFeedCreate(request, env, "nonexistent");
 
     // Should show error (either re-render or error page)
     expect(render).toHaveBeenCalledWith(
@@ -203,7 +203,12 @@ describe("handleFeedEdit", () => {
     callApi.mockResolvedValue({
       ok: true,
       status: 200,
-      data: { feeds: [FEED, { id: 2, name: "Other", url: "https://other.com/feed.xml" }] }
+      data: {
+        feeds: [
+          FEED,
+          { id: 2, name: "Other", url: "https://other.com/feed.xml" }
+        ]
+      }
     });
 
     const request = new Request(
@@ -257,7 +262,11 @@ describe("handleFeedUpdate", () => {
     callApi.mockResolvedValue({
       ok: true,
       status: 200,
-      data: { id: 1, name: "Updated Feed", url: "https://example.com/updated.xml" }
+      data: {
+        id: 1,
+        name: "Updated Feed",
+        url: "https://example.com/updated.xml"
+      }
     });
 
     const request = new Request(
