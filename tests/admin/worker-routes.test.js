@@ -334,6 +334,40 @@ describe("admin worker — new route dispatching", () => {
         "1"
       );
     });
+
+    it("returns 405 for POST /admin/channels/{id}/feeds/new", async () => {
+      const request = makeRequest("POST", "/admin/channels/test-ch/feeds/new");
+      const response = await adminApp.fetch(request, env);
+
+      expect(response.status).toBe(405);
+    });
+
+    it("returns 405 for GET /admin/channels/{id}/feeds/{feedId}/delete", async () => {
+      const request = makeRequest(
+        "GET",
+        "/admin/channels/test-ch/feeds/1/delete"
+      );
+      const response = await adminApp.fetch(request, env);
+
+      expect(response.status).toBe(405);
+    });
+
+    it("returns 405 for POST /admin/channels/{id}/feeds/{feedId}/edit", async () => {
+      const request = makeRequest(
+        "POST",
+        "/admin/channels/test-ch/feeds/1/edit"
+      );
+      const response = await adminApp.fetch(request, env);
+
+      expect(response.status).toBe(405);
+    });
+
+    it("returns 405 for GET /admin/channels/{id}/feeds/{feedId}", async () => {
+      const request = makeRequest("GET", "/admin/channels/test-ch/feeds/1");
+      const response = await adminApp.fetch(request, env);
+
+      expect(response.status).toBe(405);
+    });
   });
 
   describe("subscriber routes", () => {

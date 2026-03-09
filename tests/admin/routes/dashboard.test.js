@@ -324,3 +324,50 @@ describe("handleSendTrigger", () => {
     expect(response.headers.get("Location")).toContain("error=");
   });
 });
+
+describe("handleDashboard — stats fetch failure", () => {
+  it("includes error for channels whose stats fetch fails", async () => {
+    callApi
+      .mockResolvedValueOnce({
+        ok: true,
+        data: {
+          channels: [
+            { id: "ch1", siteName: "Site 1" },
+            { id: "ch2", siteName: "Site 2" }
+          ]
+        }
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        data: {
+          subscribers: { total: 10 },
+          sentItems: { total: 5 }
+        }
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        data: { error: "Stats unavailable" }
+      });
+
+    const request = new Request("https://feedmail.example.com/admin");
+
+    await handleDashboard(request, env);
+
+    expect(render).toHaveBeenCalledWith(
+      "adminDashboard",
+      expect.objectContaining({
+        channels: expect.arrayContaining([
+          expect.objectContaining({
+            id: "ch1",
+            subscribers: { total: 10 }
+          }),
+          expect.objectContaining({
+            id: "ch2",
+            error: "Stats unavailable"
+          })
+        ])
+      })
+    );
+  });
+});

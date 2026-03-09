@@ -65,6 +65,48 @@ describe("handleFeedNew", () => {
       })
     );
   });
+
+  it("renders error when channel is not found (404)", async () => {
+    callApi.mockResolvedValue({
+      ok: false,
+      status: 404,
+      data: { error: "Not found" }
+    });
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/channels/bad-ch/feeds/new"
+    );
+    const response = await handleFeedNew(request, env, "bad-ch");
+
+    expect(response.status).toBe(404);
+    expect(render).toHaveBeenCalledWith(
+      "adminFeedForm",
+      expect.objectContaining({
+        error: "Channel not found"
+      })
+    );
+  });
+
+  it("renders error when channel API returns non-404 error", async () => {
+    callApi.mockResolvedValue({
+      ok: false,
+      status: 500,
+      data: { error: "Internal server error" }
+    });
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/channels/test-ch/feeds/new"
+    );
+    const response = await handleFeedNew(request, env, "test-ch");
+
+    expect(response.status).toBe(200);
+    expect(render).toHaveBeenCalledWith(
+      "adminFeedForm",
+      expect.objectContaining({
+        error: "Internal server error"
+      })
+    );
+  });
 });
 
 describe("handleFeedCreate", () => {
@@ -421,5 +463,99 @@ describe("handleFeedDelete", () => {
 
     expect(response.status).toBe(302);
     expect(response.headers.get("Location")).toContain("success=");
+  });
+});
+
+// ─── Error path coverage ─────────────────────────────────────────────────
+
+describe("handleFeedCreate — invalid form data", () => {
+  it("renders error when formData parsing fails", async () => {
+    const request = new Request(
+      "https://feedmail.example.com/admin/channels/test-ch/feeds",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "not form data"
+      }
+    );
+
+    const response = await handleFeedCreate(request, env, "test-ch");
+
+    expect(response.status).toBe(200);
+    expect(render).toHaveBeenCalledWith(
+      "adminFeedForm",
+      expect.objectContaining({
+        error: "Invalid form data",
+        isEdit: false,
+        channelId: "test-ch"
+      })
+    );
+  });
+});
+
+describe("handleFeedEdit — API error paths", () => {
+  it("renders error when feed list fetch returns non-404 error", async () => {
+    callApi.mockResolvedValue({
+      ok: false,
+      status: 500,
+      data: { error: "Internal server error" }
+    });
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/channels/test-ch/feeds/1/edit"
+    );
+
+    const response = await handleFeedEdit(request, env, "test-ch", "1");
+
+    expect(response.status).toBe(200);
+    expect(render).toHaveBeenCalledWith(
+      "adminFeedForm",
+      expect.objectContaining({
+        error: "Internal server error"
+      })
+    );
+  });
+
+  it("renders 404 when feed list fetch returns 404", async () => {
+    callApi.mockResolvedValue({
+      ok: false,
+      status: 404,
+      data: { error: "Not found" }
+    });
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/channels/test-ch/feeds/1/edit"
+    );
+
+    const response = await handleFeedEdit(request, env, "test-ch", "1");
+
+    expect(response.status).toBe(404);
+    expect(render).toHaveBeenCalledWith(
+      "adminFeedForm",
+      expect.objectContaining({
+        error: "Channel not found"
+      })
+    );
+  });
+});
+
+describe("handleFeedUpdate — invalid form data", () => {
+  it("redirects with error when formData parsing fails", async () => {
+    const request = new Request(
+      "https://feedmail.example.com/admin/channels/test-ch/feeds/1",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "not form data"
+      }
+    );
+
+    const response = await handleFeedUpdate(request, env, "test-ch", "1");
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("Location")).toContain("error=");
+    expect(response.headers.get("Location")).toContain(
+      encodeURIComponent("Invalid form data")
+    );
   });
 });

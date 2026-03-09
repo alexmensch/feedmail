@@ -246,4 +246,31 @@ describe("handleSubscriberList", () => {
       })
     );
   });
+
+  it("displays error when subscriber fetch fails for selected channel", async () => {
+    callApi
+      .mockResolvedValueOnce({
+        ok: true,
+        data: { channels: [{ id: "ch1", siteName: "Site 1" }] }
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        data: { error: "Failed to load subscribers" }
+      });
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/subscribers?channelId=ch1"
+    );
+
+    const response = await handleSubscriberList(request, env);
+
+    expect(response.status).toBe(200);
+    expect(render).toHaveBeenCalledWith(
+      "adminSubscribers",
+      expect.objectContaining({
+        error: "Failed to load subscribers"
+      })
+    );
+  });
 });

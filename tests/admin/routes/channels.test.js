@@ -259,6 +259,28 @@ describe("handleChannelCreate", () => {
     expect(body.corsOrigins).toEqual(["https://example.com"]);
   });
 
+  it("includes populated optional fields in API request", async () => {
+    callApi.mockResolvedValue({
+      ok: true,
+      status: 201,
+      data: { id: "ch" }
+    });
+
+    const request = new Request("https://feedmail.example.com/admin/channels", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "id=ch&siteName=Test&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender&replyTo=reply%40example.com&companyName=Acme+Corp&companyAddress=123+Main+St&corsOrigins="
+    });
+
+    await handleChannelCreate(request, env);
+
+    const apiCall = callApi.mock.calls[0];
+    const body = apiCall[3];
+    expect(body.replyTo).toBe("reply@example.com");
+    expect(body.companyName).toBe("Acme Corp");
+    expect(body.companyAddress).toBe("123 Main St");
+  });
+
   it("omits empty optional fields from API request", async () => {
     callApi.mockResolvedValue({
       ok: true,
@@ -598,5 +620,73 @@ describe("handleChannelDelete", () => {
 
     expect(response.status).toBe(302);
     expect(response.headers.get("Location")).toContain("error=");
+  });
+});
+
+// ─── Error path coverage ─────────────────────────────────────────────────
+
+describe("handleChannelCreate — invalid form data", () => {
+  it("renders error when formData parsing fails", async () => {
+    const request = new Request("https://feedmail.example.com/admin/channels", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "not form data"
+    });
+
+    const response = await handleChannelCreate(request, env);
+
+    expect(response.status).toBe(200);
+    expect(render).toHaveBeenCalledWith(
+      "adminChannelForm",
+      expect.objectContaining({
+        error: "Invalid form data",
+        isEdit: false
+      })
+    );
+  });
+});
+
+describe("handleChannelDetail — non-404 API error", () => {
+  it("renders error when API returns non-404 error", async () => {
+    callApi.mockResolvedValue({
+      ok: false,
+      status: 500,
+      data: { error: "Internal server error" }
+    });
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/channels/test-ch"
+    );
+
+    const response = await handleChannelDetail(request, env, "test-ch");
+
+    expect(response.status).toBe(200);
+    expect(render).toHaveBeenCalledWith(
+      "adminChannelForm",
+      expect.objectContaining({
+        error: "Internal server error"
+      })
+    );
+  });
+});
+
+describe("handleChannelUpdate — invalid form data", () => {
+  it("redirects with error when formData parsing fails", async () => {
+    const request = new Request(
+      "https://feedmail.example.com/admin/channels/test-ch",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "not form data"
+      }
+    );
+
+    const response = await handleChannelUpdate(request, env, "test-ch");
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("Location")).toContain("error=");
+    expect(response.headers.get("Location")).toContain(
+      encodeURIComponent("Invalid form data")
+    );
   });
 });
