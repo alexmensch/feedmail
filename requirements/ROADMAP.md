@@ -30,11 +30,11 @@ A reader who follows a personal website or blog and prefers to receive new posts
 
 A plain HTML admin console with all management functionality, a guided first-time setup flow, and a simplified CLI setup script — completing the self-hosting story from deploy to daily operation.
 
-| #   | Feature                                                   | Description                                                                                                                         | GUID                                   |
-| --- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 1   | [admin-rate-limit-bypass](./admin-rate-limit-bypass.md)   | Exempts authenticated service binding requests from API Worker rate limiting so active admin console usage is never throttled        | `958A5E88-B87B-45D8-991E-3F236EF869A3` |
-| 2   | [first-time-setup-flow](./first-time-setup-flow.md)       | Dashboard empty state guides operators through first channel and feed creation entirely within the browser                          | `CFD3690C-0462-4FBB-BA94-4EB2F05B6402` |
-| 3   | [setup-simplification](./setup-simplification.md)         | Reduces setup.sh to infrastructure provisioning (D1, config, credential seeding, deploy) with channel creation deferred to admin UI | `9B3EBAC7-65E7-4F80-BB5C-279D25828FAB` |
+| #   | Feature                                                 | Description                                                                                                                         | GUID                                   |
+| --- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| 1   | [admin-rate-limit-bypass](./admin-rate-limit-bypass.md) | Exempts authenticated service binding requests from API Worker rate limiting so active admin console usage is never throttled       | `958A5E88-B87B-45D8-991E-3F236EF869A3` |
+| 2   | [first-time-setup-flow](./first-time-setup-flow.md)     | Dashboard empty state guides operators through first channel and feed creation entirely within the browser                          | `CFD3690C-0462-4FBB-BA94-4EB2F05B6402` |
+| 3   | [setup-simplification](./setup-simplification.md)       | Reduces setup.sh to infrastructure provisioning (D1, config, credential seeding, deploy) with channel creation deferred to admin UI | `9B3EBAC7-65E7-4F80-BB5C-279D25828FAB` |
 
 ### Release: Admin Console (Styled)
 
@@ -66,26 +66,26 @@ Lower-priority infrastructure hygiene and non-user-facing enhancements that keep
 
 Drop-in subscribe form widgets so site owners can add email subscriptions to their static sites in minutes without writing integration code. SSG selection based on [CloudCannon's top SSGs for 2025](https://cloudcannon.com/blog/the-top-five-static-site-generators-for-2025-and-when-to-use-them/) and [Kinsta's top SSGs for 2026](https://kinsta.com/blog/static-site-generator/), filtered for personal blog relevance.
 
-| #   | Feature                                                             | Description                                                                                   | GUID                                   |
-| --- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 9   | [subscribe-widget-html](./subscribe-widget-html.md)                 | Generic HTML/JS subscribe form snippet that works on any site with no framework dependency     | `CB3C539D-2E07-430E-845C-14B909E8850E` |
-| 10  | [subscribe-widget-hugo](./subscribe-widget-hugo.md)                 | Hugo partial/shortcode for embedding the feedmail subscribe form                               | `C659F727-3A89-4D58-A570-ED320883665B` |
-| 11  | [subscribe-widget-jekyll](./subscribe-widget-jekyll.md)             | Jekyll include for embedding the feedmail subscribe form                                       | `8C1C41E5-267E-423A-9A2C-D4991AB94570` |
-| 12  | [subscribe-widget-eleventy](./subscribe-widget-eleventy.md)         | Eleventy shortcode/plugin for embedding the feedmail subscribe form                            | `21B22062-FC7C-44A8-8B9F-91F5F40FD4EF` |
-| 13  | [subscribe-widget-astro](./subscribe-widget-astro.md)               | Astro component for embedding the feedmail subscribe form                                      | `9DE93ABB-0DFF-4637-98CE-7A08B7A65A0D` |
+| #   | Feature                                                     | Description                                                                                | GUID                                   |
+| --- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------- |
+| 9   | [subscribe-widget-html](./subscribe-widget-html.md)         | Generic HTML/JS subscribe form snippet that works on any site with no framework dependency | `CB3C539D-2E07-430E-845C-14B909E8850E` |
+| 10  | [subscribe-widget-hugo](./subscribe-widget-hugo.md)         | Hugo partial/shortcode for embedding the feedmail subscribe form                           | `C659F727-3A89-4D58-A570-ED320883665B` |
+| 11  | [subscribe-widget-jekyll](./subscribe-widget-jekyll.md)     | Jekyll include for embedding the feedmail subscribe form                                   | `8C1C41E5-267E-423A-9A2C-D4991AB94570` |
+| 12  | [subscribe-widget-eleventy](./subscribe-widget-eleventy.md) | Eleventy shortcode/plugin for embedding the feedmail subscribe form                        | `21B22062-FC7C-44A8-8B9F-91F5F40FD4EF` |
+| 13  | [subscribe-widget-astro](./subscribe-widget-astro.md)       | Astro component for embedding the feedmail subscribe form                                  | `9DE93ABB-0DFF-4637-98CE-7A08B7A65A0D` |
 
 ### Release: Migration
 
 Import tools so users of existing newsletter services can bring their subscriber list to feedmail without starting from scratch. Platform selection based on [Marketer Milk's newsletter platforms for 2026](https://www.marketermilk.com/blog/best-newsletter-platforms), [Inbox Collective's indie newsletter ESP comparison](https://inboxcollective.com/aweber-beehiiv-convertkit-ghost-mailchimp-substack-which-is-the-right-esp-for-your-indie-newsletter/), and [Reddit recommendations for small-audience newsletter tools](https://websiteseostats.com/6-newsletter-tools-reddit-says-are-underrated-but-powerful-for-small-audiences/), filtered for personal blog relevance.
 
-| #   | Feature                                             | Description                                                                                           | GUID                                   |
-| --- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 14  | [migrate-core](./migrate-core.md)                   | Core migration framework with subscriber import, validation, deduplication, and verification flow     | `56CA7165-1B19-4712-ACCA-3847AD552ACE` |
-| 15  | [migrate-buttondown](./migrate-buttondown.md)       | Import subscribers from a Buttondown export                                                           | `4FBDF5E9-7D3D-48E6-8855-CB746B654EF9` |
-| 16  | [migrate-mailchimp](./migrate-mailchimp.md)         | Import subscribers from a Mailchimp audience export                                                   | `02C7344A-5C06-4A99-B348-FD07FDBC7219` |
-| 17  | [migrate-ghost](./migrate-ghost.md)                 | Import subscribers from a Ghost member/newsletter export                                              | `FBBAA31E-4397-4841-8026-7E75CEA5C30E` |
-| 18  | [migrate-kit](./migrate-kit.md)                     | Import subscribers from a Kit (formerly ConvertKit) export                                            | `910B6DD6-8567-40B1-99E6-2CE029E2D4B0` |
-| 19  | [migrate-mailerlite](./migrate-mailerlite.md)       | Import subscribers from a MailerLite export                                                           | `AB244D19-86FB-47A5-974C-FAEB85970FA7` |
+| #   | Feature                                       | Description                                                                                       | GUID                                   |
+| --- | --------------------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| 14  | [migrate-core](./migrate-core.md)             | Core migration framework with subscriber import, validation, deduplication, and verification flow | `56CA7165-1B19-4712-ACCA-3847AD552ACE` |
+| 15  | [migrate-buttondown](./migrate-buttondown.md) | Import subscribers from a Buttondown export                                                       | `4FBDF5E9-7D3D-48E6-8855-CB746B654EF9` |
+| 16  | [migrate-mailchimp](./migrate-mailchimp.md)   | Import subscribers from a Mailchimp audience export                                               | `02C7344A-5C06-4A99-B348-FD07FDBC7219` |
+| 17  | [migrate-ghost](./migrate-ghost.md)           | Import subscribers from a Ghost member/newsletter export                                          | `FBBAA31E-4397-4841-8026-7E75CEA5C30E` |
+| 18  | [migrate-kit](./migrate-kit.md)               | Import subscribers from a Kit (formerly ConvertKit) export                                        | `910B6DD6-8567-40B1-99E6-2CE029E2D4B0` |
+| 19  | [migrate-mailerlite](./migrate-mailerlite.md) | Import subscribers from a MailerLite export                                                       | `AB244D19-86FB-47A5-974C-FAEB85970FA7` |
 
 ---
 
