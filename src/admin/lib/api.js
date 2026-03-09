@@ -41,7 +41,7 @@ export async function callApi(env, method, path, body) {
 
   let response;
   try {
-    response = await fetch(url, options);
+    response = await env.API_SERVICE.fetch(url, options);
   } catch {
     return {
       ok: false,

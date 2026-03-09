@@ -220,6 +220,7 @@ ADMIN_WORKER_NAME="${WORKER_NAME}-admin"
 sed -i '' "s/^name = .*/name = \"$ADMIN_WORKER_NAME\"/" wrangler.admin.prod.toml
 sed -i '' "s/YOUR_DATABASE_ID/$DATABASE_ID/" wrangler.admin.prod.toml
 sed -i '' "s/YOUR_DOMAIN/$DOMAIN/g" wrangler.admin.prod.toml
+sed -i '' "s/YOUR_API_WORKER_NAME/$WORKER_NAME/" wrangler.admin.prod.toml
 sed -i '' "s/^database_name = .*/database_name = \"$WORKER_NAME\"/" wrangler.admin.prod.toml
 
 # Comment out the routes section (deployer uncomments when ready)
