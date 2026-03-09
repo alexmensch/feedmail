@@ -2,7 +2,7 @@
  * Admin channel routes: list, create, detail/edit, delete.
  */
 
-import { callApi } from "../lib/api.js";
+import { callApi, API_UNREACHABLE_ERROR } from "../lib/api.js";
 import { render } from "../../shared/lib/templates.js";
 import { htmlResponse } from "../../shared/lib/response.js";
 
@@ -68,7 +68,7 @@ export async function handleChannelList(request, env) {
   if (!result.ok) {
     const html = render("adminChannels", {
       activePage: "channels",
-      error: error || result.data?.error || "Unable to reach the API. Check your configuration."
+      error: error || result.data?.error || API_UNREACHABLE_ERROR
     });
     return htmlResponse(html);
   }
@@ -91,7 +91,7 @@ export async function handleChannelList(request, env) {
 export async function handleChannelNew(request, env) {
   const html = render("adminChannelForm", {
     activePage: "channels",
-    isNew: true,
+    isEdit: false,
     channel: {}
   });
   return htmlResponse(html);
@@ -108,7 +108,7 @@ export async function handleChannelCreate(request, env) {
     return htmlResponse(
       render("adminChannelForm", {
         activePage: "channels",
-        isNew: true,
+        isEdit: false,
         channel: {},
         error: "Invalid form data"
       })
@@ -125,7 +125,7 @@ export async function handleChannelCreate(request, env) {
     // Re-render form with error and preserved values
     const html = render("adminChannelForm", {
       activePage: "channels",
-      isNew: true,
+      isEdit: false,
       channel: {
         id: channelId,
         ...body,
@@ -162,7 +162,7 @@ export async function handleChannelDetail(request, env, channelId) {
     }
     const html = render("adminChannelForm", {
       activePage: "channels",
-      error: result.data?.error || "Unable to reach the API. Check your configuration."
+      error: result.data?.error || API_UNREACHABLE_ERROR
     });
     return htmlResponse(html);
   }
@@ -171,7 +171,7 @@ export async function handleChannelDetail(request, env, channelId) {
 
   const html = render("adminChannelForm", {
     activePage: "channels",
-    isNew: false,
+    isEdit: true,
     channel: {
       ...channel,
       corsOrigins: (channel.corsOrigins || []).join("\n")
@@ -209,7 +209,7 @@ export async function handleChannelUpdate(request, env, channelId) {
 
     const html = render("adminChannelForm", {
       activePage: "channels",
-      isNew: false,
+      isEdit: true,
       channel: {
         id: channelId,
         ...body,

@@ -14,6 +14,7 @@ import { getChannelById } from "./config.js";
 import emailFooterSpec from "../../templates/compiled/partials/email-footer.js";
 import webauthnHelpersSpec from "../../templates/compiled/partials/webauthn-helpers.js";
 import adminNavSpec from "../../templates/compiled/partials/admin-nav.js";
+import adminHeadSpec from "../../templates/compiled/partials/admin-head.js";
 
 // Import precompiled template specs
 import newsletterSpec from "../../templates/compiled/newsletter.js";
@@ -28,7 +29,6 @@ import adminLoginSpec from "../../templates/compiled/admin-login.js";
 import adminLoginSentSpec from "../../templates/compiled/admin-login-sent.js";
 import adminAuthErrorSpec from "../../templates/compiled/admin-auth-error.js";
 import adminMagicLinkSpec from "../../templates/compiled/admin-magic-link.js";
-import adminPasskeysSpec from "../../templates/compiled/admin-passkeys.js";
 import adminDashboardSpec from "../../templates/compiled/admin-dashboard.js";
 import adminChannelsSpec from "../../templates/compiled/admin-channels.js";
 import adminChannelFormSpec from "../../templates/compiled/admin-channel-form.js";
@@ -63,6 +63,7 @@ Handlebars.registerPartial(
   Handlebars.template(webauthnHelpersSpec)
 );
 Handlebars.registerPartial("admin-nav", Handlebars.template(adminNavSpec));
+Handlebars.registerPartial("admin-head", Handlebars.template(adminHeadSpec));
 
 // Instantiate templates from precompiled specs
 const templates = {
@@ -76,7 +77,6 @@ const templates = {
   adminLoginSent: Handlebars.template(adminLoginSentSpec),
   adminAuthError: Handlebars.template(adminAuthErrorSpec),
   adminMagicLink: Handlebars.template(adminMagicLinkSpec),
-  adminPasskeys: Handlebars.template(adminPasskeysSpec),
   adminDashboard: Handlebars.template(adminDashboardSpec),
   adminChannels: Handlebars.template(adminChannelsSpec),
   adminChannelForm: Handlebars.template(adminChannelFormSpec),

@@ -38,11 +38,11 @@ describe("@simplewebauthn/server dependency", () => {
   });
 });
 
-describe("admin passkeys template registration", () => {
-  it("adminPasskeys template is registered and can be rendered", async () => {
+describe("admin settings template registration", () => {
+  it("adminSettings template is registered and can be rendered", async () => {
     const { render } = await import("../../src/shared/lib/templates.js");
 
-    expect(() => render("adminPasskeys", {})).not.toThrow();
+    expect(() => render("adminSettings", {})).not.toThrow();
   });
 });
 

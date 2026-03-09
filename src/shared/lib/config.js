@@ -78,6 +78,10 @@ export function validateChannelFields(data, { requireFeeds = false } = {}) {
     if (!Array.isArray(data.feeds) || data.feeds.length === 0) {
       throw new Error("At least one feed is required");
     }
+  }
+
+  // Validate feeds when provided, regardless of requireFeeds
+  if (Array.isArray(data.feeds) && data.feeds.length > 0) {
     for (const feed of data.feeds) {
       validateFeedFields(feed);
     }

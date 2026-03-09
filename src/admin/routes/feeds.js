@@ -2,7 +2,7 @@
  * Admin feed routes: add, edit, delete.
  */
 
-import { callApi } from "../lib/api.js";
+import { callApi, API_UNREACHABLE_ERROR } from "../lib/api.js";
 import { render } from "../../shared/lib/templates.js";
 import { htmlResponse } from "../../shared/lib/response.js";
 
@@ -16,14 +16,14 @@ export async function handleFeedNew(request, env, channelId) {
   if (!channelResult.ok) {
     const html = render("adminFeedForm", {
       activePage: "channels",
-      error: channelResult.status === 404 ? "Channel not found" : (channelResult.data?.error || "Unable to reach the API. Check your configuration.")
+      error: channelResult.status === 404 ? "Channel not found" : (channelResult.data?.error || API_UNREACHABLE_ERROR)
     });
     return htmlResponse(html, channelResult.status === 404 ? 404 : 200);
   }
 
   const html = render("adminFeedForm", {
     activePage: "channels",
-    isNew: true,
+    isEdit: false,
     channelId,
     channelName: channelResult.data.siteName,
     feed: {}
@@ -42,7 +42,7 @@ export async function handleFeedCreate(request, env, channelId) {
     return htmlResponse(
       render("adminFeedForm", {
         activePage: "channels",
-        isNew: true,
+        isEdit: false,
         channelId,
         feed: {},
         error: "Invalid form data"
@@ -58,7 +58,7 @@ export async function handleFeedCreate(request, env, channelId) {
   if (!result.ok) {
     const html = render("adminFeedForm", {
       activePage: "channels",
-      isNew: true,
+      isEdit: false,
       channelId,
       feed: { name, url },
       error: result.data?.error || "Failed to add feed"
@@ -82,7 +82,7 @@ export async function handleFeedEdit(request, env, channelId, feedId) {
   if (!result.ok) {
     const html = render("adminFeedForm", {
       activePage: "channels",
-      error: result.status === 404 ? "Channel not found" : (result.data?.error || "Unable to reach the API. Check your configuration.")
+      error: result.status === 404 ? "Channel not found" : (result.data?.error || API_UNREACHABLE_ERROR)
     });
     return htmlResponse(html, result.status === 404 ? 404 : 200);
   }
@@ -100,7 +100,7 @@ export async function handleFeedEdit(request, env, channelId, feedId) {
 
   const html = render("adminFeedForm", {
     activePage: "channels",
-    isNew: false,
+    isEdit: true,
     channelId,
     feedId: feed.id,
     feed: { name: feed.name, url: feed.url }
@@ -130,7 +130,7 @@ export async function handleFeedUpdate(request, env, channelId, feedId) {
   if (!result.ok) {
     const html = render("adminFeedForm", {
       activePage: "channels",
-      isNew: false,
+      isEdit: true,
       channelId,
       feedId,
       feed: { name, url },

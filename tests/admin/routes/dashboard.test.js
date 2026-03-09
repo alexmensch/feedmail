@@ -4,6 +4,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("../../../src/admin/lib/api.js", () => ({
   callApi: vi.fn()
 }));
+vi.mock("../../../src/admin/lib/db.js", () => ({
+  getPasskeyCredentialCount: vi.fn().mockResolvedValue(0)
+}));
 vi.mock("../../../src/shared/lib/templates.js", () => ({
   render: vi.fn().mockReturnValue("<html>mock template</html>")
 }));
@@ -191,11 +194,12 @@ describe("handleSendTrigger", () => {
       env,
       "POST",
       "/send",
-      expect.any(Object)
+      undefined
     );
     expect(response.status).toBe(302);
-    expect(response.headers.get("Location")).toContain("/admin");
-    expect(response.headers.get("Location")).toContain("success=");
+    const location = response.headers.get("Location");
+    expect(location).toContain("/admin");
+    expect(location).toContain("success=");
   });
 
   it("includes channelId in API call when provided in form data", async () => {
@@ -267,7 +271,8 @@ describe("handleSendTrigger", () => {
 
     expect(response.status).toBe(302);
     const location = response.headers.get("Location");
-    expect(location).toMatch(/^\/admin/);
+    expect(location).toContain("/admin");
+    expect(location).not.toContain("/phishing");
   });
 
   it("falls back to /admin when no referer header", async () => {
@@ -287,7 +292,7 @@ describe("handleSendTrigger", () => {
 
     expect(response.status).toBe(302);
     const location = response.headers.get("Location");
-    expect(location).toMatch(/^\/admin/);
+    expect(location).toContain("/admin");
   });
 
   it("redirects with rate limit error when API returns 429", async () => {

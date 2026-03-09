@@ -12,9 +12,33 @@ vi.mock("../../src/admin/routes/passkeys.js", () => ({
   handleRegisterVerify: vi.fn(),
   handleAuthenticateOptions: vi.fn(),
   handleAuthenticateVerify: vi.fn(),
-  handlePasskeyManagement: vi.fn(),
   handlePasskeyRename: vi.fn(),
   handlePasskeyDelete: vi.fn()
+}));
+vi.mock("../../src/admin/routes/dashboard.js", () => ({
+  handleDashboard: vi.fn(),
+  handleSendTrigger: vi.fn()
+}));
+vi.mock("../../src/admin/routes/channels.js", () => ({
+  handleChannelList: vi.fn(),
+  handleChannelNew: vi.fn(),
+  handleChannelCreate: vi.fn(),
+  handleChannelDetail: vi.fn(),
+  handleChannelUpdate: vi.fn(),
+  handleChannelDelete: vi.fn()
+}));
+vi.mock("../../src/admin/routes/feeds.js", () => ({
+  handleFeedNew: vi.fn(),
+  handleFeedCreate: vi.fn(),
+  handleFeedEdit: vi.fn(),
+  handleFeedUpdate: vi.fn(),
+  handleFeedDelete: vi.fn()
+}));
+vi.mock("../../src/admin/routes/subscribers.js", () => ({
+  handleSubscriberList: vi.fn()
+}));
+vi.mock("../../src/admin/routes/settings.js", () => ({
+  handleSettings: vi.fn()
 }));
 // Mock admin db
 vi.mock("../../src/admin/lib/db.js", () => ({
@@ -77,6 +101,7 @@ import {
 } from "../../src/shared/lib/rate-limit.js";
 import { getCredential } from "../../src/shared/lib/db.js";
 import { render } from "../../src/shared/lib/templates.js";
+import { handleDashboard } from "../../src/admin/routes/dashboard.js";
 
 const RATE_LIMITS = {
   admin_login: { maxRequests: 10, windowSeconds: 3600 },
@@ -376,41 +401,24 @@ describe("admin worker — fetch handler", () => {
     });
   });
 
-  describe("admin dashboard placeholder", () => {
-    it("renders placeholder when admin email is configured", async () => {
+  describe("admin dashboard", () => {
+    it("routes GET /admin to handleDashboard", async () => {
       requireSession.mockResolvedValue({
         session: { id: 1, token: "test-session" },
         response: null
       });
-      getCredential.mockResolvedValue("admin@example.com");
+      handleDashboard.mockResolvedValue(
+        new Response("<html>dashboard</html>", {
+          status: 200,
+          headers: { "Content-Type": "text/html" }
+        })
+      );
 
       const request = makeRequest("GET", "/admin");
 
       const response = await adminApp.fetch(request, env);
 
-      expect(getCredential).toHaveBeenCalledWith(env.DB, "admin_email");
-      expect(render).toHaveBeenCalledWith(
-        "adminPlaceholder",
-        expect.objectContaining({ showPasskeyPrompt: true })
-      );
-      expect(response.status).toBe(200);
-    });
-
-    it("renders setup error when admin email is not configured", async () => {
-      requireSession.mockResolvedValue({
-        session: { id: 1, token: "test-session" },
-        response: null
-      });
-      getCredential.mockResolvedValue(null);
-
-      const request = makeRequest("GET", "/admin");
-
-      const response = await adminApp.fetch(request, env);
-
-      expect(render).toHaveBeenCalledWith(
-        "adminPlaceholder",
-        expect.objectContaining({ setupError: expect.any(String) })
-      );
+      expect(handleDashboard).toHaveBeenCalledWith(request, env);
       expect(response.status).toBe(200);
     });
 

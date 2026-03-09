@@ -20,6 +20,7 @@ export async function handleSettings(request, env) {
   const html = render("adminSettings", {
     activePage: "settings",
     credentials,
+    showPasskeyPrompt: credentials.length === 0,
     error,
     success,
     domain: env.DOMAIN

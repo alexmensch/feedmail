@@ -4,6 +4,9 @@
 
 import { getCredential } from "../../shared/lib/db.js";
 
+export const API_UNREACHABLE_ERROR =
+  "Unable to reach the API. Check your configuration.";
+
 /**
  * Make an authenticated request to the API Worker.
  * @param {object} env - Worker environment bindings
@@ -43,7 +46,7 @@ export async function callApi(env, method, path, body) {
     return {
       ok: false,
       status: 0,
-      data: { error: "Unable to reach the API. Check your configuration." }
+      data: { error: API_UNREACHABLE_ERROR }
     };
   }
 

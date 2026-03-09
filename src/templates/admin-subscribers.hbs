@@ -1,20 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {{> admin-head}}
   <title>Subscribers — feedmail admin</title>
-  <style>
-    body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; color: #333; }
-    h1 { font-size: 24px; margin: 0 0 20px; }
-    p { font-size: 16px; line-height: 1.5; }
-    a { color: #0066cc; }
-    select, button { padding: 8px; margin-top: 4px; }
-    table { border-collapse: collapse; width: 100%; margin-bottom: 16px; }
-    th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; }
-    th { font-weight: bold; }
-    .error { color: #c00; background: #fff0f0; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px; }
-  </style>
 </head>
 <body>
   <h1>Subscribers</h1>
@@ -36,10 +24,10 @@
 
     <label for="status" style="margin-left: 12px;"><strong>Status:</strong></label>
     <select id="status" name="status">
-      <option value="" {{#unless status}}selected{{/unless}}>All</option>
-      <option value="pending" {{#if (eq status "pending")}}selected{{/if}}>Pending</option>
-      <option value="verified" {{#if (eq status "verified")}}selected{{/if}}>Verified</option>
-      <option value="unsubscribed" {{#if (eq status "unsubscribed")}}selected{{/if}}>Unsubscribed</option>
+      <option value="" {{#unless selectedStatus}}selected{{/unless}}>All</option>
+      <option value="pending" {{#if (eq selectedStatus "pending")}}selected{{/if}}>Pending</option>
+      <option value="verified" {{#if (eq selectedStatus "verified")}}selected{{/if}}>Verified</option>
+      <option value="unsubscribed" {{#if (eq selectedStatus "unsubscribed")}}selected{{/if}}>Unsubscribed</option>
     </select>
 
     <button type="submit" style="margin-left: 8px;">Filter</button>
@@ -55,7 +43,7 @@
         {{#each subscribers}}
         <tr>
           <td>{{this.email}}</td>
-          <td>{{../channelId}}</td>
+          <td>{{../selectedChannelId}}</td>
           <td>{{this.status}}</td>
           <td>{{formatDate this.created_at}}</td>
         </tr>
@@ -66,9 +54,9 @@
     <p>No subscribers match the current filters.</p>
     {{/if}}
   {{else}}
-    {{#if channelId}}{{else}}
+    {{#unless selectedChannelId}}
     <p>Select a channel to view subscribers.</p>
-    {{/if}}
+    {{/unless}}
   {{/if}}
   {{else}}
   <p>No channels available. <a href="/admin/channels">Create a channel</a> first.</p>

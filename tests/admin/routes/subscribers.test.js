@@ -173,12 +173,9 @@ describe("handleSubscriberList", () => {
     expect(response.status).toBe(200);
     // Should not fetch subscribers when no channelId
     expect(callApi).toHaveBeenCalledTimes(1); // Only channels call
-    expect(render).toHaveBeenCalledWith(
-      "adminSubscribers",
-      expect.objectContaining({
-        subscribers: undefined
-      })
-    );
+    const templateData = render.mock.calls[0][1];
+    expect(templateData.showTable).toBeFalsy();
+    expect(templateData.subscribers).toBeUndefined();
   });
 
   it("shows empty message when no subscribers match filter", async () => {

@@ -397,20 +397,20 @@ describe("handleAdminChannels", () => {
         expect(response.status).toBe(400);
       });
 
-      it("rejects channel without feeds at creation time", async () => {
+      it("allows channel without feeds at creation time", async () => {
         const ch = { ...validChannel, feeds: [] };
         const { request, url } = makeRequest("POST", "/api/admin/channels", ch);
         const response = await handleAdminChannels(request, env, url);
 
-        expect(response.status).toBe(400);
+        expect(response.status).toBe(201);
       });
 
-      it("rejects channel with missing feeds property at creation time", async () => {
+      it("allows channel with missing feeds property at creation time", async () => {
         const { feeds: _feeds, ...ch } = validChannel;
         const { request, url } = makeRequest("POST", "/api/admin/channels", ch);
         const response = await handleAdminChannels(request, env, url);
 
-        expect(response.status).toBe(400);
+        expect(response.status).toBe(201);
       });
 
       it("rejects feeds with duplicate URLs (exact match) within channel", async () => {

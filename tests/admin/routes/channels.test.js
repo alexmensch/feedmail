@@ -324,7 +324,7 @@ describe("handleChannelCreate", () => {
       expect.objectContaining({
         isEdit: false,
         error: expect.any(String),
-        values: expect.objectContaining({
+        channel: expect.objectContaining({
           id: "ch",
           siteName: "Test"
         })
@@ -387,7 +387,7 @@ describe("handleChannelDetail", () => {
       "adminChannelForm",
       expect.objectContaining({
         isEdit: true,
-        values: expect.objectContaining({
+        channel: expect.objectContaining({
           id: "test-channel",
           siteName: "Test Site"
         }),
@@ -454,7 +454,7 @@ describe("handleChannelDetail", () => {
     expect(render).toHaveBeenCalledWith(
       "adminChannelForm",
       expect.objectContaining({
-        values: expect.objectContaining({
+        channel: expect.objectContaining({
           corsOrigins: expect.anything()
         })
       })
@@ -524,7 +524,7 @@ describe("handleChannelUpdate", () => {
       expect.objectContaining({
         isEdit: true,
         error: expect.any(String),
-        values: expect.objectContaining({
+        channel: expect.objectContaining({
           siteName: "Test"
         })
       })

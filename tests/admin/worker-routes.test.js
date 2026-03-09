@@ -397,7 +397,9 @@ describe("admin worker — new route dispatching", () => {
       const response = await adminApp.fetch(request, env);
 
       expect(response.status).toBe(302);
-      expect(response.headers.get("Location")).toBe("/admin/settings");
+      expect(response.headers.get("Location")).toBe(
+        "https://feedmail.example.com/admin/settings"
+      );
     });
   });
 

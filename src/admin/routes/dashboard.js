@@ -2,7 +2,7 @@
  * Admin dashboard page and send trigger handler.
  */
 
-import { callApi } from "../lib/api.js";
+import { callApi, API_UNREACHABLE_ERROR } from "../lib/api.js";
 import { render } from "../../shared/lib/templates.js";
 import { htmlResponse } from "../../shared/lib/response.js";
 import { getPasskeyCredentialCount } from "../lib/db.js";
@@ -27,7 +27,7 @@ export async function handleDashboard(request, env) {
   if (!channelsResult.ok) {
     const html = render("adminDashboard", {
       activePage: "dashboard",
-      error: error || channelsResult.data?.error || "Unable to reach the API. Check your configuration.",
+      error: error || channelsResult.data?.error || API_UNREACHABLE_ERROR,
       showPasskeyPrompt
     });
     return htmlResponse(html);
@@ -35,25 +35,25 @@ export async function handleDashboard(request, env) {
 
   const channels = channelsResult.data?.channels || [];
 
-  // Fetch stats for each channel
-  const channelStats = [];
-  for (const channel of channels) {
-    const statsResult = await callApi(env, "GET", `/admin/stats?channelId=${encodeURIComponent(channel.id)}`);
-    if (statsResult.ok) {
-      channelStats.push({
-        id: channel.id,
-        siteName: channel.siteName,
-        subscribers: statsResult.data.subscribers,
-        sentItems: statsResult.data.sentItems
-      });
-    } else {
-      channelStats.push({
+  // Fetch stats for all channels in parallel
+  const channelStats = await Promise.all(
+    channels.map(async (channel) => {
+      const statsResult = await callApi(env, "GET", `/admin/stats?channelId=${encodeURIComponent(channel.id)}`);
+      if (statsResult.ok) {
+        return {
+          id: channel.id,
+          siteName: channel.siteName,
+          subscribers: statsResult.data.subscribers,
+          sentItems: statsResult.data.sentItems
+        };
+      }
+      return {
         id: channel.id,
         siteName: channel.siteName,
         error: statsResult.data?.error || "Failed to load stats"
-      });
-    }
-  }
+      };
+    })
+  );
 
   const html = render("adminDashboard", {
     activePage: "dashboard",
@@ -71,7 +71,7 @@ export async function handleDashboard(request, env) {
  * Reads optional channelId from form data.
  * Redirects back to referring page with success/error feedback.
  */
-export async function handleSend(request, env) {
+export async function handleSendTrigger(request, env) {
   let channelId = null;
   try {
     const formData = await request.formData();

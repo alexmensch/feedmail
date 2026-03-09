@@ -12,9 +12,33 @@ vi.mock("../../src/admin/routes/passkeys.js", () => ({
   handleRegisterVerify: vi.fn(),
   handleAuthenticateOptions: vi.fn(),
   handleAuthenticateVerify: vi.fn(),
-  handlePasskeyManagement: vi.fn(),
   handlePasskeyRename: vi.fn(),
   handlePasskeyDelete: vi.fn()
+}));
+vi.mock("../../src/admin/routes/dashboard.js", () => ({
+  handleDashboard: vi.fn(),
+  handleSendTrigger: vi.fn()
+}));
+vi.mock("../../src/admin/routes/channels.js", () => ({
+  handleChannelList: vi.fn(),
+  handleChannelNew: vi.fn(),
+  handleChannelCreate: vi.fn(),
+  handleChannelDetail: vi.fn(),
+  handleChannelUpdate: vi.fn(),
+  handleChannelDelete: vi.fn()
+}));
+vi.mock("../../src/admin/routes/feeds.js", () => ({
+  handleFeedNew: vi.fn(),
+  handleFeedCreate: vi.fn(),
+  handleFeedEdit: vi.fn(),
+  handleFeedUpdate: vi.fn(),
+  handleFeedDelete: vi.fn()
+}));
+vi.mock("../../src/admin/routes/subscribers.js", () => ({
+  handleSubscriberList: vi.fn()
+}));
+vi.mock("../../src/admin/routes/settings.js", () => ({
+  handleSettings: vi.fn()
 }));
 // Mock session middleware
 vi.mock("../../src/admin/lib/session.js", () => ({
@@ -75,7 +99,6 @@ import {
   handleRegisterVerify,
   handleAuthenticateOptions,
   handleAuthenticateVerify,
-  handlePasskeyManagement,
   handlePasskeyRename,
   handlePasskeyDelete
 } from "../../src/admin/routes/passkeys.js";
@@ -131,7 +154,6 @@ describe("admin worker — passkey routing", () => {
     handleRegisterVerify.mockResolvedValue(jsonResponse);
     handleAuthenticateOptions.mockResolvedValue(jsonResponse);
     handleAuthenticateVerify.mockResolvedValue(jsonResponse);
-    handlePasskeyManagement.mockResolvedValue(okResponse);
     handlePasskeyRename.mockResolvedValue(redirectResponse);
     handlePasskeyDelete.mockResolvedValue(redirectResponse);
 
@@ -340,12 +362,15 @@ describe("admin worker — passkey routing", () => {
   // ─── Management Route (Protected) ────────────────────────────────────
 
   describe("passkey management route (require session)", () => {
-    it("routes GET /admin/passkeys to handlePasskeyManagement", async () => {
+    it("redirects GET /admin/passkeys to /admin/settings", async () => {
       const request = makeRequest("GET", "/admin/passkeys");
 
-      await adminApp.fetch(request, env);
+      const response = await adminApp.fetch(request, env);
 
-      expect(handlePasskeyManagement).toHaveBeenCalledWith(request, env);
+      expect(response.status).toBe(302);
+      expect(response.headers.get("Location")).toBe(
+        "https://feedmail.example.com/admin/settings"
+      );
     });
 
     it("applies session middleware to /admin/passkeys", async () => {
@@ -363,7 +388,7 @@ describe("admin worker — passkey routing", () => {
 
       expect(requireSession).toHaveBeenCalledWith(request, env);
       expect(response.status).toBe(302);
-      expect(handlePasskeyManagement).not.toHaveBeenCalled();
+      expect(response.headers.get("Location")).toBe("/admin/login");
     });
 
     it("returns 405 for non-GET methods on /admin/passkeys", async () => {

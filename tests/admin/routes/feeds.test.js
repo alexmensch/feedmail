@@ -44,6 +44,12 @@ describe("handleFeedNew", () => {
   });
 
   it("renders feed creation form for the given channel", async () => {
+    callApi.mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: { id: "test-ch", siteName: "Test Channel" }
+    });
+
     const request = new Request(
       "https://feedmail.example.com/admin/channels/test-ch/feeds/new"
     );
@@ -125,7 +131,7 @@ describe("handleFeedCreate", () => {
         isEdit: false,
         channelId: "test-ch",
         error: expect.any(String),
-        values: expect.objectContaining({
+        feed: expect.objectContaining({
           name: "Bad Feed",
           url: "not-a-url"
         })
@@ -216,8 +222,8 @@ describe("handleFeedEdit", () => {
       expect.objectContaining({
         isEdit: true,
         channelId: "test-ch",
-        feedId: "1",
-        values: expect.objectContaining({
+        feedId: 1,
+        feed: expect.objectContaining({
           name: "Main Feed",
           url: "https://example.com/feed.xml"
         })
@@ -305,7 +311,7 @@ describe("handleFeedUpdate", () => {
       expect.objectContaining({
         isEdit: true,
         error: expect.any(String),
-        values: expect.objectContaining({
+        feed: expect.objectContaining({
           name: "Feed",
           url: "not-valid"
         })

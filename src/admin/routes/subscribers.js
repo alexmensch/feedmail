@@ -2,7 +2,7 @@
  * Admin subscriber list page handler.
  */
 
-import { callApi } from "../lib/api.js";
+import { callApi, API_UNREACHABLE_ERROR } from "../lib/api.js";
 import { render } from "../../shared/lib/templates.js";
 import { htmlResponse } from "../../shared/lib/response.js";
 
@@ -22,7 +22,7 @@ export async function handleSubscriberList(request, env) {
   if (!channelsResult.ok) {
     const html = render("adminSubscribers", {
       activePage: "subscribers",
-      error: error || channelsResult.data?.error || "Unable to reach the API. Check your configuration."
+      error: error || channelsResult.data?.error || API_UNREACHABLE_ERROR
     });
     return htmlResponse(html);
   }
@@ -40,8 +40,8 @@ export async function handleSubscriberList(request, env) {
     activePage: "subscribers",
     channels: channelOptions,
     hasChannels: channels.length > 0,
-    channelId,
-    status,
+    selectedChannelId: channelId,
+    selectedStatus: status,
     error
   };
 

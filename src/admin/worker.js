@@ -20,7 +20,7 @@ import {
   handlePasskeyRename,
   handlePasskeyDelete
 } from "./routes/passkeys.js";
-import { handleDashboard, handleSend } from "./routes/dashboard.js";
+import { handleDashboard, handleSendTrigger } from "./routes/dashboard.js";
 import {
   handleChannelList,
   handleChannelNew,
@@ -206,7 +206,7 @@ export default {
       // ─── Send trigger ────────────────────────────────────────────────
       if (url.pathname === "/admin/send") {
         if (request.method === "POST") {
-          return await handleSend(request, env);
+          return await handleSendTrigger(request, env);
         }
         return new Response(null, { status: 405 });
       }
