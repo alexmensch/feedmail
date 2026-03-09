@@ -27,6 +27,7 @@ import adminLoginSentSpec from "../../templates/compiled/admin-login-sent.js";
 import adminAuthErrorSpec from "../../templates/compiled/admin-auth-error.js";
 import adminMagicLinkSpec from "../../templates/compiled/admin-magic-link.js";
 import adminPlaceholderSpec from "../../templates/compiled/admin-placeholder.js";
+import adminPasskeysSpec from "../../templates/compiled/admin-passkeys.js";
 
 // Register Handlebars helpers
 Handlebars.registerHelper("formatDate", (dateStr) => {
@@ -61,7 +62,8 @@ const templates = {
   adminLoginSent: Handlebars.template(adminLoginSentSpec),
   adminAuthError: Handlebars.template(adminAuthErrorSpec),
   adminMagicLink: Handlebars.template(adminMagicLinkSpec),
-  adminPlaceholder: Handlebars.template(adminPlaceholderSpec)
+  adminPlaceholder: Handlebars.template(adminPlaceholderSpec),
+  adminPasskeys: Handlebars.template(adminPasskeysSpec)
 };
 
 /**

@@ -124,5 +124,11 @@ export function getEndpointName(pathname) {
   if (pathname === "/admin/verify") {
     return "admin_verify";
   }
+  if (
+    pathname === "/admin/passkeys/authenticate/options" ||
+    pathname === "/admin/passkeys/authenticate/verify"
+  ) {
+    return "admin_login";
+  }
   return null;
 }

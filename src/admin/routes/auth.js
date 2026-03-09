@@ -12,7 +12,8 @@ import {
   markMagicLinkTokenUsed,
   MAGIC_LINK_TTL_SECONDS,
   createSession as createSessionDb,
-  deleteSession
+  deleteSession,
+  getPasskeyCredentialCount
 } from "../lib/db.js";
 import {
   requireSession,
@@ -37,7 +38,10 @@ export async function handleLogin(request, env) {
   const redirect = url.searchParams.get("redirect") || "";
   const error = url.searchParams.get("error") || "";
 
-  const html = render("adminLogin", { redirect, error });
+  const passkeyCount = await getPasskeyCredentialCount(env.DB);
+  const hasPasskeys = passkeyCount > 0;
+
+  const html = render("adminLogin", { redirect, error, hasPasskeys });
   return htmlResponse(html);
 }
 
