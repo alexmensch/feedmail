@@ -7,6 +7,26 @@ vi.mock("../../src/admin/routes/auth.js", () => ({
   handleAdminVerify: vi.fn(),
   handleLogout: vi.fn()
 }));
+vi.mock("../../src/admin/routes/passkeys.js", () => ({
+  handleRegisterOptions: vi.fn(),
+  handleRegisterVerify: vi.fn(),
+  handleAuthenticateOptions: vi.fn(),
+  handleAuthenticateVerify: vi.fn(),
+  handlePasskeyManagement: vi.fn(),
+  handlePasskeyRename: vi.fn(),
+  handlePasskeyDelete: vi.fn()
+}));
+// Mock admin db
+vi.mock("../../src/admin/lib/db.js", () => ({
+  getPasskeyCredentialCount: vi.fn().mockResolvedValue(0),
+  createMagicLinkToken: vi.fn(),
+  getMagicLinkToken: vi.fn(),
+  markMagicLinkTokenUsed: vi.fn(),
+  createSession: vi.fn(),
+  deleteSession: vi.fn(),
+  getSession: vi.fn(),
+  MAGIC_LINK_TTL_SECONDS: 900
+}));
 // Mock session middleware
 vi.mock("../../src/admin/lib/session.js", () => ({
   requireSession: vi.fn(),
@@ -369,7 +389,10 @@ describe("admin worker — fetch handler", () => {
       const response = await adminApp.fetch(request, env);
 
       expect(getCredential).toHaveBeenCalledWith(env.DB, "admin_email");
-      expect(render).toHaveBeenCalledWith("adminPlaceholder", {});
+      expect(render).toHaveBeenCalledWith(
+        "adminPlaceholder",
+        expect.objectContaining({ showPasskeyPrompt: true })
+      );
       expect(response.status).toBe(200);
     });
 

@@ -52,3 +52,117 @@ export async function deleteSession(db, token) {
     .bind(token)
     .run();
 }
+
+// ─── Passkey Credentials ────────────────────────────────────────────────────
+
+export async function createPasskeyCredential(
+  db,
+  { credentialId, publicKey, counter, transports, name }
+) {
+  return db
+    .prepare(
+      `INSERT INTO passkey_credentials (credential_id, public_key, counter, transports, name)
+       VALUES (?, ?, ?, ?, ?)`
+    )
+    .bind(
+      credentialId,
+      publicKey,
+      counter || 0,
+      transports ? JSON.stringify(transports) : null,
+      name || null
+    )
+    .run();
+}
+
+export async function getPasskeyCredentials(db) {
+  const { results } = await db
+    .prepare(
+      "SELECT id, credential_id, public_key, counter, transports, name, created_at FROM passkey_credentials ORDER BY created_at"
+    )
+    .all();
+  return results;
+}
+
+export async function getPasskeyCredentialById(db, credentialId) {
+  return db
+    .prepare(
+      "SELECT id, credential_id, public_key, counter, transports, name, created_at FROM passkey_credentials WHERE credential_id = ? LIMIT 1"
+    )
+    .bind(credentialId)
+    .first();
+}
+
+export async function getPasskeyCredentialCount(db) {
+  const result = await db
+    .prepare("SELECT COUNT(*) as count FROM passkey_credentials")
+    .first();
+  return result?.count || 0;
+}
+
+export async function updatePasskeyCredentialCounter(
+  db,
+  credentialId,
+  counter
+) {
+  return db
+    .prepare(
+      "UPDATE passkey_credentials SET counter = ? WHERE credential_id = ?"
+    )
+    .bind(counter, credentialId)
+    .run();
+}
+
+export async function updatePasskeyCredentialName(db, credentialId, name) {
+  return db
+    .prepare("UPDATE passkey_credentials SET name = ? WHERE credential_id = ?")
+    .bind(name, credentialId)
+    .run();
+}
+
+export async function deletePasskeyCredential(db, credentialId) {
+  return db
+    .prepare("DELETE FROM passkey_credentials WHERE credential_id = ?")
+    .bind(credentialId)
+    .run();
+}
+
+// ─── WebAuthn Challenges ────────────────────────────────────────────────────
+
+export async function createWebAuthnChallenge(
+  db,
+  { sessionToken, challenge, type, expiresAt }
+) {
+  return db
+    .prepare(
+      `INSERT INTO webauthn_challenges (session_token, challenge, type, expires_at)
+       VALUES (?, ?, ?, ?)`
+    )
+    .bind(sessionToken, challenge, type, expiresAt)
+    .run();
+}
+
+export async function getWebAuthnChallenge(db, sessionToken, type) {
+  return db
+    .prepare(
+      "SELECT * FROM webauthn_challenges WHERE session_token = ? AND type = ? LIMIT 1"
+    )
+    .bind(sessionToken, type)
+    .first();
+}
+
+export async function deleteWebAuthnChallenge(db, sessionToken, type) {
+  return db
+    .prepare(
+      "DELETE FROM webauthn_challenges WHERE session_token = ? AND type = ?"
+    )
+    .bind(sessionToken, type)
+    .run();
+}
+
+export async function cleanupExpiredChallenges(db) {
+  return db
+    .prepare(
+      "DELETE FROM webauthn_challenges WHERE expires_at < datetime('now')"
+    )
+    .run();
+}

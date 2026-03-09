@@ -57,9 +57,10 @@ src/
     worker.js             # Admin fetch handler: routing, rate limiting, session middleware
     routes/
       auth.js             # Login, magic link verification, logout handlers
+      passkeys.js         # WebAuthn passkey registration, authentication, management
     lib/
-      db.js               # Admin D1 helpers (magic link tokens, sessions)
-      session.js          # Session middleware, cookie helpers, session TTL
+      db.js               # Admin D1 helpers (magic link tokens, sessions, passkey credentials, WebAuthn challenges)
+      session.js          # Session middleware, cookie/session helpers, getCookieValue utility
   shared/                 # Shared modules used by both Workers
     lib/
       config.js           # DB-backed config reads, validation helpers, rate limit defaults
@@ -71,6 +72,7 @@ src/
   templates/              # Handlebars (.hbs) source files, precompiled at build time
     partials/
       email-footer.hbs    # Shared email footer partial (copyright, unsubscribe, company info)
+      webauthn-helpers.hbs  # Shared base64url conversion functions for WebAuthn inline JS
     newsletter.hbs        # HTML newsletter email (table-based, inline styles)
     newsletter.txt.hbs    # Plain text newsletter
     verification-email.hbs  # Verification CTA email
@@ -81,6 +83,7 @@ src/
     admin-login-sent.hbs  # "Check your email" confirmation
     admin-auth-error.hbs  # Auth error page (expired/used magic link)
     admin-magic-link.hbs  # Magic link email body
+    admin-passkeys.hbs   # Passkey management page (register, rename, delete)
     admin-placeholder.hbs # Admin dashboard placeholder
 migrations/
   0001_initial.sql        # D1 schema: subscribers, verification_attempts, sent_items
@@ -89,6 +92,7 @@ migrations/
   0004_rename_site_id_to_channel_id.sql  # Rename site_id → channel_id in subscribers
   0005_config_tables.sql  # DB-backed config: site_config, rate_limit_config, channels, feeds
   0006_admin_auth.sql     # Admin auth: credentials, magic_link_tokens, admin_sessions tables
+  0007_passkey_credentials.sql  # WebAuthn passkey credentials and challenge storage
 wrangler.toml             # API Worker config template with placeholders
 wrangler.admin.toml       # Admin Worker config template with placeholders
 wrangler.prod.toml        # API Worker deployer-specific config (gitignored)
@@ -120,7 +124,7 @@ To test the full email flow locally:
 ### Key Design Decisions
 
 - **Two-worker architecture:** The API Worker (`src/api/worker.js`) handles `/api/*` routes and cron triggers. The Admin Worker (`src/admin/worker.js`) handles `/admin/*` routes for the browser-based admin console. Both share the same D1 database and shared modules in `src/shared/`. Each Worker has its own wrangler config (`wrangler.toml` / `wrangler.admin.toml`).
-- **Admin authentication:** Magic link (passwordless) authentication. A single admin email is stored in the `credentials` table. Login sends a time-limited magic link via Resend; clicking it creates a server-side session stored in `admin_sessions`. Session cookie is `HttpOnly; Secure; SameSite=Strict; Path=/admin`. Magic link tokens expire after 15 minutes; sessions expire after 24 hours. No info leakage — login always shows "check your email" regardless of whether the email matched.
+- **Admin authentication:** Passkey (WebAuthn) authentication as primary login method, with magic link email as fallback. Uses `@simplewebauthn/server` for server-side WebAuthn operations; client-side ceremony code is inline JS (no `@simplewebauthn/browser`). A single admin email is stored in the `credentials` table. Passkey credentials are stored in `passkey_credentials` with public keys as base64url TEXT. WebAuthn challenges are stored in `webauthn_challenges` (Workers are stateless — no in-memory storage). Login page shows passkey button when credentials exist, with magic link form always available. Session cookie is `HttpOnly; Secure; SameSite=Strict; Path=/admin`. Magic link tokens expire after 15 minutes; WebAuthn challenges expire after 5 minutes; sessions expire after 24 hours. Single admin user model — fixed UUID for WebAuthn user ID. Dashboard shows a passkey bootstrap prompt when no passkeys are registered.
 - **Credentials in D1:** Secrets (`resend_api_key`, `admin_api_key`, `admin_email`) are stored in the `credentials` table. The shared `getResendApiKey(env)` helper checks `env.RESEND_API_KEY` first (backward compat) then falls back to D1. The Admin Worker has no Wrangler secrets — it reads all credentials from D1.
 - **DB-backed configuration:** Channel, feed, site settings, and rate limit config are stored in D1 tables (not env vars). Config is read asynchronously via `config.js` helpers that accept the `env` object. Admin API endpoints provide runtime CRUD management without redeployment. `RATE_LIMIT_DEFAULTS` in `config.js` provides hardcoded fallbacks when no DB rows exist.
 - **Multi-channel support:** Each channel has its own subscriber list, feeds, sender identity, and CORS origins. All routes accept a `channelId` parameter to scope operations. A single deployment is the site; channels are subscriber lists with feeds.
@@ -162,6 +166,11 @@ To test the full email flow locally:
 - `magic_link_tokens` — token (UNIQUE), expires_at, used (0/1), created_at. Short-lived tokens for passwordless login.
 - `admin_sessions` — token (UNIQUE), expires_at, created_at. Server-side session storage.
 
+**Passkey tables (migration 0007):**
+
+- `passkey_credentials` — credential_id (PK, base64url TEXT), public_key (base64url TEXT), counter (INTEGER), transports (JSON TEXT), name (TEXT, nullable), created_at.
+- `webauthn_challenges` — session_token + type (composite PK), challenge (TEXT), expires_at. Temporary challenge storage for WebAuthn ceremonies.
+
 ### API Routes
 
 **Public (CORS-enabled for configured origins):**
@@ -183,11 +192,18 @@ To test the full email flow locally:
 
 **Admin Console (browser-based, same-origin only — no CORS):**
 
-- `GET /admin/login` — Login form (redirects to `/admin` if already authenticated)
+- `GET /admin/login` — Login form with passkey button (if registered) and magic link form
 - `POST /admin/login` — Request magic link email
 - `GET /admin/verify?token=` — Validate magic link, create session, redirect
 - `GET /admin/logout` — Destroy session, redirect to login
 - `GET /admin` — Dashboard placeholder (requires session)
+- `GET /admin/passkeys` — Passkey management page (requires session)
+- `POST /admin/passkeys/register/options` — Generate WebAuthn registration options (requires session)
+- `POST /admin/passkeys/register/verify` — Verify registration and store credential (requires session)
+- `POST /admin/passkeys/authenticate/options` — Generate WebAuthn authentication options (public, rate-limited)
+- `POST /admin/passkeys/authenticate/verify` — Verify authentication and create session (public, rate-limited)
+- `POST /admin/passkeys/{id}/rename` — Rename a passkey credential (requires session)
+- `POST /admin/passkeys/{id}/delete` — Delete a passkey credential (requires session)
 
 ### Security Layers
 

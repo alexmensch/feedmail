@@ -8,6 +8,7 @@ vi.mock("../../../src/admin/lib/db.js", () => ({
   createSession: vi.fn(),
   deleteSession: vi.fn(),
   getSession: vi.fn(),
+  getPasskeyCredentialCount: vi.fn().mockResolvedValue(0),
   MAGIC_LINK_TTL_SECONDS: 900
 }));
 vi.mock("../../../src/shared/lib/db.js", () => ({
