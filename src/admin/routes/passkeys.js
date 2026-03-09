@@ -10,8 +10,7 @@ import {
 } from "@simplewebauthn/server";
 import { isoBase64URL } from "@simplewebauthn/server/helpers";
 
-import { jsonResponse, htmlResponse } from "../../shared/lib/response.js";
-import { render } from "../../shared/lib/templates.js";
+import { jsonResponse } from "../../shared/lib/response.js";
 import { getCredential } from "../../shared/lib/db.js";
 import {
   createPasskeyCredential,
@@ -52,7 +51,7 @@ const CHALLENGE_COOKIE_NAME = "feedmail_webauthn_challenge";
  * @returns {string}
  */
 function passkeyManagementUrl(domain, param, value) {
-  return `https://${domain}/admin/passkeys?${param}=${encodeURIComponent(value)}`;
+  return `https://${domain}/admin/settings?${param}=${encodeURIComponent(value)}`;
 }
 
 /**
@@ -372,26 +371,6 @@ export async function handleAuthenticateVerify(request, env) {
 }
 
 // ─── Management ─────────────────────────────────────────────────────────────
-
-/**
- * GET /admin/passkeys
- * Passkey management page. Requires authenticated session.
- */
-export async function handlePasskeyManagement(request, env) {
-  const url = new URL(request.url);
-  const error = url.searchParams.get("error") || "";
-  const success = url.searchParams.get("success") || "";
-
-  const credentials = await getPasskeyCredentials(env.DB);
-
-  const html = render("adminPasskeys", {
-    credentials,
-    error,
-    success,
-    domain: env.DOMAIN
-  });
-  return htmlResponse(html);
-}
 
 /**
  * POST /admin/passkeys/{credentialId}/rename

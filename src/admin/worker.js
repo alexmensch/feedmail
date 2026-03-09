@@ -1,13 +1,11 @@
 /**
  * feedmail Admin Worker — serves /admin/* routes.
  * Passwordless authentication via magic link emails and passkeys (WebAuthn).
+ * Server-rendered admin console for channel, feed, subscriber, and settings management.
  */
 
 import { getRateLimitConfig } from "../shared/lib/config.js";
 import { checkRateLimit, getEndpointName } from "../shared/lib/rate-limit.js";
-import { render } from "../shared/lib/templates.js";
-import { htmlResponse } from "../shared/lib/response.js";
-import { getCredential } from "../shared/lib/db.js";
 import {
   handleLogin,
   handleLoginSubmit,
@@ -19,12 +17,28 @@ import {
   handleRegisterVerify,
   handleAuthenticateOptions,
   handleAuthenticateVerify,
-  handlePasskeyManagement,
   handlePasskeyRename,
   handlePasskeyDelete
 } from "./routes/passkeys.js";
+import { handleDashboard, handleSendTrigger } from "./routes/dashboard.js";
+import {
+  handleChannelList,
+  handleChannelNew,
+  handleChannelCreate,
+  handleChannelDetail,
+  handleChannelUpdate,
+  handleChannelDelete
+} from "./routes/channels.js";
+import {
+  handleFeedNew,
+  handleFeedCreate,
+  handleFeedEdit,
+  handleFeedUpdate,
+  handleFeedDelete
+} from "./routes/feeds.js";
+import { handleSubscriberList } from "./routes/subscribers.js";
+import { handleSettings } from "./routes/settings.js";
 import { requireSession } from "./lib/session.js";
-import { getPasskeyCredentialCount } from "./lib/db.js";
 
 /** Routes exempt from session middleware. */
 const PUBLIC_ROUTES = new Set([
@@ -96,6 +110,8 @@ export default {
       }
 
       // Route matching
+
+      // ─── Auth routes ──────────────────────────────────────────────────
       if (url.pathname === "/admin/login") {
         if (request.method === "GET") {
           return await handleLogin(request, env);
@@ -120,7 +136,7 @@ export default {
         return new Response(null, { status: 405 });
       }
 
-      // Passkey authentication routes (public)
+      // ─── Passkey authentication routes (public) ───────────────────────
       if (url.pathname === "/admin/passkeys/authenticate/options") {
         if (request.method === "POST") {
           return await handleAuthenticateOptions(request, env);
@@ -135,10 +151,11 @@ export default {
         return new Response(null, { status: 405 });
       }
 
-      // Passkey management routes (protected)
+      // ─── Passkey management routes (protected) ────────────────────────
       if (url.pathname === "/admin/passkeys") {
         if (request.method === "GET") {
-          return await handlePasskeyManagement(request, env);
+          // Redirect to settings page
+          return Response.redirect(`https://${env.DOMAIN}/admin/settings`, 302);
         }
         return new Response(null, { status: 405 });
       }
@@ -175,26 +192,135 @@ export default {
         return new Response(null, { status: 405 });
       }
 
-      // Protected admin dashboard (placeholder)
+      // ─── Dashboard ───────────────────────────────────────────────────
       if (url.pathname === "/admin") {
         if (request.method === "GET") {
-          // Check if admin email is configured
-          const adminEmail = await getCredential(env.DB, "admin_email");
-          if (!adminEmail) {
-            const html = render("adminPlaceholder", {
-              setupError:
-                "Admin email not configured. Run the setup script to complete installation."
-            });
-            return htmlResponse(html);
+          return await handleDashboard(request, env);
+        }
+        return new Response(null, { status: 405 });
+      }
+
+      // ─── Send trigger ────────────────────────────────────────────────
+      if (url.pathname === "/admin/send") {
+        if (request.method === "POST") {
+          return await handleSendTrigger(request, env);
+        }
+        return new Response(null, { status: 405 });
+      }
+
+      // ─── Settings ────────────────────────────────────────────────────
+      if (url.pathname === "/admin/settings") {
+        if (request.method === "GET") {
+          return await handleSettings(request, env);
+        }
+        return new Response(null, { status: 405 });
+      }
+
+      // ─── Subscribers ─────────────────────────────────────────────────
+      if (url.pathname === "/admin/subscribers") {
+        if (request.method === "GET") {
+          return await handleSubscriberList(request, env);
+        }
+        return new Response(null, { status: 405 });
+      }
+
+      // ─── Channel routes ──────────────────────────────────────────────
+      if (url.pathname === "/admin/channels") {
+        if (request.method === "GET") {
+          return await handleChannelList(request, env);
+        }
+        if (request.method === "POST") {
+          return await handleChannelCreate(request, env);
+        }
+        return new Response(null, { status: 405 });
+      }
+
+      if (url.pathname === "/admin/channels/new") {
+        if (request.method === "GET") {
+          return await handleChannelNew(request, env);
+        }
+        return new Response(null, { status: 405 });
+      }
+
+      // Channel delete: /admin/channels/{id}/delete
+      const channelDeleteMatch = url.pathname.match(
+        /^\/admin\/channels\/([^/]+)\/delete$/
+      );
+      if (channelDeleteMatch) {
+        const channelId = decodeURIComponent(channelDeleteMatch[1]);
+        if (request.method === "POST") {
+          return await handleChannelDelete(request, env, channelId);
+        }
+        return new Response(null, { status: 405 });
+      }
+
+      // Feed routes: /admin/channels/{id}/feeds/...
+      const feedNewMatch = url.pathname.match(
+        /^\/admin\/channels\/([^/]+)\/feeds\/new$/
+      );
+      if (feedNewMatch) {
+        const channelId = decodeURIComponent(feedNewMatch[1]);
+        if (request.method === "GET") {
+          return await handleFeedNew(request, env, channelId);
+        }
+        return new Response(null, { status: 405 });
+      }
+
+      const feedDeleteMatch = url.pathname.match(
+        /^\/admin\/channels\/([^/]+)\/feeds\/(\d+)\/delete$/
+      );
+      if (feedDeleteMatch) {
+        const channelId = decodeURIComponent(feedDeleteMatch[1]);
+        const feedId = feedDeleteMatch[2];
+        if (request.method === "POST") {
+          return await handleFeedDelete(request, env, channelId, feedId);
+        }
+        return new Response(null, { status: 405 });
+      }
+
+      const feedEditMatch = url.pathname.match(
+        /^\/admin\/channels\/([^/]+)\/feeds\/(\d+)\/edit$/
+      );
+      if (feedEditMatch) {
+        const channelId = decodeURIComponent(feedEditMatch[1]);
+        const feedId = feedEditMatch[2];
+        if (request.method === "GET") {
+          return await handleFeedEdit(request, env, channelId, feedId);
+        }
+        return new Response(null, { status: 405 });
+      }
+
+      const feedActionMatch = url.pathname.match(
+        /^\/admin\/channels\/([^/]+)\/feeds(?:\/(\d+))?$/
+      );
+      if (feedActionMatch) {
+        const channelId = decodeURIComponent(feedActionMatch[1]);
+        const feedId = feedActionMatch[2] || null;
+        if (!feedId) {
+          // POST /admin/channels/{id}/feeds — create feed
+          if (request.method === "POST") {
+            return await handleFeedCreate(request, env, channelId);
           }
+          return new Response(null, { status: 405 });
+        }
+        // POST /admin/channels/{id}/feeds/{feedId} — update feed
+        if (request.method === "POST") {
+          return await handleFeedUpdate(request, env, channelId, feedId);
+        }
+        return new Response(null, { status: 405 });
+      }
 
-          // Check for passkey bootstrap prompt
-          const passkeyCount = await getPasskeyCredentialCount(env.DB);
-          const dismissed = url.searchParams.get("dismissed") === "passkey";
-          const showPasskeyPrompt = passkeyCount === 0 && !dismissed;
-
-          const html = render("adminPlaceholder", { showPasskeyPrompt });
-          return htmlResponse(html);
+      // Channel detail/edit: /admin/channels/{id}
+      const channelDetailMatch = url.pathname.match(
+        /^\/admin\/channels\/([^/]+)$/
+      );
+      if (channelDetailMatch) {
+        const channelId = decodeURIComponent(channelDetailMatch[1]);
+        if (request.method === "GET") {
+          return await handleChannelDetail(request, env, channelId);
+        }
+        if (request.method === "POST") {
+          return await handleChannelUpdate(request, env, channelId);
         }
         return new Response(null, { status: 405 });
       }

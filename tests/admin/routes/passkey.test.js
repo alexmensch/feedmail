@@ -83,7 +83,6 @@ import {
   handleRegisterVerify,
   handleAuthenticateOptions,
   handleAuthenticateVerify,
-  handlePasskeyManagement,
   handlePasskeyRename,
   handlePasskeyDelete
 } from "../../../src/admin/routes/passkeys.js";
@@ -101,7 +100,6 @@ import {
   createSession
 } from "../../../src/admin/lib/db.js";
 import { getCredential } from "../../../src/shared/lib/db.js";
-import { render } from "../../../src/shared/lib/templates.js";
 import {
   createSessionCookie,
   getSessionFromCookie,
@@ -864,74 +862,6 @@ describe("handleAuthenticateVerify", () => {
   });
 });
 
-// ─── Passkey Management Page ──────────────────────────────────────────────
-
-describe("handlePasskeyManagement", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("renders the passkey management page with credentials", async () => {
-    getPasskeyCredentials.mockResolvedValue([
-      {
-        credential_id: "cred-1",
-        name: "MacBook Pro",
-        created_at: "2025-01-01 12:00:00",
-        counter: 5
-      },
-      {
-        credential_id: "cred-2",
-        name: "iPhone",
-        created_at: "2025-01-02 12:00:00",
-        counter: 3
-      }
-    ]);
-
-    const request = new Request("https://feedmail.example.com/admin/passkeys");
-
-    const response = await handlePasskeyManagement(request, env);
-
-    expect(response.status).toBe(200);
-    expect(render).toHaveBeenCalledWith(
-      "adminPasskeys",
-      expect.objectContaining({
-        credentials: expect.any(Array)
-      })
-    );
-  });
-
-  it("renders empty state when no credentials exist", async () => {
-    getPasskeyCredentials.mockResolvedValue([]);
-
-    const request = new Request("https://feedmail.example.com/admin/passkeys");
-
-    const response = await handlePasskeyManagement(request, env);
-
-    expect(response.status).toBe(200);
-    expect(render).toHaveBeenCalledWith(
-      "adminPasskeys",
-      expect.objectContaining({
-        credentials: []
-      })
-    );
-  });
-
-  it("passes the domain to the template", async () => {
-    getPasskeyCredentials.mockResolvedValue([]);
-
-    const request = new Request("https://feedmail.example.com/admin/passkeys");
-
-    await handlePasskeyManagement(request, env);
-
-    expect(render).toHaveBeenCalledWith(
-      "adminPasskeys",
-      expect.objectContaining({
-        domain: "feedmail.example.com"
-      })
-    );
-  });
-});
-
 // ─── Passkey Rename ───────────────────────────────────────────────────────
 
 describe("handlePasskeyRename", () => {
@@ -944,7 +874,7 @@ describe("handlePasskeyRename", () => {
     updatePasskeyCredentialName.mockResolvedValue({});
   });
 
-  it("renames a credential and redirects to /admin/passkeys", async () => {
+  it("renames a credential and redirects to /admin/settings", async () => {
     const request = new Request(
       "https://feedmail.example.com/admin/passkeys/cred-1/rename",
       {
@@ -962,7 +892,7 @@ describe("handlePasskeyRename", () => {
       "New Name"
     );
     expect(response.status).toBe(302);
-    expect(response.headers.get("Location")).toContain("/admin/passkeys");
+    expect(response.headers.get("Location")).toContain("/admin/settings");
   });
 
   it("rejects empty name", async () => {
@@ -1064,7 +994,7 @@ describe("handlePasskeyDelete", () => {
     deletePasskeyCredential.mockResolvedValue({});
   });
 
-  it("deletes a credential and redirects to /admin/passkeys", async () => {
+  it("deletes a credential and redirects to /admin/settings", async () => {
     const request = new Request(
       "https://feedmail.example.com/admin/passkeys/cred-1/delete",
       { method: "POST" }
@@ -1074,7 +1004,7 @@ describe("handlePasskeyDelete", () => {
 
     expect(deletePasskeyCredential).toHaveBeenCalledWith(env.DB, "cred-1");
     expect(response.status).toBe(302);
-    expect(response.headers.get("Location")).toContain("/admin/passkeys");
+    expect(response.headers.get("Location")).toContain("/admin/settings");
   });
 
   it("succeeds silently when credential does not exist (idempotent)", async () => {

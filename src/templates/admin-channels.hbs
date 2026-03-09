@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  {{> admin-head}}
+  <title>Channels — feedmail admin</title>
+</head>
+<body>
+  <h1>Channels</h1>
+  {{> admin-nav}}
+
+  {{#if error}}
+  <div class="error">{{error}}</div>
+  {{/if}}
+
+  {{#if success}}
+  <div class="success">{{success}}</div>
+  {{/if}}
+
+  <p><a href="/admin/channels/new">Create channel</a></p>
+
+  {{#if hasChannels}}
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Site Name</th><th>Site URL</th></tr>
+    </thead>
+    <tbody>
+      {{#each channels}}
+      <tr>
+        <td><a href="/admin/channels/{{this.id}}">{{this.id}}</a></td>
+        <td>{{this.siteName}}</td>
+        <td>{{this.siteUrl}}</td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+  {{else}}
+  <p>No channels yet. Create your first channel to get started.</p>
+  {{/if}}
+</body>
+</html>

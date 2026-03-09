@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  {{> admin-head}}
+  <title>{{#if isEdit}}Edit Feed{{else}}Add Feed{{/if}} — feedmail admin</title>
+</head>
+<body>
+  <h1>{{#if isEdit}}Edit Feed{{else}}Add Feed{{/if}}</h1>
+  {{> admin-nav}}
+
+  {{#if error}}
+  <div class="error">{{error}}</div>
+  {{/if}}
+
+  {{#if channelId}}
+  <p><a href="/admin/channels/{{channelId}}">&larr; Back to channel</a></p>
+
+  <form method="POST" action="{{#if isEdit}}/admin/channels/{{channelId}}/feeds/{{feedId}}{{else}}/admin/channels/{{channelId}}/feeds{{/if}}">
+    <label for="name" class="required">Feed Name</label>
+    <input type="text" id="name" name="name" value="{{feed.name}}" required>
+
+    <label for="url" class="required">Feed URL</label>
+    <input type="url" id="url" name="url" value="{{feed.url}}" required>
+
+    <button type="submit">{{#if isEdit}}Save Changes{{else}}Add Feed{{/if}}</button>
+  </form>
+  {{/if}}
+</body>
+</html>

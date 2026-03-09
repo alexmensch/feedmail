@@ -1,0 +1,308 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+
+// Mock shared db for getCredential
+vi.mock("../../../src/shared/lib/db.js", () => ({
+  getCredential: vi.fn()
+}));
+
+import { callApi } from "../../../src/admin/lib/api.js";
+import { getCredential } from "../../../src/shared/lib/db.js";
+
+const env = {
+  DB: {},
+  DOMAIN: "feedmail.example.com"
+};
+
+describe("callApi", () => {
+  let originalFetch;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn();
+    getCredential.mockResolvedValue("test-admin-api-key");
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  describe("URL construction", () => {
+    it("constructs URL using env.DOMAIN with https protocol", async () => {
+      globalThis.fetch.mockResolvedValue(
+        new Response(JSON.stringify({ data: "ok" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      );
+
+      await callApi(env, "GET", "/admin/channels");
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "https://feedmail.example.com/api/admin/channels",
+        expect.any(Object)
+      );
+    });
+
+    it("constructs URL with path that includes nested segments", async () => {
+      globalThis.fetch.mockResolvedValue(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      );
+
+      await callApi(env, "GET", "/admin/channels/test-ch/feeds");
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "https://feedmail.example.com/api/admin/channels/test-ch/feeds",
+        expect.any(Object)
+      );
+    });
+  });
+
+  describe("authorization header", () => {
+    it("sets Authorization Bearer header with API key from D1", async () => {
+      getCredential.mockResolvedValue("my-secret-key");
+      globalThis.fetch.mockResolvedValue(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      );
+
+      await callApi(env, "GET", "/admin/channels");
+
+      expect(getCredential).toHaveBeenCalledWith(env.DB, "admin_api_key");
+      const fetchCall = globalThis.fetch.mock.calls[0];
+      const options = fetchCall[1];
+      expect(options.headers["Authorization"]).toBe("Bearer my-secret-key");
+    });
+  });
+
+  describe("request methods and body", () => {
+    it("sends GET request without body", async () => {
+      globalThis.fetch.mockResolvedValue(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      );
+
+      await callApi(env, "GET", "/admin/channels");
+
+      const fetchCall = globalThis.fetch.mock.calls[0];
+      const options = fetchCall[1];
+      expect(options.method).toBe("GET");
+      expect(options.body).toBeUndefined();
+    });
+
+    it("sends POST request with JSON body", async () => {
+      globalThis.fetch.mockResolvedValue(
+        new Response(JSON.stringify({}), {
+          status: 201,
+          headers: { "Content-Type": "application/json" }
+        })
+      );
+
+      const body = { id: "new-channel", siteName: "Test" };
+      await callApi(env, "POST", "/admin/channels", body);
+
+      const fetchCall = globalThis.fetch.mock.calls[0];
+      const options = fetchCall[1];
+      expect(options.method).toBe("POST");
+      expect(options.body).toBe(JSON.stringify(body));
+      expect(options.headers["Content-Type"]).toBe("application/json");
+    });
+
+    it("sends PUT request with JSON body", async () => {
+      globalThis.fetch.mockResolvedValue(
+        new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      );
+
+      const body = { siteName: "Updated" };
+      await callApi(env, "PUT", "/admin/channels/test-ch", body);
+
+      const fetchCall = globalThis.fetch.mock.calls[0];
+      const options = fetchCall[1];
+      expect(options.method).toBe("PUT");
+      expect(options.body).toBe(JSON.stringify(body));
+    });
+
+    it("sends DELETE request without body", async () => {
+      globalThis.fetch.mockResolvedValue(new Response(null, { status: 204 }));
+
+      await callApi(env, "DELETE", "/admin/channels/test-ch");
+
+      const fetchCall = globalThis.fetch.mock.calls[0];
+      const options = fetchCall[1];
+      expect(options.method).toBe("DELETE");
+    });
+  });
+
+  describe("success responses", () => {
+    it("returns { ok: true, status, data } on 200 response", async () => {
+      const responseData = { channels: [{ id: "ch1" }] };
+      globalThis.fetch.mockResolvedValue(
+        new Response(JSON.stringify(responseData), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      );
+
+      const result = await callApi(env, "GET", "/admin/channels");
+
+      expect(result.ok).toBe(true);
+      expect(result.status).toBe(200);
+      expect(result.data).toEqual(responseData);
+    });
+
+    it("returns { ok: true, status, data } on 201 response", async () => {
+      const responseData = { id: "new-ch" };
+      globalThis.fetch.mockResolvedValue(
+        new Response(JSON.stringify(responseData), {
+          status: 201,
+          headers: { "Content-Type": "application/json" }
+        })
+      );
+
+      const result = await callApi(env, "POST", "/admin/channels", {
+        id: "new-ch"
+      });
+
+      expect(result.ok).toBe(true);
+      expect(result.status).toBe(201);
+      expect(result.data).toEqual(responseData);
+    });
+  });
+
+  describe("error responses", () => {
+    it("returns { ok: false, status, data } on 400 response", async () => {
+      const errorData = { error: "Invalid field" };
+      globalThis.fetch.mockResolvedValue(
+        new Response(JSON.stringify(errorData), {
+          status: 400,
+          headers: { "Content-Type": "application/json" }
+        })
+      );
+
+      const result = await callApi(env, "POST", "/admin/channels", {});
+
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe(400);
+      expect(result.data).toEqual(errorData);
+    });
+
+    it("returns { ok: false, status, data } on 404 response", async () => {
+      const errorData = { error: "Channel not found" };
+      globalThis.fetch.mockResolvedValue(
+        new Response(JSON.stringify(errorData), {
+          status: 404,
+          headers: { "Content-Type": "application/json" }
+        })
+      );
+
+      const result = await callApi(env, "GET", "/admin/channels/nonexistent");
+
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe(404);
+      expect(result.data).toEqual(errorData);
+    });
+
+    it("returns { ok: false, status, data } on 409 response", async () => {
+      const errorData = { error: "Channel ID already exists" };
+      globalThis.fetch.mockResolvedValue(
+        new Response(JSON.stringify(errorData), {
+          status: 409,
+          headers: { "Content-Type": "application/json" }
+        })
+      );
+
+      const result = await callApi(env, "POST", "/admin/channels", {
+        id: "existing"
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe(409);
+      expect(result.data).toEqual(errorData);
+    });
+
+    it("returns { ok: false, status, data } on 429 response", async () => {
+      globalThis.fetch.mockResolvedValue(
+        new Response(JSON.stringify({ error: "Too Many Requests" }), {
+          status: 429,
+          headers: {
+            "Content-Type": "application/json",
+            "Retry-After": "60"
+          }
+        })
+      );
+
+      const result = await callApi(env, "POST", "/send");
+
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe(429);
+    });
+  });
+
+  describe("fetch failures", () => {
+    it("handles network error gracefully when API is unreachable", async () => {
+      globalThis.fetch.mockRejectedValue(new Error("fetch failed"));
+
+      const result = await callApi(env, "GET", "/admin/channels");
+
+      expect(result.ok).toBe(false);
+      expect(result.data).toBeDefined();
+      expect(result.data.error).toBeDefined();
+    });
+
+    it("handles DNS resolution failure gracefully", async () => {
+      globalThis.fetch.mockRejectedValue(new TypeError("Failed to fetch"));
+
+      const result = await callApi(env, "GET", "/admin/stats");
+
+      expect(result.ok).toBe(false);
+    });
+  });
+
+  describe("non-JSON responses", () => {
+    it("handles non-JSON response body gracefully", async () => {
+      globalThis.fetch.mockResolvedValue(
+        new Response("Internal Server Error", {
+          status: 500,
+          headers: { "Content-Type": "text/plain" }
+        })
+      );
+
+      const result = await callApi(env, "GET", "/admin/channels");
+
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe(500);
+    });
+
+    it("handles empty response body (204 No Content)", async () => {
+      globalThis.fetch.mockResolvedValue(new Response(null, { status: 204 }));
+
+      const result = await callApi(env, "DELETE", "/admin/channels/test");
+
+      expect(result.ok).toBe(true);
+      expect(result.status).toBe(204);
+    });
+  });
+
+  describe("missing admin_api_key", () => {
+    it("returns error when admin_api_key is not configured in D1", async () => {
+      getCredential.mockResolvedValue(null);
+
+      const result = await callApi(env, "GET", "/admin/channels");
+
+      expect(result.ok).toBe(false);
+      expect(result.data.error).toBeDefined();
+      // Should not make a fetch call without an API key
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+  });
+});

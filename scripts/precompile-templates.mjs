@@ -23,6 +23,11 @@ const PARTIALS_DIR = path.join(TEMPLATES_DIR, "partials");
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 fs.mkdirSync(path.join(OUTPUT_DIR, "partials"), { recursive: true });
 
+// Register helpers used by templates (so precompiler recognizes them)
+Handlebars.registerHelper("eq", (a, b) => a === b);
+Handlebars.registerHelper("formatDate", () => "");
+Handlebars.registerHelper("currentYear", () => new Date().getFullYear());
+
 // Register and precompile partials first (so templates can reference them)
 const partialFiles = fs.existsSync(PARTIALS_DIR)
   ? fs.readdirSync(PARTIALS_DIR).filter((f) => f.endsWith(".hbs"))

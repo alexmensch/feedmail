@@ -78,9 +78,9 @@ async function createChannel(request, env) {
     return jsonResponse(400, { error: "Missing required field: id" });
   }
 
-  // Validate all fields including feeds
+  // Validate all fields (feeds optional)
   try {
-    validateChannelFields(body, { requireFeeds: true });
+    validateChannelFields(body, { requireFeeds: false });
   } catch (err) {
     return jsonResponse(400, { error: err.message });
   }
@@ -94,9 +94,11 @@ async function createChannel(request, env) {
   // Insert channel
   await insertChannel(env.DB, body);
 
-  // Insert feeds
-  for (const feed of body.feeds) {
-    await insertFeed(env.DB, body.id, { name: feed.name, url: feed.url });
+  // Insert feeds (if provided)
+  if (Array.isArray(body.feeds)) {
+    for (const feed of body.feeds) {
+      await insertFeed(env.DB, body.id, { name: feed.name, url: feed.url });
+    }
   }
 
   // Return created channel with feeds

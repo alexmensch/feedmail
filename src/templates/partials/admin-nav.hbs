@@ -1,0 +1,11 @@
+<nav style="margin-bottom: 24px; padding-bottom: 12px; border-bottom: 1px solid #ddd;">
+  {{#if (eq activePage "dashboard")}}<strong>Dashboard</strong>{{else}}<a href="/admin">Dashboard</a>{{/if}}
+  &nbsp;|&nbsp;
+  {{#if (eq activePage "channels")}}<strong>Channels</strong>{{else}}<a href="/admin/channels">Channels</a>{{/if}}
+  &nbsp;|&nbsp;
+  {{#if (eq activePage "subscribers")}}<strong>Subscribers</strong>{{else}}<a href="/admin/subscribers">Subscribers</a>{{/if}}
+  &nbsp;|&nbsp;
+  {{#if (eq activePage "settings")}}<strong>Settings</strong>{{else}}<a href="/admin/settings">Settings</a>{{/if}}
+  &nbsp;|&nbsp;
+  <a href="/admin/logout">Logout</a>
+</nav>
