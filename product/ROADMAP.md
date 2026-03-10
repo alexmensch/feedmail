@@ -32,9 +32,9 @@ A reader who follows a personal website or blog and prefers to receive new posts
 
 A plain HTML admin console with all management functionality and a guided first-time setup flow — completing the browser-based management story.
 
-| #   | Feature                                                                      | Description                                                                                                                         | GUID                                   |
-| --- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 1   | [first-time-setup-flow](./admin-console-functional/first-time-setup-flow.md) | Dashboard empty state guides operators through first channel and feed creation entirely within the browser                          | `CFD3690C-0462-4FBB-BA94-4EB2F05B6402` |
+| #   | Feature                                                                      | Description                                                                                                | GUID                                   |
+| --- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| 1   | [first-time-setup-flow](./admin-console-functional/first-time-setup-flow.md) | Dashboard empty state guides operators through first channel and feed creation entirely within the browser | `CFD3690C-0462-4FBB-BA94-4EB2F05B6402` |
 
 ### Release: Admin Console (Styled)
 
@@ -48,15 +48,15 @@ HTMX interactions, CUBE CSS design system, responsive sidebar layout, dark mode,
 
 Reliable one-step deployment and drop-in subscribe form widgets so site owners can go from zero to working email subscriptions in minutes. The deployment improvement comes first because distribution content ("here's how to add email subscriptions to your site") needs a flawless setup experience behind it. SSG selection based on [CloudCannon's top SSGs for 2025](https://cloudcannon.com/blog/the-top-five-static-site-generators-for-2025-and-when-to-use-them/) and [Kinsta's top SSGs for 2026](https://kinsta.com/blog/static-site-generator/), filtered for personal blog relevance.
 
-| #   | Feature                                                                 | Description                                                                                                                  | GUID                                   |
-| --- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| #   | Feature                                                                 | Description                                                                                                                                                                                  | GUID                                   |
+| --- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | 3   | [one-line-deploy](./quick-start/one-line-deploy.md)                     | Hardened, idempotent setup script that provisions all infrastructure via direct Cloudflare and Resend API calls, deploys workers, seeds credentials, and gates on Resend domain verification | `F39F0C1C-64AC-4F37-AB29-DD16D53307F3` |
-| 4   | [alternative-deploy-paths](./quick-start/alternative-deploy-paths.md)   | Alternative onboarding paths (Cloudflare Deploy Button, GitHub Template) for users who prefer browser-based or CI-driven workflows | `5D3610BF-55EA-4380-82B4-FBCAA8AD7CF9` |
-| 5   | [subscribe-widget-html](./quick-start/subscribe-widget-html.md)         | Generic HTML/JS subscribe form snippet that works on any site with no framework dependency                                   | `CB3C539D-2E07-430E-845C-14B909E8850E` |
-| 6   | [subscribe-widget-hugo](./quick-start/subscribe-widget-hugo.md)         | Hugo partial/shortcode for embedding the feedmail subscribe form                                                             | `C659F727-3A89-4D58-A570-ED320883665B` |
-| 7   | [subscribe-widget-jekyll](./quick-start/subscribe-widget-jekyll.md)     | Jekyll include for embedding the feedmail subscribe form                                                                     | `8C1C41E5-267E-423A-9A2C-D4991AB94570` |
-| 8   | [subscribe-widget-eleventy](./quick-start/subscribe-widget-eleventy.md) | Eleventy shortcode/plugin for embedding the feedmail subscribe form                                                          | `21B22062-FC7C-44A8-8B9F-91F5F40FD4EF` |
-| 9  | [subscribe-widget-astro](./quick-start/subscribe-widget-astro.md)       | Astro component for embedding the feedmail subscribe form                                                                    | `9DE93ABB-0DFF-4637-98CE-7A08B7A65A0D` |
+| 4   | [alternative-deploy-paths](./quick-start/alternative-deploy-paths.md)   | Alternative onboarding paths (Cloudflare Deploy Button, GitHub Template) for users who prefer browser-based or CI-driven workflows                                                           | `5D3610BF-55EA-4380-82B4-FBCAA8AD7CF9` |
+| 5   | [subscribe-widget-html](./quick-start/subscribe-widget-html.md)         | Generic HTML/JS subscribe form snippet that works on any site with no framework dependency                                                                                                   | `CB3C539D-2E07-430E-845C-14B909E8850E` |
+| 6   | [subscribe-widget-hugo](./quick-start/subscribe-widget-hugo.md)         | Hugo partial/shortcode for embedding the feedmail subscribe form                                                                                                                             | `C659F727-3A89-4D58-A570-ED320883665B` |
+| 7   | [subscribe-widget-jekyll](./quick-start/subscribe-widget-jekyll.md)     | Jekyll include for embedding the feedmail subscribe form                                                                                                                                     | `8C1C41E5-267E-423A-9A2C-D4991AB94570` |
+| 8   | [subscribe-widget-eleventy](./quick-start/subscribe-widget-eleventy.md) | Eleventy shortcode/plugin for embedding the feedmail subscribe form                                                                                                                          | `21B22062-FC7C-44A8-8B9F-91F5F40FD4EF` |
+| 9   | [subscribe-widget-astro](./quick-start/subscribe-widget-astro.md)       | Astro component for embedding the feedmail subscribe form                                                                                                                                    | `9DE93ABB-0DFF-4637-98CE-7A08B7A65A0D` |
 
 ### Release: Admin Console Enhancements
 
