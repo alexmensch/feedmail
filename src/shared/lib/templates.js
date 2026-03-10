@@ -32,7 +32,6 @@ import adminMagicLinkSpec from "../../templates/compiled/admin-magic-link.js";
 import adminDashboardSpec from "../../templates/compiled/admin-dashboard.js";
 import adminChannelsSpec from "../../templates/compiled/admin-channels.js";
 import adminChannelFormSpec from "../../templates/compiled/admin-channel-form.js";
-import adminFeedFormSpec from "../../templates/compiled/admin-feed-form.js";
 import adminSubscribersSpec from "../../templates/compiled/admin-subscribers.js";
 import adminSettingsSpec from "../../templates/compiled/admin-settings.js";
 
@@ -80,7 +79,6 @@ const templates = {
   adminDashboard: Handlebars.template(adminDashboardSpec),
   adminChannels: Handlebars.template(adminChannelsSpec),
   adminChannelForm: Handlebars.template(adminChannelFormSpec),
-  adminFeedForm: Handlebars.template(adminFeedFormSpec),
   adminSubscribers: Handlebars.template(adminSubscribersSpec),
   adminSettings: Handlebars.template(adminSettingsSpec)
 };

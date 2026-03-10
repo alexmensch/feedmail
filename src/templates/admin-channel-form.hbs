@@ -18,73 +18,97 @@
 
   <p><a href="/admin/channels">&larr; Back to channels</a></p>
 
-  <form method="POST" action="{{#if isEdit}}/admin/channels/{{channel.id}}{{else}}/admin/channels{{/if}}">
+  <form method="POST" action="{{#if isEdit}}/admin/channels/{{channel.id}}{{else}}/admin/channels{{/if}}" id="channel-form">
     {{#if isEdit}}
     <label>Channel ID</label>
     <p style="margin: 4px 0;">{{channel.id}}</p>
+    <small class="helper-text">Unique identifier used in your subscribe form and API calls</small>
     {{else}}
     <label for="id" class="required">Channel ID</label>
-    <input type="text" id="id" name="id" value="{{channel.id}}" required>
+    <input type="text" id="id" name="id" value="{{channel.id}}" required pattern="^[a-z0-9]+(-[a-z0-9]+)*$">
+    <small class="helper-text" id="id-helper">Unique identifier used in your subscribe form and API calls</small>
     {{/if}}
 
     <label for="siteName" class="required">Site Name</label>
     <input type="text" id="siteName" name="siteName" value="{{channel.siteName}}" required>
+    <small class="helper-text">Your site or publication name, shown in emails</small>
 
     <label for="siteUrl" class="required">Site URL</label>
     <input type="url" id="siteUrl" name="siteUrl" value="{{channel.siteUrl}}" required>
+    <small class="helper-text">Your website address, linked in emails</small>
 
     <label for="fromUser" class="required">From User</label>
-    <input type="text" id="fromUser" name="fromUser" value="{{channel.fromUser}}" required>
+    <div class="input-suffix">
+      <input type="text" id="fromUser" name="fromUser" value="{{channel.fromUser}}" required>
+      <span>@{{domain}}</span>
+    </div>
+    <small class="helper-text" id="fromUser-helper">Combined with your domain to form the sender address</small>
 
     <label for="fromName" class="required">From Name</label>
     <input type="text" id="fromName" name="fromName" value="{{channel.fromName}}" required>
+    <small class="helper-text">Display name shown in the From field of emails</small>
 
     <label for="replyTo">Reply To</label>
     <input type="text" id="replyTo" name="replyTo" value="{{channel.replyTo}}">
+    <small class="helper-text">Email address for subscriber replies (optional)</small>
 
     <label for="companyName">Company Name</label>
     <input type="text" id="companyName" name="companyName" value="{{channel.companyName}}">
+    <small class="helper-text">Shown in email footer for CAN-SPAM compliance (optional)</small>
 
     <label for="companyAddress">Company Address</label>
     <input type="text" id="companyAddress" name="companyAddress" value="{{channel.companyAddress}}">
+    <small class="helper-text">Physical address for email footer (optional)</small>
 
     <label for="corsOrigins" class="required">CORS Origins (one per line)</label>
     <textarea id="corsOrigins" name="corsOrigins">{{channel.corsOrigins}}</textarea>
+    <small class="helper-text">Origins allowed to submit the subscribe form, one per line</small>
 
-    <button type="submit">{{#if isEdit}}Save Changes{{else}}Create Channel{{/if}}</button>
+    <h2>Feeds</h2>
+
+    <div class="feed-rows" id="feed-rows">
+      {{#each feeds}}
+      <div class="feed-row" data-index="{{@index}}">
+        <input type="hidden" name="feeds[{{@index}}][id]" value="{{this.id}}">
+        <label class="required">Feed Name</label>
+        <input type="text" name="feeds[{{@index}}][name]" value="{{this.name}}" required>
+        <small class="helper-text">Display name for this feed in emails</small>
+        <label class="required">Feed URL</label>
+        <input type="url" name="feeds[{{@index}}][url]" value="{{this.url}}" required>
+        <small class="helper-text">URL of the RSS or Atom feed</small>
+        <div class="feed-row-actions">
+          <button type="button" class="remove-feed-btn" onclick="removeFeedRow(this)">Remove</button>
+          <noscript>
+            <button type="submit" name="action" value="remove-feed" onclick="this.form.querySelector('[name=removeIndex]') || this.form.insertAdjacentHTML('beforeend','<input type=hidden name=removeIndex value={{@index}}>')">Remove (noscript)</button>
+          </noscript>
+        </div>
+      </div>
+      {{else}}
+      <div class="feed-row" data-index="0">
+        <label class="required">Feed Name</label>
+        <input type="text" name="feeds[0][name]" value="" required>
+        <small class="helper-text">Display name for this feed in emails</small>
+        <label class="required">Feed URL</label>
+        <input type="url" name="feeds[0][url]" value="" required>
+        <small class="helper-text">URL of the RSS or Atom feed</small>
+        <div class="feed-row-actions">
+          <button type="button" class="remove-feed-btn" onclick="removeFeedRow(this)" disabled>Remove</button>
+        </div>
+      </div>
+      {{/each}}
+    </div>
+
+    <p>
+      <button type="button" id="add-feed-btn" onclick="addFeedRow()">Add feed</button>
+      <noscript><button type="submit" name="action" value="add-feed">Add feed</button></noscript>
+    </p>
+
+    <input type="hidden" name="removeIndex" id="removeIndex" value="">
+
+    <button type="submit" name="action" value="save">{{#if isEdit}}Save Changes{{else}}Create Channel{{/if}}</button>
   </form>
 
   {{#if isEdit}}
-  <hr style="margin: 24px 0;">
-
-  <h2>Feeds</h2>
-  <p><a href="/admin/channels/{{channel.id}}/feeds/new">Add feed</a></p>
-
-  {{#if hasFeeds}}
-  <table>
-    <thead>
-      <tr><th>Name</th><th>URL</th><th>Actions</th></tr>
-    </thead>
-    <tbody>
-      {{#each feeds}}
-      <tr>
-        <td>{{this.name}}</td>
-        <td>{{this.url}}</td>
-        <td>
-          <a href="/admin/channels/{{../channel.id}}/feeds/{{this.id}}/edit">Edit</a>
-          <form method="POST" action="/admin/channels/{{../channel.id}}/feeds/{{this.id}}/delete" style="display:inline"
-            onsubmit="return confirm('Delete feed &quot;{{this.name}}&quot;? This action cannot be undone.')">
-            <button type="submit">Delete</button>
-          </form>
-        </td>
-      </tr>
-      {{/each}}
-    </tbody>
-  </table>
-  {{else}}
-  <p>No feeds yet. <a href="/admin/channels/{{channel.id}}/feeds/new">Add a feed</a> to get started.</p>
-  {{/if}}
-
   <hr style="margin: 24px 0;">
 
   <h2>Actions</h2>
@@ -98,5 +122,125 @@
     <button type="submit">Delete channel</button>
   </form>
   {{/if}}
+
+  <script>
+    function getNextIndex() {
+      var rows = document.querySelectorAll('.feed-row');
+      var max = -1;
+      for (var i = 0; i < rows.length; i++) {
+        var idx = parseInt(rows[i].getAttribute('data-index'), 10);
+        if (idx > max) max = idx;
+      }
+      return max + 1;
+    }
+
+    function updateRemoveButtons() {
+      var rows = document.querySelectorAll('.feed-row');
+      var btns = document.querySelectorAll('.remove-feed-btn');
+      for (var i = 0; i < btns.length; i++) {
+        btns[i].disabled = rows.length <= 1;
+      }
+    }
+
+    function addFeedRow() {
+      var idx = getNextIndex();
+      var html = '<div class="feed-row" data-index="' + idx + '">' +
+        '<label class="required">Feed Name</label>' +
+        '<input type="text" name="feeds[' + idx + '][name]" value="" required>' +
+        '<small class="helper-text">Display name for this feed in emails</small>' +
+        '<label class="required">Feed URL</label>' +
+        '<input type="url" name="feeds[' + idx + '][url]" value="" required>' +
+        '<small class="helper-text">URL of the RSS or Atom feed</small>' +
+        '<div class="feed-row-actions">' +
+        '<button type="button" class="remove-feed-btn" onclick="removeFeedRow(this)">Remove</button>' +
+        '</div>' +
+        '</div>';
+      document.getElementById('feed-rows').insertAdjacentHTML('beforeend', html);
+      updateRemoveButtons();
+    }
+
+    function removeFeedRow(btn) {
+      var rows = document.querySelectorAll('.feed-row');
+      if (rows.length <= 1) return;
+      if (!confirm('Remove this feed?')) return;
+      btn.closest('.feed-row').remove();
+      updateRemoveButtons();
+    }
+
+    // Channel ID inline validation (create only)
+    // Validation rules mirror validateChannelId() in src/shared/lib/config.js
+    (function() {
+      var idInput = document.getElementById('id');
+      if (!idInput) return;
+      var helper = document.getElementById('id-helper');
+      var defaultText = helper.textContent;
+      var pattern = new RegExp(idInput.getAttribute('pattern'));
+
+      idInput.addEventListener('input', function() {
+        var val = idInput.value;
+        if (!val) { showHelper(helper, defaultText); return; }
+        if (/[A-Z]/.test(val)) { showError(helper, 'Must be lowercase'); return; }
+        if (/\s/.test(val)) { showError(helper, 'No spaces allowed'); return; }
+        if (val.startsWith('-') || val.endsWith('-')) { showError(helper, 'Must not start or end with a hyphen'); return; }
+        if (/--/.test(val)) { showError(helper, 'No consecutive hyphens'); return; }
+        if (!pattern.test(val)) { showError(helper, 'Only lowercase letters, numbers, and hyphens'); return; }
+        showHelper(helper, defaultText);
+      });
+    })();
+
+    // From-user inline validation
+    (function() {
+      var input = document.getElementById('fromUser');
+      if (!input) return;
+      var helper = document.getElementById('fromUser-helper');
+      var defaultText = helper.textContent;
+
+      input.addEventListener('input', function() {
+        var val = input.value;
+        if (!val) { showHelper(helper, defaultText); return; }
+        if (val.indexOf('@') !== -1) { showError(helper, 'Enter just the local part (before the @)'); return; }
+        if (/\s/.test(val)) { showError(helper, 'No spaces allowed'); return; }
+        showHelper(helper, defaultText);
+      });
+    })();
+
+    // CORS origin auto-populate (create only)
+    {{#unless isEdit}}
+    (function() {
+      var siteUrlInput = document.getElementById('siteUrl');
+      var corsTextarea = document.getElementById('corsOrigins');
+      var corsManuallyEdited = false;
+
+      corsTextarea.addEventListener('input', function() {
+        corsManuallyEdited = true;
+      });
+
+      siteUrlInput.addEventListener('blur', function() {
+        if (corsManuallyEdited) return;
+        var val = siteUrlInput.value.trim();
+        if (!val) return;
+        try {
+          var origin = new URL(val).origin;
+          if (origin && origin !== 'null') {
+            corsTextarea.value = origin;
+          }
+        } catch (e) { /* invalid URL, ignore */ }
+      });
+    })();
+    {{/unless}}
+
+    function showError(el, msg) {
+      el.textContent = msg;
+      el.className = 'field-error';
+    }
+
+    function showHelper(el, msg) {
+      el.textContent = msg;
+      el.className = 'helper-text';
+    }
+
+    // Initialize remove button state
+    updateRemoveButtons();
+  </script>
 </body>
 </html>

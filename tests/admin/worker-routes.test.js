@@ -28,13 +28,6 @@ vi.mock("../../src/admin/routes/channels.js", () => ({
   handleChannelUpdate: vi.fn(),
   handleChannelDelete: vi.fn()
 }));
-vi.mock("../../src/admin/routes/feeds.js", () => ({
-  handleFeedNew: vi.fn(),
-  handleFeedCreate: vi.fn(),
-  handleFeedEdit: vi.fn(),
-  handleFeedUpdate: vi.fn(),
-  handleFeedDelete: vi.fn()
-}));
 vi.mock("../../src/admin/routes/subscribers.js", () => ({
   handleSubscriberList: vi.fn()
 }));
@@ -116,13 +109,6 @@ import {
   handleChannelUpdate,
   handleChannelDelete
 } from "../../src/admin/routes/channels.js";
-import {
-  handleFeedNew,
-  handleFeedCreate,
-  handleFeedEdit,
-  handleFeedUpdate,
-  handleFeedDelete
-} from "../../src/admin/routes/feeds.js";
 import { handleSubscriberList } from "../../src/admin/routes/subscribers.js";
 import { handleSettings } from "../../src/admin/routes/settings.js";
 
@@ -192,26 +178,6 @@ describe("admin worker — new route dispatching", () => {
       new Response(null, {
         status: 302,
         headers: { Location: "/admin/channels" }
-      })
-    );
-    handleFeedNew.mockResolvedValue(okResponse);
-    handleFeedCreate.mockResolvedValue(
-      new Response(null, {
-        status: 302,
-        headers: { Location: "/admin/channels/test-ch" }
-      })
-    );
-    handleFeedEdit.mockResolvedValue(okResponse);
-    handleFeedUpdate.mockResolvedValue(
-      new Response(null, {
-        status: 302,
-        headers: { Location: "/admin/channels/test-ch" }
-      })
-    );
-    handleFeedDelete.mockResolvedValue(
-      new Response(null, {
-        status: 302,
-        headers: { Location: "/admin/channels/test-ch" }
       })
     );
     handleSubscriberList.mockResolvedValue(okResponse);
@@ -308,93 +274,6 @@ describe("admin worker — new route dispatching", () => {
 
     it("returns 405 for GET /admin/channels/{id}/delete", async () => {
       const request = makeRequest("GET", "/admin/channels/test-ch/delete");
-      const response = await adminApp.fetch(request, env);
-
-      expect(response.status).toBe(405);
-    });
-  });
-
-  describe("feed routes", () => {
-    it("routes GET /admin/channels/{id}/feeds/new to handleFeedNew", async () => {
-      const request = makeRequest("GET", "/admin/channels/test-ch/feeds/new");
-      await adminApp.fetch(request, env);
-
-      expect(handleFeedNew).toHaveBeenCalledWith(request, env, "test-ch");
-    });
-
-    it("routes POST /admin/channels/{id}/feeds to handleFeedCreate", async () => {
-      const request = makeRequest("POST", "/admin/channels/test-ch/feeds");
-      await adminApp.fetch(request, env);
-
-      expect(handleFeedCreate).toHaveBeenCalledWith(request, env, "test-ch");
-    });
-
-    it("routes GET /admin/channels/{id}/feeds/{feedId}/edit to handleFeedEdit", async () => {
-      const request = makeRequest(
-        "GET",
-        "/admin/channels/test-ch/feeds/1/edit"
-      );
-      await adminApp.fetch(request, env);
-
-      expect(handleFeedEdit).toHaveBeenCalledWith(request, env, "test-ch", "1");
-    });
-
-    it("routes POST /admin/channels/{id}/feeds/{feedId} to handleFeedUpdate", async () => {
-      const request = makeRequest("POST", "/admin/channels/test-ch/feeds/1");
-      await adminApp.fetch(request, env);
-
-      expect(handleFeedUpdate).toHaveBeenCalledWith(
-        request,
-        env,
-        "test-ch",
-        "1"
-      );
-    });
-
-    it("routes POST /admin/channels/{id}/feeds/{feedId}/delete to handleFeedDelete", async () => {
-      const request = makeRequest(
-        "POST",
-        "/admin/channels/test-ch/feeds/1/delete"
-      );
-      await adminApp.fetch(request, env);
-
-      expect(handleFeedDelete).toHaveBeenCalledWith(
-        request,
-        env,
-        "test-ch",
-        "1"
-      );
-    });
-
-    it("returns 405 for POST /admin/channels/{id}/feeds/new", async () => {
-      const request = makeRequest("POST", "/admin/channels/test-ch/feeds/new");
-      const response = await adminApp.fetch(request, env);
-
-      expect(response.status).toBe(405);
-    });
-
-    it("returns 405 for GET /admin/channels/{id}/feeds/{feedId}/delete", async () => {
-      const request = makeRequest(
-        "GET",
-        "/admin/channels/test-ch/feeds/1/delete"
-      );
-      const response = await adminApp.fetch(request, env);
-
-      expect(response.status).toBe(405);
-    });
-
-    it("returns 405 for POST /admin/channels/{id}/feeds/{feedId}/edit", async () => {
-      const request = makeRequest(
-        "POST",
-        "/admin/channels/test-ch/feeds/1/edit"
-      );
-      const response = await adminApp.fetch(request, env);
-
-      expect(response.status).toBe(405);
-    });
-
-    it("returns 405 for GET /admin/channels/{id}/feeds/{feedId}", async () => {
-      const request = makeRequest("GET", "/admin/channels/test-ch/feeds/1");
       const response = await adminApp.fetch(request, env);
 
       expect(response.status).toBe(405);
@@ -529,23 +408,6 @@ describe("admin worker — new route dispatching", () => {
       expect(requireSession).toHaveBeenCalled();
       expect(response.status).toBe(302);
       expect(handleChannelDelete).not.toHaveBeenCalled();
-    });
-
-    it("requires session for feed routes", async () => {
-      requireSession.mockResolvedValue({
-        session: null,
-        response: new Response(null, {
-          status: 302,
-          headers: { Location: "/admin/login" }
-        })
-      });
-
-      const request = makeRequest("GET", "/admin/channels/test-ch/feeds/new");
-      const response = await adminApp.fetch(request, env);
-
-      expect(requireSession).toHaveBeenCalled();
-      expect(response.status).toBe(302);
-      expect(handleFeedNew).not.toHaveBeenCalled();
     });
   });
 

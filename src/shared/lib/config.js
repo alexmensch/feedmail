@@ -23,6 +23,35 @@ export const RATE_LIMIT_DEFAULTS = {
 
 // ─── Validation ─────────────────────────────────────────────────────────────
 
+const CHANNEL_ID_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+/**
+ * Validate a channel ID slug. Throws a descriptive error on invalid format.
+ * @param {string} id
+ */
+export function validateChannelId(id) {
+  if (!id || typeof id !== "string") {
+    throw new Error("Missing required field: id");
+  }
+  if (/[A-Z]/.test(id)) {
+    throw new Error("Channel ID must be lowercase");
+  }
+  if (/\s/.test(id)) {
+    throw new Error("Channel ID must not contain spaces");
+  }
+  if (id.startsWith("-") || id.endsWith("-")) {
+    throw new Error("Channel ID must not start or end with a hyphen");
+  }
+  if (/--/.test(id)) {
+    throw new Error("Channel ID must not contain consecutive hyphens");
+  }
+  if (!CHANNEL_ID_PATTERN.test(id)) {
+    throw new Error(
+      "Channel ID may only contain lowercase letters, numbers, and hyphens"
+    );
+  }
+}
+
 /**
  * Validate DOMAIN format. Throws on invalid config.
  * @param {string} domain
@@ -65,6 +94,9 @@ export function validateChannelFields(data, { requireFeeds = false } = {}) {
       throw new Error(`Missing required field: ${field}`);
     }
   }
+
+  // Validate channel ID slug format
+  validateChannelId(data.id);
 
   if (/[@\s]/.test(data.fromUser)) {
     throw new Error("fromUser must not contain '@' or whitespace");
