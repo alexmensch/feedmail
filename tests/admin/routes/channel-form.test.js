@@ -42,8 +42,16 @@ const CHANNEL = {
   corsOrigins: ["https://example.com"]
 };
 
-const FEED_1 = { id: 1, name: "Main Feed", url: "https://example.com/feed.xml" };
-const FEED_2 = { id: 2, name: "Blog Feed", url: "https://example.com/blog.xml" };
+const FEED_1 = {
+  id: 1,
+  name: "Main Feed",
+  url: "https://example.com/feed.xml"
+};
+const FEED_2 = {
+  id: 2,
+  name: "Blog Feed",
+  url: "https://example.com/blog.xml"
+};
 
 function makeFormBody(fields) {
   return Object.entries(fields)
@@ -1261,7 +1269,13 @@ describe("handleChannelDetail — error branches", () => {
     callApi.mockResolvedValue({
       ok: true,
       status: 200,
-      data: { id: "test", siteName: "Test", siteUrl: "https://example.com", fromUser: "hello", fromName: "Sender" }
+      data: {
+        id: "test",
+        siteName: "Test",
+        siteUrl: "https://example.com",
+        fromUser: "hello",
+        fromName: "Sender"
+      }
     });
 
     const request = new Request(

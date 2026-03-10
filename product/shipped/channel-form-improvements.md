@@ -28,3 +28,102 @@ The channel creation and editing form is improved to combine channel configurati
 - **Drag-and-drop feed reordering** — feeds are displayed in their natural order; no reordering capability
 - **Bulk feed import** — feeds are added one at a time via the inline rows
 - **Auto-save or draft persistence** — navigating away from the form loses unsaved changes
+
+## Technical Specification
+
+### Summary
+
+The channel form is redesigned to combine channel config and feed management into a single page with inline validation, CORS auto-populate, helper text, and improved error handling. The dashboard empty state link is updated.
+
+### Requirements Table
+
+| #   | Requirement                   | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Acceptance Criteria                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Edge Cases / Error Conditions                                                                                                                                                                                                                                                                                                                       |
+| --- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Unified channel and feed form | The `admin-channel-form.hbs` template displays channel configuration fields and inline feed rows on a single page. On create, the form submits channel fields plus feeds in a single POST. On edit, the form submits channel field changes plus feed additions, edits, and deletions in a single POST. The Admin Worker handler (`handleChannelCreate`, `handleChannelUpdate`) orchestrates the multi-step API calls (channel create/update, then feed create/update/delete). | **Create:** POST to `/admin/channels` includes channel fields and feed data; handler calls `POST /admin/channels` (with feeds array) on the API. **Edit:** POST to `/admin/channels/{id}` includes channel fields and all feed rows; handler calls `PUT /admin/channels/{id}` for channel fields, then issues feed create/update/delete API calls as needed by diffing submitted feeds against current feeds. On success, redirects to channel detail with success message.                                                                                                                                                                                                                                                                             | Channel creation with zero feeds: form requires at least one feed row via a `required` attribute on feed name/URL inputs in the first row, plus server-side validation. JS-disabled: feed rows are static HTML inputs, the "Add feed" button submits the form with a special action parameter to re-render with an additional empty row.            |
+| 2   | Inline feed management        | Feed rows are displayed as repeating input groups within the channel form, each with name and URL fields. An "Add feed" control appends a new empty row. A "Remove" control on each row removes it after a `confirm()` prompt. Existing feeds include a hidden `feedId` field. Changes are submitted together with the channel form.                                                                                                                                          | **Add:** Clicking "Add feed" appends a new feed row with empty name and URL fields (via JS `insertAdjacentHTML`; noscript fallback submits with `action=add-feed` to re-render with extra row). **Remove:** Clicking remove triggers `confirm('Remove this feed?')`; on confirm, removes the row from DOM (via JS `element.remove()`; noscript fallback submits with `action=remove-feed&removeIndex=N`). **Edit:** Existing feed rows are pre-populated and editable. All changes submitted on form save.                                                                                                                                                                                                                                              | Removing the last feed row: JS prevents removal when only one row remains (disable/hide the remove button). Noscript fallback: server rejects remove when it would leave zero feeds. Feed rows added then removed before save: no server state change. Feeds are encoded as indexed form fields: `feeds[0][name]`, `feeds[0][url]`, `feeds[0][id]`. |
+| 3   | Channel ID slug validation    | The channel ID field on the create form enforces a slug format via both a `pattern` attribute (`^[a-z0-9]+(-[a-z0-9]+)*$`) and an `input` event listener that shows inline error text. On the edit form, the channel ID is displayed as read-only text (not an input). Server-side validation in `validateChannelFields()` in `src/shared/lib/config.js` is added to match.                                                                                                   | **Valid:** `my-blog`, `newsletter`, `updates-2024`. **Invalid with specific messages:** uppercase letters ("must be lowercase"), spaces ("no spaces allowed"), leading hyphen, trailing hyphen, consecutive hyphens ("no consecutive hyphens"), special characters ("only lowercase letters, numbers, and hyphens"). The `pattern` attribute provides HTML5 validation. The `input` event listener provides real-time feedback. Server-side `validateChannelFields()` throws descriptive error for invalid IDs.                                                                                                                                                                                                                                         | Empty channel ID: `required` attribute on create form; server-side rejects with "Missing required field: id". Edit form: channel ID displayed as `<p>` text, not editable.                                                                                                                                                                          |
+| 4   | From-user validation          | The from-user field includes an `input` event listener that shows inline error when the value contains `@` or whitespace. The `DOMAIN` env var is displayed as a suffix label adjacent to the input (e.g., `@example.com`) so the operator sees the full sender address.                                                                                                                                                                                                      | `newsletter` accepted, displayed next to `@{DOMAIN}`. `user@domain` shows inline error: "Enter just the local part (before the @)". `my user` shows inline error: "No spaces allowed". The domain suffix is rendered from `{{domain}}` template variable. Error message and helper text can coexist (error replaces helper text when present).                                                                                                                                                                                                                                                                                                                                                                                                          | Empty value: `required` attribute triggers HTML5 validation. Server-side validation already exists in `validateChannelFields()`.                                                                                                                                                                                                                    |
+| 5   | CORS origin auto-populate     | On the create form only, a `blur` event listener on the site URL field parses the URL and populates the CORS origins textarea with the derived origin if the textarea has not been manually edited. A `corsManuallyEdited` flag (set by an `input` listener on the textarea) controls this behavior.                                                                                                                                                                          | Entering `https://example.com/blog` in site URL, then tabbing out, populates CORS origins with `https://example.com`. Entering `http://localhost:8888/path` populates `http://localhost:8888`. After manual edit of CORS origins, subsequent site URL blur events do not overwrite.                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Invalid URL in site URL field: `new URL()` throws, caught silently, CORS field unchanged. Edit form: blur listener is not attached. Empty site URL on blur: no-op.                                                                                                                                                                                  |
+| 6   | Contextual helper text        | Each form field has a `<small>` element below it containing brief helper text. Helper text uses a muted style (CSS class `helper-text`). When an inline validation error is active, the error message replaces the helper text for that field.                                                                                                                                                                                                                                | **Channel ID:** "Unique identifier used in your subscribe form and API calls". **Site Name:** "Your site or publication name, shown in emails". **Site URL:** "Your website address, linked in emails". **From User:** "Combined with your domain to form the sender address". **From Name:** "Display name shown in the From field of emails". **Reply To:** "Email address for subscriber replies (optional)". **Company Name:** "Shown in email footer for CAN-SPAM compliance (optional)". **Company Address:** "Physical address for email footer (optional)". **CORS Origins:** "Origins allowed to submit the subscribe form, one per line". **Feed Name:** "Display name for this feed in emails". **Feed URL:** "URL of the RSS or Atom feed". | Helper text is present on both create and edit forms. Text must be concise (one sentence).                                                                                                                                                                                                                                                          |
+| 7   | Form error handling           | API errors during save re-render the form with the error message and all form field values preserved. For the unified save that involves multiple API calls (channel update + feed CRUD), errors indicate which operation failed. Feed-level errors include the feed name/index for context.                                                                                                                                                                                  | **Channel validation error:** Error banner shown at top, all field values preserved including feed rows. **Feed validation error:** Error message identifies the problematic feed. **Network failure:** "Unable to reach the API" error shown, form state preserved. **Partial failure:** Error message like "Channel saved, but failed to add feed 'Feed Name': ..."                                                                                                                                                                                                                                                                                                                                                                                   | Concurrent edit conflict: API error surfaced. Form re-render on create error uses submitted values. Form re-render on edit error uses submitted values for channel fields, current server feeds merged with submitted feed changes.                                                                                                                 |
+| 8   | Dashboard empty state link    | In `admin-dashboard.hbs`, the empty state message links to `/admin/channels/new` instead of `/admin/channels`.                                                                                                                                                                                                                                                                                                                                                                | Clicking the link navigates directly to the channel creation form. Link text: "Create your first channel".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | If channels exist, the empty state is not shown (existing behavior unchanged).                                                                                                                                                                                                                                                                      |
+
+### Implementation Notes
+
+#### Requirement 1 — Unified channel and feed form
+
+**Files to change:**
+
+- `src/templates/admin-channel-form.hbs` — Major rewrite. Remove the separate feeds section. Replace with inline feed input rows in both create and edit modes, inside the main `<form>`. Feed rows use indexed form field names: `feeds[0][name]`, `feeds[0][url]`, `feeds[0][id]` (hidden, only for existing feeds).
+- `src/admin/routes/channels.js` — Modify `handleChannelCreate` to parse feed rows from form data and include them in the API call body as a `feeds` array. Modify `handleChannelUpdate` to parse feed rows, diff against current feeds, and issue appropriate feed create/update/delete API calls. Add `parseFeedRows(formData)` helper. Pass `domain: env.DOMAIN` to template.
+- `src/admin/routes/feeds.js` — Handlers become unused but kept (routes still exist).
+
+**Existing patterns to reuse:**
+
+- `callApi()` from `src/admin/lib/api.js` for all API communication.
+- API already supports `feeds` array in `POST /admin/channels` body (see `createChannel` in `admin-channels.js`).
+- `validateChannelFields` in `config.js` already validates feeds when provided.
+
+**Edit flow (feed diffing):**
+
+1. Call `GET /admin/channels/{id}` to get current feeds.
+2. Compare submitted feed rows (by `feedId`) against current feeds.
+3. Feeds with a `feedId` that differ: `PUT /admin/channels/{id}/feeds/{feedId}`.
+4. Feeds without a `feedId` (new): `POST /admin/channels/{id}/feeds`.
+5. Current feeds absent from submission: `DELETE /admin/channels/{id}/feeds/{feedId}`.
+
+#### Requirement 2 — Inline feed management
+
+Feed row HTML: `<div class="feed-row">` with hidden `feeds[{index}][id]`, text `feeds[{index}][name]`, URL `feeds[{index}][url]`, and remove button. JS handles add/remove; noscript fallback via `action` form parameters.
+
+#### Requirement 3 — Channel ID slug validation
+
+Add `validateChannelId(id)` to `config.js` with regex `/^[a-z0-9]+(-[a-z0-9]+)*$/`, called from `validateChannelFields()`. HTML `pattern` attribute + `input` event listener. Edit form shows ID as read-only text.
+
+#### Requirement 4 — From-user validation
+
+`input` event listener for inline validation. `@{DOMAIN}` suffix displayed adjacent to input. Pass `domain: env.DOMAIN` to template.
+
+#### Requirement 5 — CORS origin auto-populate
+
+`blur` listener on site URL (create only). Uses `new URL(value).origin`. `corsManuallyEdited` flag via `input` listener on CORS textarea.
+
+#### Requirement 6 — Contextual helper text
+
+`<small class="helper-text">` below each field. CSS in `admin-head.hbs` for `.helper-text` and `.field-error`.
+
+#### Requirement 7 — Form error handling
+
+Extend existing error handling in create/update handlers to preserve feed row data on re-render. Partial failure in edit shows which feed operation failed.
+
+#### Requirement 8 — Dashboard empty state link
+
+Change `href="/admin/channels"` to `href="/admin/channels/new"` in `admin-dashboard.hbs`.
+
+### New functions
+
+- `parseFeedRows(formData)` — in `src/admin/routes/channels.js`
+- `validateChannelId(id)` — in `src/shared/lib/config.js`
+
+### CSS classes
+
+- `helper-text` — muted helper text below form fields
+- `field-error` — inline validation error text
+- `feed-row` — wrapper for each feed input group
+- `feed-rows` — container for all feed rows
+
+### Form field naming
+
+- `feeds[0][id]`, `feeds[0][name]`, `feeds[0][url]` — indexed feed fields
+- `action` — noscript fallback actions (`add-feed`, `remove-feed`)
+- `removeIndex` — noscript feed removal index
+
+### Template variables
+
+- `domain` — `env.DOMAIN`, passed to `admin-channel-form.hbs`
+
+### Out of scope
+
+- Removing separate feed page routes (kept, no longer linked)
+- New batch feed update API endpoint (individual calls orchestrated by Admin Worker)
+- Existing channel ID migration (validation applies to new channels only)

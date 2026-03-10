@@ -58,9 +58,9 @@ src/
     worker.js             # Admin fetch handler: routing, rate limiting, session middleware
     routes/
       auth.js             # Login, magic link verification, logout handlers
-      channels.js         # Channel CRUD: list, new, create, detail, update, delete
+      channels.js         # Channel CRUD: list, new, create, detail, update, delete + parseFeedRows() + inline feed diffing
       dashboard.js        # Dashboard with per-channel stats, send trigger
-      feeds.js            # Feed CRUD: new, create, edit, update, delete
+      feeds.js            # Feed CRUD: new, create, edit, update, delete (routes exist but no longer linked from UI — feeds managed inline on channel form)
       passkeys.js         # WebAuthn passkey registration, authentication, management
       settings.js         # Settings page (passkey management with bootstrap prompt)
       subscribers.js      # Subscriber list with channel/status filtering
@@ -70,7 +70,7 @@ src/
       session.js          # Session middleware, cookie/session helpers, getCookieValue utility
   shared/                 # Shared modules used by both Workers
     lib/
-      config.js           # DB-backed config reads, validation helpers, rate limit defaults
+      config.js           # DB-backed config reads, validation helpers (validateChannelId, validateChannelFields, validateFeedFields), rate limit defaults
       db.js               # All D1 query helpers (subscribers, config, channels, feeds, credentials)
       email.js            # Resend API email sending wrapper
       rate-limit.js       # IP-based rate limiting: config, rolling window check, endpoint name mapping
@@ -94,8 +94,8 @@ src/
     admin-magic-link.hbs  # Magic link email body
     admin-dashboard.hbs   # Dashboard with per-channel stats and passkey bootstrap prompt
     admin-channels.hbs    # Channel list page
-    admin-channel-form.hbs # Channel create/edit form with feed list
-    admin-feed-form.hbs   # Feed create/edit form
+    admin-channel-form.hbs # Unified channel create/edit form with inline feed management, slug validation, CORS auto-populate, helper text
+    admin-feed-form.hbs   # Feed create/edit form (superseded by inline feed management in admin-channel-form.hbs)
     admin-subscribers.hbs # Subscriber table with channel/status filter dropdowns
     admin-settings.hbs    # Settings page with passkey management
 migrations/
@@ -137,13 +137,13 @@ To test the full email flow locally:
 ### Key Design Decisions
 
 - **Two-worker architecture:** The API Worker (`src/api/worker.js`) handles `/api/*` routes and cron triggers. The Admin Worker (`src/admin/worker.js`) handles `/admin/*` routes for the browser-based admin console. Both share the same D1 database and shared modules in `src/shared/`. Each Worker has its own wrangler config (`wrangler.toml` / `wrangler.admin.toml`).
-- **Admin console as API proxy:** The Admin Worker renders server-side HTML and acts as a proxy to the API Worker. All data operations go through `callApi()` in `src/admin/lib/api.js`, which reads `admin_api_key` from D1 and makes authenticated requests to the API Worker via a Cloudflare Service Binding (`env.API_SERVICE`). The service binding sends requests directly to the API Worker without going through public HTTP/edge routing, avoiding subrequest loop issues inherent in same-zone worker-to-worker `fetch()` calls. Route handlers parse form data, call the API, and either render a template or redirect with query-param feedback (`?success=` / `?error=`). Templates use `isEdit` boolean to toggle between create and edit modes. Channel creation does not require feeds (feeds can be added after).
+- **Admin console as API proxy:** The Admin Worker renders server-side HTML and acts as a proxy to the API Worker. All data operations go through `callApi()` in `src/admin/lib/api.js`, which reads `admin_api_key` from D1 and makes authenticated requests to the API Worker via a Cloudflare Service Binding (`env.API_SERVICE`). The service binding sends requests directly to the API Worker without going through public HTTP/edge routing, avoiding subrequest loop issues inherent in same-zone worker-to-worker `fetch()` calls. Route handlers parse form data, call the API, and either render a template or redirect with query-param feedback (`?success=` / `?error=`). Templates use `isEdit` boolean to toggle between create and edit modes. The channel form is a unified page combining channel config and inline feed management — on create, at least one feed is required; on edit, the handler diffs submitted feeds against current server state and issues individual create/update/delete API calls. Noscript fallback actions (`add-feed`, `remove-feed`) allow feed row management without JavaScript.
 - **Admin authentication:** Passkey (WebAuthn) authentication as primary login method, with magic link email as fallback. Uses `@simplewebauthn/server` for server-side WebAuthn operations; client-side ceremony code is inline JS (no `@simplewebauthn/browser`). A single admin email is stored in the `credentials` table. Passkey credentials are stored in `passkey_credentials` with public keys as base64url TEXT. WebAuthn challenges are stored in `webauthn_challenges` (Workers are stateless — no in-memory storage). Login page shows passkey button when credentials exist, with magic link form always available. Session cookie is `HttpOnly; Secure; SameSite=Strict; Path=/admin`. Magic link tokens expire after 15 minutes; WebAuthn challenges expire after 5 minutes; sessions expire after 24 hours. Single admin user model — fixed UUID for WebAuthn user ID. Dashboard shows a passkey bootstrap prompt when no passkeys are registered.
 - **Credentials in D1:** Secrets (`resend_api_key`, `admin_api_key`, `admin_email`) are stored in the `credentials` table. The shared `getResendApiKey(env)` helper checks `env.RESEND_API_KEY` first (backward compat) then falls back to D1. The Admin Worker has no Wrangler secrets — it reads all credentials from D1.
 - **DB-backed configuration:** Channel, feed, site settings, and rate limit config are stored in D1 tables (not env vars). Config is read asynchronously via `config.js` helpers that accept the `env` object. Admin API endpoints provide runtime CRUD management without redeployment. `RATE_LIMIT_DEFAULTS` in `config.js` provides hardcoded fallbacks when no DB rows exist.
 - **Multi-channel support:** Each channel has its own subscriber list, feeds, sender identity, and CORS origins. All routes accept a `channelId` parameter to scope operations. A single deployment is the site; channels are subscriber lists with feeds.
 - **DOMAIN-based URL/email construction:** The `DOMAIN` env var (e.g. `feedmail.cc`) is used to construct all URLs as `https://{DOMAIN}/api/...` and from-email addresses as `{fromUser}@{DOMAIN}`. HTTPS is always assumed. This is the only config that remains as an env var.
-- **Config validation:** `validateChannelFields()` and `validateFeedFields()` in `config.js` throw errors on invalid data. Used by both the channel/feed read path and admin write endpoints. `getChannels()` validates DOMAIN format on every call.
+- **Config validation:** `validateChannelId()`, `validateChannelFields()`, and `validateFeedFields()` in `config.js` throw errors on invalid data. Channel IDs must be valid slugs (lowercase alphanumeric + hyphens, no leading/trailing/consecutive hyphens). Used by both the channel/feed read path and admin write endpoints. `getChannels()` validates DOMAIN format on every call.
 - **Structured feeds:** Each feed is an object with `name`, `url`, and integer `id` (auto-increment PK for stable REST URLs).
 - **No info leakage:** Subscribe endpoint always returns the same success response regardless of whether email is new, already subscribed, rate-limited, or unsubscribed. Verify endpoint shows the same error for invalid and expired tokens.
 - **Verification rate limiting:** `verification_attempts` table tracks emails sent per subscriber. Rolling window (default 24h) with max attempts (default 3). Configurable at runtime via admin config API.

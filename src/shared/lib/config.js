@@ -40,9 +40,7 @@ export function validateChannelId(id) {
     throw new Error("Channel ID must not contain spaces");
   }
   if (id.startsWith("-") || id.endsWith("-")) {
-    throw new Error(
-      "Channel ID must not start or end with a hyphen"
-    );
+    throw new Error("Channel ID must not start or end with a hyphen");
   }
   if (/--/.test(id)) {
     throw new Error("Channel ID must not contain consecutive hyphens");

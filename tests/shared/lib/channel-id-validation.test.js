@@ -118,7 +118,9 @@ describe("validateChannelFields with channel ID validation", () => {
   });
 
   it("rejects channel with invalid ID format (uppercase)", () => {
-    expect(() => validateChannelFields(makeChannel({ id: "MyBlog" }))).toThrow();
+    expect(() =>
+      validateChannelFields(makeChannel({ id: "MyBlog" }))
+    ).toThrow();
   });
 
   it("rejects channel with invalid ID format (spaces)", () => {
@@ -128,15 +130,11 @@ describe("validateChannelFields with channel ID validation", () => {
   });
 
   it("rejects channel with invalid ID format (leading hyphen)", () => {
-    expect(() =>
-      validateChannelFields(makeChannel({ id: "-blog" }))
-    ).toThrow();
+    expect(() => validateChannelFields(makeChannel({ id: "-blog" }))).toThrow();
   });
 
   it("rejects channel with invalid ID format (trailing hyphen)", () => {
-    expect(() =>
-      validateChannelFields(makeChannel({ id: "blog-" }))
-    ).toThrow();
+    expect(() => validateChannelFields(makeChannel({ id: "blog-" }))).toThrow();
   });
 
   it("rejects channel with invalid ID format (consecutive hyphens)", () => {
@@ -198,8 +196,6 @@ describe("validateChannelFields with requireFeeds option", () => {
   });
 
   it("does not require feeds when requireFeeds is false (default)", () => {
-    expect(() =>
-      validateChannelFields(makeChannel())
-    ).not.toThrow();
+    expect(() => validateChannelFields(makeChannel())).not.toThrow();
   });
 });
