@@ -1,11 +1,11 @@
 output "d1_database_id" {
   description = "D1 database ID"
-  value       = cloudflare_d1_database.feedmail.id
+  value       = local.d1_database_id
 }
 
 output "d1_database_name" {
   description = "D1 database name"
-  value       = cloudflare_d1_database.feedmail.name
+  value       = var.worker_name
 }
 
 output "resend_domain_id" {
@@ -37,6 +37,7 @@ output "admin_api_key" {
 
 output "seed_credentials_command" {
   description = "Run this wrangler command to seed credentials into D1 after first deploy"
+  sensitive   = true
   value       = <<-CMD
     pnpm exec wrangler d1 execute ${var.worker_name} --remote --config wrangler.prod.toml --command \
       "INSERT OR REPLACE INTO credentials (key, value) VALUES
@@ -47,10 +48,9 @@ output "seed_credentials_command" {
 }
 
 output "next_steps" {
-  description = "Steps to complete after terraform apply"
+  description = "Steps to complete after terraform apply (run from repo root)"
   value       = <<-STEPS
-    1. Deploy workers:    pnpm run upgrade
-    2. Seed credentials:  terraform output -raw seed_credentials_command | bash
-    3. Verify Resend domain in Resend dashboard (DNS propagation may take a few minutes)
+    1. Deploy and seed:   cd .. && pnpm run upgrade && terraform -chdir=terraform output -raw seed_credentials_command | bash
+    2. Verify Resend domain (DNS propagation may take a few minutes): https://resend.com/domains/${resend_domain.staging.id}
   STEPS
 }
