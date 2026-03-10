@@ -163,3 +163,43 @@ describe("validateChannelFields with channel ID validation", () => {
     ).toThrow();
   });
 });
+
+describe("validateChannelFields with requireFeeds option", () => {
+  let validateChannelFields;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.resetModules();
+    const mod = await import("../../../src/shared/lib/config.js");
+    validateChannelFields = mod.validateChannelFields;
+  });
+
+  it("throws when requireFeeds is true and no feeds provided", () => {
+    expect(() =>
+      validateChannelFields(makeChannel(), { requireFeeds: true })
+    ).toThrow(/feed/i);
+  });
+
+  it("throws when requireFeeds is true and feeds array is empty", () => {
+    expect(() =>
+      validateChannelFields(makeChannel({ feeds: [] }), { requireFeeds: true })
+    ).toThrow(/feed/i);
+  });
+
+  it("accepts when requireFeeds is true and feeds are provided", () => {
+    expect(() =>
+      validateChannelFields(
+        makeChannel({
+          feeds: [{ name: "Test", url: "https://example.com/feed.xml" }]
+        }),
+        { requireFeeds: true }
+      )
+    ).not.toThrow();
+  });
+
+  it("does not require feeds when requireFeeds is false (default)", () => {
+    expect(() =>
+      validateChannelFields(makeChannel())
+    ).not.toThrow();
+  });
+});

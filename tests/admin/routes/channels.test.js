@@ -101,7 +101,7 @@ describe("handleChannelList", () => {
 
     expect(response.status).toBe(200);
     expect(render).toHaveBeenCalledWith(
-      "adminChannels",
+      "adminChannelForm",
       expect.objectContaining({
         error: expect.any(String)
       })
@@ -188,7 +188,7 @@ describe("handleChannelCreate", () => {
     const request = new Request("https://feedmail.example.com/admin/channels", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: "id=new-ch&siteName=New+Channel&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender"
+      body: "id=new-ch&siteName=New+Channel&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender&feeds%5B0%5D%5Bname%5D=Main+Feed&feeds%5B0%5D%5Burl%5D=https%3A%2F%2Fexample.com%2Ffeed.xml"
     });
 
     const response = await handleChannelCreate(request, env);
@@ -224,7 +224,7 @@ describe("handleChannelCreate", () => {
     const request = new Request("https://feedmail.example.com/admin/channels", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `id=ch&siteName=Test&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender&corsOrigins=${encodeURIComponent(corsText)}`
+      body: `id=ch&siteName=Test&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender&corsOrigins=${encodeURIComponent(corsText)}&feeds%5B0%5D%5Bname%5D=Main+Feed&feeds%5B0%5D%5Burl%5D=https%3A%2F%2Fexample.com%2Ffeed.xml`
     });
 
     await handleChannelCreate(request, env);
@@ -249,7 +249,7 @@ describe("handleChannelCreate", () => {
     const request = new Request("https://feedmail.example.com/admin/channels", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `id=ch&siteName=Test&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender&corsOrigins=${encodeURIComponent(corsText)}`
+      body: `id=ch&siteName=Test&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender&corsOrigins=${encodeURIComponent(corsText)}&feeds%5B0%5D%5Bname%5D=Main+Feed&feeds%5B0%5D%5Burl%5D=https%3A%2F%2Fexample.com%2Ffeed.xml`
     });
 
     await handleChannelCreate(request, env);
@@ -269,7 +269,7 @@ describe("handleChannelCreate", () => {
     const request = new Request("https://feedmail.example.com/admin/channels", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: "id=ch&siteName=Test&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender&replyTo=reply%40example.com&companyName=Acme+Corp&companyAddress=123+Main+St&corsOrigins="
+      body: "id=ch&siteName=Test&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender&replyTo=reply%40example.com&companyName=Acme+Corp&companyAddress=123+Main+St&corsOrigins=&feeds%5B0%5D%5Bname%5D=Main+Feed&feeds%5B0%5D%5Burl%5D=https%3A%2F%2Fexample.com%2Ffeed.xml"
     });
 
     await handleChannelCreate(request, env);
@@ -291,7 +291,7 @@ describe("handleChannelCreate", () => {
     const request = new Request("https://feedmail.example.com/admin/channels", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: "id=ch&siteName=Test&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender&replyTo=&companyName=&companyAddress=&corsOrigins="
+      body: "id=ch&siteName=Test&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender&replyTo=&companyName=&companyAddress=&corsOrigins=&feeds%5B0%5D%5Bname%5D=Main+Feed&feeds%5B0%5D%5Burl%5D=https%3A%2F%2Fexample.com%2Ffeed.xml"
     });
 
     await handleChannelCreate(request, env);
@@ -313,7 +313,7 @@ describe("handleChannelCreate", () => {
     const request = new Request("https://feedmail.example.com/admin/channels", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: "id=ch&siteName=Test&siteUrl=bad-url&fromUser=hello&fromName=Sender"
+      body: "id=ch&siteName=Test&siteUrl=bad-url&fromUser=hello&fromName=Sender&feeds%5B0%5D%5Bname%5D=Main+Feed&feeds%5B0%5D%5Burl%5D=https%3A%2F%2Fexample.com%2Ffeed.xml"
     });
 
     const response = await handleChannelCreate(request, env);
@@ -343,7 +343,7 @@ describe("handleChannelCreate", () => {
     const request = new Request("https://feedmail.example.com/admin/channels", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: "id=existing-ch&siteName=Test&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender"
+      body: "id=existing-ch&siteName=Test&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender&feeds%5B0%5D%5Bname%5D=Main+Feed&feeds%5B0%5D%5Burl%5D=https%3A%2F%2Fexample.com%2Ffeed.xml"
     });
 
     const response = await handleChannelCreate(request, env);
@@ -466,10 +466,17 @@ describe("handleChannelUpdate", () => {
   });
 
   it("parses form data, calls PUT, redirects with success", async () => {
-    callApi.mockResolvedValue({
+    // PUT channel update
+    callApi.mockResolvedValueOnce({
       ok: true,
       status: 200,
       data: { ...CHANNEL, siteName: "Updated Site" }
+    });
+    // GET current channel for feed diff
+    callApi.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      data: { ...CHANNEL, feeds: [FEED] }
     });
 
     const request = new Request(
@@ -477,7 +484,7 @@ describe("handleChannelUpdate", () => {
       {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: "siteName=Updated+Site&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender"
+        body: "siteName=Updated+Site&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender&feeds%5B0%5D%5Bname%5D=Main+Feed&feeds%5B0%5D%5Burl%5D=https%3A%2F%2Fexample.com%2Ffeed.xml&feeds%5B0%5D%5Bid%5D=1"
       }
     );
 
@@ -510,7 +517,7 @@ describe("handleChannelUpdate", () => {
       {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: "siteName=Test&siteUrl=bad-url&fromUser=hello&fromName=Sender"
+        body: "siteName=Test&siteUrl=bad-url&fromUser=hello&fromName=Sender&feeds%5B0%5D%5Bname%5D=Main+Feed&feeds%5B0%5D%5Burl%5D=https%3A%2F%2Fexample.com%2Ffeed.xml&feeds%5B0%5D%5Bid%5D=1"
       }
     );
 
@@ -541,7 +548,7 @@ describe("handleChannelUpdate", () => {
       {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: "siteName=Test&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender"
+        body: "siteName=Test&siteUrl=https%3A%2F%2Fexample.com&fromUser=hello&fromName=Sender&feeds%5B0%5D%5Bname%5D=Main+Feed&feeds%5B0%5D%5Burl%5D=https%3A%2F%2Fexample.com%2Ffeed.xml&feeds%5B0%5D%5Bid%5D=1"
       }
     );
 

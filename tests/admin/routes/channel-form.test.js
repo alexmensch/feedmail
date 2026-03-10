@@ -95,7 +95,7 @@ describe("parseFeedRows", () => {
     const feeds = parseFeedRows(formData);
 
     expect(feeds).toHaveLength(1);
-    expect(feeds[0].id).toBe("5");
+    expect(feeds[0].id).toBe(5);
   });
 
   it("returns empty array when no feed fields present", () => {
@@ -235,13 +235,7 @@ describe("handleChannelCreate — with feed rows", () => {
     expect(apiCallBody.feeds).toHaveLength(2);
   });
 
-  it("rejects creation with zero feeds via server-side validation", async () => {
-    callApi.mockResolvedValue({
-      ok: false,
-      status: 400,
-      data: { error: "At least one feed is required" }
-    });
-
+  it("rejects creation with zero feeds via local validation (no API call)", async () => {
     const request = makeFormRequest(
       "https://feedmail.example.com/admin/channels",
       {
@@ -256,7 +250,8 @@ describe("handleChannelCreate — with feed rows", () => {
 
     const response = await handleChannelCreate(request, env);
 
-    // Should re-render form with error, not redirect
+    // Should re-render form with error, not call API
+    expect(callApi).not.toHaveBeenCalled();
     expect(response.status).toBe(200);
     expect(render).toHaveBeenCalledWith(
       "adminChannelForm",
@@ -635,7 +630,7 @@ describe("handleChannelUpdate — partial failure handling", () => {
     vi.clearAllMocks();
   });
 
-  it("reports error when channel update succeeds but feed add fails", async () => {
+  it("redirects with error when channel update succeeds but feed add fails", async () => {
     // PUT channel - success
     callApi.mockResolvedValueOnce({
       ok: true,
@@ -673,17 +668,14 @@ describe("handleChannelUpdate — partial failure handling", () => {
 
     const response = await handleChannelUpdate(request, env, "test-channel");
 
-    // Should show error about the partial failure
-    expect(response.status).toBe(200);
-    expect(render).toHaveBeenCalledWith(
-      "adminChannelForm",
-      expect.objectContaining({
-        error: expect.stringMatching(/feed|Bad Feed/i)
-      })
-    );
+    // Partial failure: redirect with error query param
+    expect(response.status).toBe(302);
+    const location = response.headers.get("Location");
+    expect(location).toContain("error=");
+    expect(decodeURIComponent(location)).toMatch(/saved.*but.*failed/i);
   });
 
-  it("reports error when channel update succeeds but feed delete fails", async () => {
+  it("redirects with error when channel update succeeds but feed delete fails", async () => {
     // PUT channel - success
     callApi.mockResolvedValueOnce({
       ok: true,
@@ -719,14 +711,11 @@ describe("handleChannelUpdate — partial failure handling", () => {
 
     const response = await handleChannelUpdate(request, env, "test-channel");
 
-    // Should indicate partial failure
-    expect(response.status).toBe(200);
-    expect(render).toHaveBeenCalledWith(
-      "adminChannelForm",
-      expect.objectContaining({
-        error: expect.stringMatching(/saved|failed/i)
-      })
-    );
+    // Partial failure: redirect with error query param
+    expect(response.status).toBe(302);
+    const location = response.headers.get("Location");
+    expect(location).toContain("error=");
+    expect(decodeURIComponent(location)).toMatch(/saved.*but.*failed/i);
   });
 
   it("reports error when channel PUT itself fails", async () => {
@@ -973,5 +962,338 @@ describe("handleChannelDetail — edit form context", () => {
         ])
       })
     );
+  });
+});
+
+// ─── Coverage gap: handleChannelUpdate — zero feeds validation ──────────────
+
+describe("handleChannelUpdate — zero feeds validation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("rejects update with zero feeds via local validation", async () => {
+    const request = makeFormRequest(
+      "https://feedmail.example.com/admin/channels/test-channel",
+      {
+        siteName: "Test Site",
+        siteUrl: "https://example.com",
+        fromUser: "hello",
+        fromName: "Sender",
+        corsOrigins: "https://example.com"
+      }
+    );
+
+    const response = await handleChannelUpdate(request, env, "test-channel");
+
+    expect(callApi).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(render).toHaveBeenCalledWith(
+      "adminChannelForm",
+      expect.objectContaining({
+        isEdit: true,
+        error: expect.stringContaining("feed")
+      })
+    );
+  });
+
+  it("rejects update when all feed rows have empty name and URL", async () => {
+    const request = makeFormRequest(
+      "https://feedmail.example.com/admin/channels/test-channel",
+      {
+        siteName: "Test Site",
+        siteUrl: "https://example.com",
+        fromUser: "hello",
+        fromName: "Sender",
+        corsOrigins: "https://example.com",
+        "feeds[0][name]": "",
+        "feeds[0][url]": ""
+      }
+    );
+
+    const response = await handleChannelUpdate(request, env, "test-channel");
+
+    expect(callApi).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(render).toHaveBeenCalledWith(
+      "adminChannelForm",
+      expect.objectContaining({
+        error: expect.stringContaining("feed")
+      })
+    );
+  });
+});
+
+// ─── Coverage gap: handleChannelUpdate — feed update failure ────────────────
+
+describe("handleChannelUpdate — feed update failure", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("redirects with error when feed update API call fails", async () => {
+    // PUT channel - success
+    callApi.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      data: { ...CHANNEL }
+    });
+    // GET current channel for diff
+    callApi.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      data: { ...CHANNEL, feeds: [FEED_1] }
+    });
+    // PUT feed update - failure
+    callApi.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      data: { error: "Duplicate feed name" }
+    });
+
+    const request = makeFormRequest(
+      "https://feedmail.example.com/admin/channels/test-channel",
+      {
+        siteName: "Test Site",
+        siteUrl: "https://example.com",
+        fromUser: "hello",
+        fromName: "Sender",
+        corsOrigins: "https://example.com",
+        "feeds[0][name]": "Renamed Feed",
+        "feeds[0][url]": "https://example.com/feed.xml",
+        "feeds[0][id]": "1"
+      }
+    );
+
+    const response = await handleChannelUpdate(request, env, "test-channel");
+
+    expect(response.status).toBe(302);
+    const location = response.headers.get("Location");
+    expect(location).toContain("error=");
+    expect(decodeURIComponent(location)).toMatch(/saved.*but.*failed/i);
+  });
+});
+
+// ─── Coverage gap: handleChannelUpdate — GET current channel fails ──────────
+
+describe("handleChannelUpdate — current channel fetch failure", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("falls back to empty feeds when GET current channel fails", async () => {
+    // PUT channel - success
+    callApi.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      data: { ...CHANNEL }
+    });
+    // GET current channel for diff - fails
+    callApi.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      data: { error: "Internal error" }
+    });
+    // POST new feed (since no current feeds to compare against)
+    callApi.mockResolvedValueOnce({
+      ok: true,
+      status: 201,
+      data: { id: 1, name: "Main Feed", url: "https://example.com/feed.xml" }
+    });
+
+    const request = makeFormRequest(
+      "https://feedmail.example.com/admin/channels/test-channel",
+      {
+        siteName: "Test Site",
+        siteUrl: "https://example.com",
+        fromUser: "hello",
+        fromName: "Sender",
+        corsOrigins: "https://example.com",
+        "feeds[0][name]": "Main Feed",
+        "feeds[0][url]": "https://example.com/feed.xml"
+      }
+    );
+
+    const response = await handleChannelUpdate(request, env, "test-channel");
+
+    // Should still succeed since feed create works
+    expect(response.status).toBe(302);
+    expect(response.headers.get("Location")).toContain("success=");
+  });
+});
+
+// ─── Coverage gap: handleChannelCreate — noscript corsOrigins fallback ──────
+
+describe("handleChannelCreate — noscript with empty corsOrigins", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("handles add-feed action when corsOrigins is empty", async () => {
+    const request = makeFormRequest(
+      "https://feedmail.example.com/admin/channels",
+      {
+        action: "add-feed",
+        id: "new-ch",
+        siteName: "New Channel",
+        siteUrl: "https://example.com",
+        fromUser: "hello",
+        fromName: "Sender",
+        corsOrigins: "",
+        "feeds[0][name]": "Feed One",
+        "feeds[0][url]": "https://example.com/feed.xml"
+      }
+    );
+
+    const response = await handleChannelCreate(request, env);
+
+    expect(callApi).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    const templateData = render.mock.calls[0][1];
+    expect(templateData.feeds).toHaveLength(2);
+  });
+
+  it("handles remove-feed action when corsOrigins is empty", async () => {
+    const request = makeFormRequest(
+      "https://feedmail.example.com/admin/channels",
+      {
+        action: "remove-feed",
+        removeIndex: "1",
+        id: "new-ch",
+        siteName: "New Channel",
+        siteUrl: "https://example.com",
+        fromUser: "hello",
+        fromName: "Sender",
+        corsOrigins: "",
+        "feeds[0][name]": "Feed One",
+        "feeds[0][url]": "https://example.com/one.xml",
+        "feeds[1][name]": "Feed Two",
+        "feeds[1][url]": "https://example.com/two.xml"
+      }
+    );
+
+    const response = await handleChannelCreate(request, env);
+
+    expect(callApi).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    const templateData = render.mock.calls[0][1];
+    expect(templateData.feeds).toHaveLength(1);
+  });
+
+  it("handles zero-feed validation when corsOrigins is empty", async () => {
+    const request = makeFormRequest(
+      "https://feedmail.example.com/admin/channels",
+      {
+        id: "new-ch",
+        siteName: "New Channel",
+        siteUrl: "https://example.com",
+        fromUser: "hello",
+        fromName: "Sender",
+        corsOrigins: ""
+      }
+    );
+
+    const response = await handleChannelCreate(request, env);
+
+    expect(callApi).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(render).toHaveBeenCalledWith(
+      "adminChannelForm",
+      expect.objectContaining({
+        error: expect.stringContaining("feed")
+      })
+    );
+  });
+});
+
+// ─── Coverage gap: handleChannelDetail — error branches ─────────────────────
+
+describe("handleChannelDetail — error branches", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders error when API returns non-404 error with domain", async () => {
+    callApi.mockResolvedValue({
+      ok: false,
+      status: 500,
+      data: { error: "Server error" }
+    });
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/channels/test-channel"
+    );
+    const response = await handleChannelDetail(request, env, "test-channel");
+
+    expect(response.status).toBe(200);
+    expect(render).toHaveBeenCalledWith(
+      "adminChannelForm",
+      expect.objectContaining({
+        error: "Server error",
+        domain: "feedmail.example.com"
+      })
+    );
+  });
+
+  it("renders 404 error with domain", async () => {
+    callApi.mockResolvedValue({
+      ok: false,
+      status: 404,
+      data: { error: "Not found" }
+    });
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/channels/missing"
+    );
+    const response = await handleChannelDetail(request, env, "missing");
+
+    expect(response.status).toBe(404);
+    expect(render).toHaveBeenCalledWith(
+      "adminChannelForm",
+      expect.objectContaining({
+        error: "Channel not found",
+        domain: "feedmail.example.com"
+      })
+    );
+  });
+
+  it("handles channel with missing corsOrigins gracefully", async () => {
+    callApi.mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: { id: "test", siteName: "Test", siteUrl: "https://example.com", fromUser: "hello", fromName: "Sender" }
+    });
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/channels/test"
+    );
+    const response = await handleChannelDetail(request, env, "test");
+
+    expect(response.status).toBe(200);
+    expect(render).toHaveBeenCalledWith(
+      "adminChannelForm",
+      expect.objectContaining({
+        channel: expect.objectContaining({
+          corsOrigins: ""
+        })
+      })
+    );
+  });
+});
+
+// ─── Coverage gap: parseFeedRows — non-string value branch ──────────────────
+
+describe("parseFeedRows — edge cases", () => {
+  it("handles non-string form values", () => {
+    const formData = new FormData();
+    const blob = new Blob(["test"]);
+    formData.append("feeds[0][name]", blob);
+    formData.append("feeds[0][url]", "https://example.com/feed.xml");
+
+    const feeds = parseFeedRows(formData);
+
+    expect(feeds).toHaveLength(1);
+    // Non-string value is preserved as-is
+    expect(feeds[0].url).toBe("https://example.com/feed.xml");
   });
 });
