@@ -27,13 +27,6 @@ vi.mock("../../src/admin/routes/channels.js", () => ({
   handleChannelUpdate: vi.fn(),
   handleChannelDelete: vi.fn()
 }));
-vi.mock("../../src/admin/routes/feeds.js", () => ({
-  handleFeedNew: vi.fn(),
-  handleFeedCreate: vi.fn(),
-  handleFeedEdit: vi.fn(),
-  handleFeedUpdate: vi.fn(),
-  handleFeedDelete: vi.fn()
-}));
 vi.mock("../../src/admin/routes/subscribers.js", () => ({
   handleSubscriberList: vi.fn()
 }));

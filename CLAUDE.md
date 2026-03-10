@@ -60,7 +60,6 @@ src/
       auth.js             # Login, magic link verification, logout handlers
       channels.js         # Channel CRUD: list, new, create, detail, update, delete + parseFeedRows() + inline feed diffing
       dashboard.js        # Dashboard with per-channel stats, send trigger
-      feeds.js            # Feed CRUD: new, create, edit, update, delete (routes exist but no longer linked from UI — feeds managed inline on channel form)
       passkeys.js         # WebAuthn passkey registration, authentication, management
       settings.js         # Settings page (passkey management with bootstrap prompt)
       subscribers.js      # Subscriber list with channel/status filtering
@@ -95,7 +94,6 @@ src/
     admin-dashboard.hbs   # Dashboard with per-channel stats and passkey bootstrap prompt
     admin-channels.hbs    # Channel list page
     admin-channel-form.hbs # Unified channel create/edit form with inline feed management, slug validation, CORS auto-populate, helper text
-    admin-feed-form.hbs   # Feed create/edit form (superseded by inline feed management in admin-channel-form.hbs)
     admin-subscribers.hbs # Subscriber table with channel/status filter dropdowns
     admin-settings.hbs    # Settings page with passkey management
 migrations/
@@ -218,11 +216,6 @@ To test the full email flow locally:
 - `GET /admin/channels/{id}` — Channel detail/edit form with feed list (requires session)
 - `POST /admin/channels/{id}` — Update a channel (requires session)
 - `POST /admin/channels/{id}/delete` — Delete a channel (requires session)
-- `GET /admin/channels/{id}/feeds/new` — Feed creation form (requires session)
-- `POST /admin/channels/{id}/feeds` — Create a new feed (requires session)
-- `GET /admin/channels/{id}/feeds/{feedId}/edit` — Feed edit form (requires session)
-- `POST /admin/channels/{id}/feeds/{feedId}` — Update a feed (requires session)
-- `POST /admin/channels/{id}/feeds/{feedId}/delete` — Delete a feed (requires session)
 - `GET /admin/subscribers` — Subscriber list with channel/status filtering (requires session)
 - `GET /admin/settings` — Settings page with passkey management (requires session)
 - `GET /admin/passkeys` — Redirects to /admin/settings (requires session)

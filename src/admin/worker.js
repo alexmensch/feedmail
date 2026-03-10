@@ -30,13 +30,6 @@ import {
   handleChannelUpdate,
   handleChannelDelete
 } from "./routes/channels.js";
-import {
-  handleFeedNew,
-  handleFeedCreate,
-  handleFeedEdit,
-  handleFeedUpdate,
-  handleFeedDelete
-} from "./routes/feeds.js";
 import { handleSubscriberList } from "./routes/subscribers.js";
 import { handleSettings } from "./routes/settings.js";
 import { requireSession } from "./lib/session.js";
@@ -242,62 +235,6 @@ export default {
         const channelId = decodeURIComponent(channelDeleteMatch[1]);
         if (request.method === "POST") {
           return await handleChannelDelete(request, env, channelId);
-        }
-        return new Response(null, { status: 405 });
-      }
-
-      // Feed routes: /admin/channels/{id}/feeds/...
-      const feedNewMatch = url.pathname.match(
-        /^\/admin\/channels\/([^/]+)\/feeds\/new$/
-      );
-      if (feedNewMatch) {
-        const channelId = decodeURIComponent(feedNewMatch[1]);
-        if (request.method === "GET") {
-          return await handleFeedNew(request, env, channelId);
-        }
-        return new Response(null, { status: 405 });
-      }
-
-      const feedDeleteMatch = url.pathname.match(
-        /^\/admin\/channels\/([^/]+)\/feeds\/(\d+)\/delete$/
-      );
-      if (feedDeleteMatch) {
-        const channelId = decodeURIComponent(feedDeleteMatch[1]);
-        const feedId = feedDeleteMatch[2];
-        if (request.method === "POST") {
-          return await handleFeedDelete(request, env, channelId, feedId);
-        }
-        return new Response(null, { status: 405 });
-      }
-
-      const feedEditMatch = url.pathname.match(
-        /^\/admin\/channels\/([^/]+)\/feeds\/(\d+)\/edit$/
-      );
-      if (feedEditMatch) {
-        const channelId = decodeURIComponent(feedEditMatch[1]);
-        const feedId = feedEditMatch[2];
-        if (request.method === "GET") {
-          return await handleFeedEdit(request, env, channelId, feedId);
-        }
-        return new Response(null, { status: 405 });
-      }
-
-      const feedActionMatch = url.pathname.match(
-        /^\/admin\/channels\/([^/]+)\/feeds(?:\/(\d+))?$/
-      );
-      if (feedActionMatch) {
-        const channelId = decodeURIComponent(feedActionMatch[1]);
-        const feedId = feedActionMatch[2] || null;
-        if (!feedId) {
-          // POST /admin/channels/{id}/feeds — create feed
-          if (request.method === "POST") {
-            return await handleFeedCreate(request, env, channelId);
-          }
-          return new Response(null, { status: 405 });
-        }
-        // POST /admin/channels/{id}/feeds/{feedId} — update feed
-        if (request.method === "POST") {
-          return await handleFeedUpdate(request, env, channelId, feedId);
         }
         return new Response(null, { status: 405 });
       }

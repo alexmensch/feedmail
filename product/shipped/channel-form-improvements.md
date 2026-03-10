@@ -124,6 +124,11 @@ Change `href="/admin/channels"` to `href="/admin/channels/new"` in `admin-dashbo
 
 ### Out of scope
 
-- Removing separate feed page routes (kept, no longer linked)
 - New batch feed update API endpoint (individual calls orchestrated by Admin Worker)
 - Existing channel ID migration (validation applies to new channels only)
+
+## Out-of-spec changes
+
+| #   | Change                           | Description                                                                                                                                                                                                                  |
+| --- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Remove standalone feed form code | Deleted `src/admin/routes/feeds.js`, `src/templates/admin-feed-form.hbs`, `tests/admin/routes/feeds.test.js`. Removed feed route dispatching from `src/admin/worker.js`, `adminFeedForm` template from `src/shared/lib/templates.js`, and feed handler mocks from worker test files. Feed management is now exclusively handled inline on the channel form. |
