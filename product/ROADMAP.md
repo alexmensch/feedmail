@@ -28,21 +28,13 @@ A reader who follows a personal website or blog and prefers to receive new posts
 
 ## Planned
 
-### Release: Admin Console (Functional)
-
-A plain HTML admin console with all management functionality — completing the browser-based management story with improved channel form validation and unified channel+feed management.
-
-| #   | Feature                                                                              | Description                                                                                                                                    | GUID                                   |
-| --- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 1   | [channel-form-improvements](./admin-console-functional/channel-form-improvements.md) | Unified channel+feed form, inline validation (slug, from-user, CORS auto-populate), contextual helper text, and dashboard empty state link fix | `14348F72-DA1E-4E93-853E-AE11BD8C1470` |
-
 ### Release: Admin Console (Styled)
 
 HTMX interactions, CUBE CSS design system, responsive sidebar layout, dark mode, and visual polish for all admin and auth pages.
 
 | #   | Feature                                                                | Description                                                                                                             | GUID                                   |
 | --- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 2   | [admin-console-styled](./admin-console-styled/admin-console-styled.md) | HTMX-powered interactions, CUBE CSS with Every Layout primitives, fluid responsive design, dark mode, auth page styling | `D04F43C0-AF8F-4CDA-B9ED-4E9C1D3ACA1B` |
+| 1   | [admin-console-styled](./admin-console-styled/admin-console-styled.md) | HTMX-powered interactions, CUBE CSS with Every Layout primitives, fluid responsive design, dark mode, auth page styling | `D04F43C0-AF8F-4CDA-B9ED-4E9C1D3ACA1B` |
 
 ### Release: Quick Start
 
@@ -50,13 +42,13 @@ Reliable one-step deployment and drop-in subscribe form widgets so site owners c
 
 | #   | Feature                                                                 | Description                                                                                                                                                                                  | GUID                                   |
 | --- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 3   | [one-line-deploy](./quick-start/one-line-deploy.md)                     | Hardened, idempotent setup script that provisions all infrastructure via direct Cloudflare and Resend API calls, deploys workers, seeds credentials, and gates on Resend domain verification | `F39F0C1C-64AC-4F37-AB29-DD16D53307F3` |
-| 4   | [alternative-deploy-paths](./quick-start/alternative-deploy-paths.md)   | Alternative onboarding paths (Cloudflare Deploy Button, GitHub Template) for users who prefer browser-based or CI-driven workflows                                                           | `5D3610BF-55EA-4380-82B4-FBCAA8AD7CF9` |
-| 5   | [subscribe-widget-html](./quick-start/subscribe-widget-html.md)         | Generic HTML/JS subscribe form snippet that works on any site with no framework dependency                                                                                                   | `CB3C539D-2E07-430E-845C-14B909E8850E` |
-| 6   | [subscribe-widget-hugo](./quick-start/subscribe-widget-hugo.md)         | Hugo partial/shortcode for embedding the feedmail subscribe form                                                                                                                             | `C659F727-3A89-4D58-A570-ED320883665B` |
-| 7   | [subscribe-widget-jekyll](./quick-start/subscribe-widget-jekyll.md)     | Jekyll include for embedding the feedmail subscribe form                                                                                                                                     | `8C1C41E5-267E-423A-9A2C-D4991AB94570` |
-| 8   | [subscribe-widget-eleventy](./quick-start/subscribe-widget-eleventy.md) | Eleventy shortcode/plugin for embedding the feedmail subscribe form                                                                                                                          | `21B22062-FC7C-44A8-8B9F-91F5F40FD4EF` |
-| 9   | [subscribe-widget-astro](./quick-start/subscribe-widget-astro.md)       | Astro component for embedding the feedmail subscribe form                                                                                                                                    | `9DE93ABB-0DFF-4637-98CE-7A08B7A65A0D` |
+| 2   | [one-line-deploy](./quick-start/one-line-deploy.md)                     | Hardened, idempotent setup script that provisions all infrastructure via direct Cloudflare and Resend API calls, deploys workers, seeds credentials, and gates on Resend domain verification | `F39F0C1C-64AC-4F37-AB29-DD16D53307F3` |
+| 3   | [alternative-deploy-paths](./quick-start/alternative-deploy-paths.md)   | Alternative onboarding paths (Cloudflare Deploy Button, GitHub Template) for users who prefer browser-based or CI-driven workflows                                                           | `5D3610BF-55EA-4380-82B4-FBCAA8AD7CF9` |
+| 4   | [subscribe-widget-html](./quick-start/subscribe-widget-html.md)         | Generic HTML/JS subscribe form snippet that works on any site with no framework dependency                                                                                                   | `CB3C539D-2E07-430E-845C-14B909E8850E` |
+| 5   | [subscribe-widget-hugo](./quick-start/subscribe-widget-hugo.md)         | Hugo partial/shortcode for embedding the feedmail subscribe form                                                                                                                             | `C659F727-3A89-4D58-A570-ED320883665B` |
+| 6   | [subscribe-widget-jekyll](./quick-start/subscribe-widget-jekyll.md)     | Jekyll include for embedding the feedmail subscribe form                                                                                                                                     | `8C1C41E5-267E-423A-9A2C-D4991AB94570` |
+| 7   | [subscribe-widget-eleventy](./quick-start/subscribe-widget-eleventy.md) | Eleventy shortcode/plugin for embedding the feedmail subscribe form                                                                                                                          | `21B22062-FC7C-44A8-8B9F-91F5F40FD4EF` |
+| 8   | [subscribe-widget-astro](./quick-start/subscribe-widget-astro.md)       | Astro component for embedding the feedmail subscribe form                                                                                                                                    | `9DE93ABB-0DFF-4637-98CE-7A08B7A65A0D` |
 
 ### Release: Admin Console Enhancements
 
@@ -64,10 +56,10 @@ Paginated subscriber lists, in-browser configuration editing, credential managem
 
 | #   | Feature                                                                                            | Description                                                                                                                                               | GUID                                   |
 | --- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 10  | [admin-console-enhancements](./admin-console-enhancements/admin-console-enhancements.md)           | Server-side subscriber list pagination, site config editing, admin email change with verification, admin API key regeneration, and Resend API key editing | `0921300D-83E6-4423-AE32-DFB5ED5BD88A` |
-| 11  | [auth-session-cleanup](./admin-console-enhancements/auth-session-cleanup.md)                       | Probabilistic cleanup of expired auth sessions and magic link tokens, with a shared utility that also refactors rate limit cleanup                        | `E0AC5C7B-3792-44B4-89EB-FCC3B89050C4` |
-| 12  | [remove-credential-env-fallbacks](./admin-console-enhancements/remove-credential-env-fallbacks.md) | Removes env-var fallback for ADMIN_API_KEY and RESEND_API_KEY so the D1 credentials table is the single source of truth                                   | `5CBF07F1-6FFE-4FE0-9DF6-221398A0EFDC` |
-| 13  | [rolling-sessions](./admin-console-enhancements/rolling-sessions.md)                               | Rolling session expiry (24hr inactivity timeout) with a 7-day absolute cap, replacing the current fixed 24-hour session lifetime                          | `26E123A5-1D72-47C8-9E62-AB14F77E55D2` |
+| 9   | [admin-console-enhancements](./admin-console-enhancements/admin-console-enhancements.md)           | Server-side subscriber list pagination, site config editing, admin email change with verification, admin API key regeneration, and Resend API key editing | `0921300D-83E6-4423-AE32-DFB5ED5BD88A` |
+| 10  | [auth-session-cleanup](./admin-console-enhancements/auth-session-cleanup.md)                       | Probabilistic cleanup of expired auth sessions and magic link tokens, with a shared utility that also refactors rate limit cleanup                        | `E0AC5C7B-3792-44B4-89EB-FCC3B89050C4` |
+| 11  | [remove-credential-env-fallbacks](./admin-console-enhancements/remove-credential-env-fallbacks.md) | Removes env-var fallback for ADMIN_API_KEY and RESEND_API_KEY so the D1 credentials table is the single source of truth                                   | `5CBF07F1-6FFE-4FE0-9DF6-221398A0EFDC` |
+| 12  | [rolling-sessions](./admin-console-enhancements/rolling-sessions.md)                               | Rolling session expiry (24hr inactivity timeout) with a 7-day absolute cap, replacing the current fixed 24-hour session lifetime                          | `26E123A5-1D72-47C8-9E62-AB14F77E55D2` |
 
 ### Release: Migration
 
@@ -75,12 +67,12 @@ Import tools so users of existing newsletter services can bring their subscriber
 
 | #   | Feature                                                 | Description                                                                                       | GUID                                   |
 | --- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 14  | [migrate-core](./migration/migrate-core.md)             | Core migration framework with subscriber import, validation, deduplication, and verification flow | `56CA7165-1B19-4712-ACCA-3847AD552ACE` |
-| 15  | [migrate-buttondown](./migration/migrate-buttondown.md) | Import subscribers from a Buttondown export                                                       | `4FBDF5E9-7D3D-48E6-8855-CB746B654EF9` |
-| 16  | [migrate-mailchimp](./migration/migrate-mailchimp.md)   | Import subscribers from a Mailchimp audience export                                               | `02C7344A-5C06-4A99-B348-FD07FDBC7219` |
-| 17  | [migrate-ghost](./migration/migrate-ghost.md)           | Import subscribers from a Ghost member/newsletter export                                          | `FBBAA31E-4397-4841-8026-7E75CEA5C30E` |
-| 18  | [migrate-kit](./migration/migrate-kit.md)               | Import subscribers from a Kit (formerly ConvertKit) export                                        | `910B6DD6-8567-40B1-99E6-2CE029E2D4B0` |
-| 19  | [migrate-mailerlite](./migration/migrate-mailerlite.md) | Import subscribers from a MailerLite export                                                       | `AB244D19-86FB-47A5-974C-FAEB85970FA7` |
+| 13  | [migrate-core](./migration/migrate-core.md)             | Core migration framework with subscriber import, validation, deduplication, and verification flow | `56CA7165-1B19-4712-ACCA-3847AD552ACE` |
+| 14  | [migrate-buttondown](./migration/migrate-buttondown.md) | Import subscribers from a Buttondown export                                                       | `4FBDF5E9-7D3D-48E6-8855-CB746B654EF9` |
+| 15  | [migrate-mailchimp](./migration/migrate-mailchimp.md)   | Import subscribers from a Mailchimp audience export                                               | `02C7344A-5C06-4A99-B348-FD07FDBC7219` |
+| 16  | [migrate-ghost](./migration/migrate-ghost.md)           | Import subscribers from a Ghost member/newsletter export                                          | `FBBAA31E-4397-4841-8026-7E75CEA5C30E` |
+| 17  | [migrate-kit](./migration/migrate-kit.md)               | Import subscribers from a Kit (formerly ConvertKit) export                                        | `910B6DD6-8567-40B1-99E6-2CE029E2D4B0` |
+| 18  | [migrate-mailerlite](./migration/migrate-mailerlite.md) | Import subscribers from a MailerLite export                                                       | `AB244D19-86FB-47A5-974C-FAEB85970FA7` |
 
 ---
 
@@ -97,3 +89,4 @@ Import tools so users of existing newsletter services can bring their subscriber
 | [admin-auth-passkey](./shipped/admin-auth-passkey.md)                               | Adds passkey (WebAuthn) authentication as the primary login method, with magic link as fallback                                                                  | `FF8F870D-4FD8-491F-9DF2-A4D5E332BE22` | #42 |
 | [admin-console-functional](./shipped/admin-console-functional.md)                   | Plain HTML forms covering dashboard, channel/feed CRUD, subscriber list, passkey management, confirmations, and errors                                           | `5A963535-83B6-4BA9-AB36-0A8C4F29E7BC` | #46 |
 | [admin-rate-limit-bypass](./shipped/admin-rate-limit-bypass.md)                     | Exempts authenticated service binding requests from API Worker rate limiting so active admin console usage is never throttled                                    | `958A5E88-B87B-45D8-991E-3F236EF869A3` | #50 |
+| [channel-form-improvements](./shipped/channel-form-improvements.md)                 | Unified channel+feed form, inline validation (slug, from-user, CORS auto-populate), contextual helper text, and dashboard empty state link fix                   | `14348F72-DA1E-4E93-853E-AE11BD8C1470` |     |
