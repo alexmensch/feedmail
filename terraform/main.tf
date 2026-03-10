@@ -11,10 +11,43 @@ data "cloudflare_zone" "feedmail" {
 # ---------------------------------------------------------------------------
 # D1 Database
 # ---------------------------------------------------------------------------
+# Created via wrangler CLI due to Cloudflare provider v5 bug:
+# https://github.com/cloudflare/terraform-provider-cloudflare/issues/6309
 
-resource "cloudflare_d1_database" "feedmail" {
-  account_id = var.cloudflare_account_id
-  name       = var.worker_name
+resource "terraform_data" "d1_database" {
+  input = {
+    worker_name = var.worker_name
+    module_path = abspath(path.module)
+    repo_root   = abspath(var.repo_root)
+  }
+
+  provisioner "local-exec" {
+    command = "${abspath(path.module)}/create-d1.sh ${var.worker_name} ${abspath(path.module)}/d1_output.txt ${abspath(var.repo_root)}"
+  }
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = "${self.input.module_path}/delete-d1.sh ${self.input.worker_name} ${self.input.module_path}/d1_output.txt ${self.input.repo_root}"
+  }
+}
+
+data "local_file" "d1_output" {
+  filename   = "${path.module}/d1_output.txt"
+  depends_on = [terraform_data.d1_database]
+}
+
+locals {
+  d1_database_id  = trimspace(data.local_file.d1_output.content)
+  domain_is_zone  = var.domain == var.zone_name
+  domain_is_child = endswith(var.domain, ".${var.zone_name}")
+  subdomain       = local.domain_is_zone ? "" : trimsuffix(var.domain, ".${var.zone_name}")
+}
+
+check "domain_zone_match" {
+  assert {
+    condition     = local.domain_is_zone || local.domain_is_child
+    error_message = "var.domain (${var.domain}) must equal or be a subdomain of var.zone_name (${var.zone_name})"
+  }
 }
 
 # ---------------------------------------------------------------------------
@@ -36,14 +69,13 @@ resource "resend_api_key" "staging" {
 # Cloudflare DNS — Resend verification records
 # ---------------------------------------------------------------------------
 
-# DKIM CNAME records (Resend typically returns 3)
+# DKIM record (Resend returns 1 DKIM record per domain)
 resource "cloudflare_dns_record" "resend_dkim" {
-  count   = length(resend_domain.staging.dkim_records)
   zone_id = data.cloudflare_zone.feedmail.zone_id
-  type    = resend_domain.staging.dkim_records[count.index].type
-  name    = resend_domain.staging.dkim_records[count.index].name
-  content = resend_domain.staging.dkim_records[count.index].value
-  ttl     = tonumber(resend_domain.staging.dkim_records[count.index].ttl)
+  type    = resend_domain.staging.dkim_records[0].type
+  name    = resend_domain.staging.dkim_records[0].name
+  content = resend_domain.staging.dkim_records[0].value
+  ttl     = resend_domain.staging.dkim_records[0].ttl == "Auto" ? 1 : tonumber(resend_domain.staging.dkim_records[0].ttl)
   proxied = false
 }
 
@@ -53,7 +85,7 @@ resource "cloudflare_dns_record" "resend_spf_txt" {
   type    = resend_domain.staging.spf_txt_record.type
   name    = resend_domain.staging.spf_txt_record.name
   content = resend_domain.staging.spf_txt_record.value
-  ttl     = tonumber(resend_domain.staging.spf_txt_record.ttl)
+  ttl     = resend_domain.staging.spf_txt_record.ttl == "Auto" ? 1 : tonumber(resend_domain.staging.spf_txt_record.ttl)
   proxied = false
 }
 
@@ -63,9 +95,33 @@ resource "cloudflare_dns_record" "resend_spf_mx" {
   type     = resend_domain.staging.spf_mx_record.type
   name     = resend_domain.staging.spf_mx_record.name
   content  = resend_domain.staging.spf_mx_record.value
-  priority = tonumber(resend_domain.staging.spf_mx_record.priority)
-  ttl      = tonumber(resend_domain.staging.spf_mx_record.ttl)
+  priority = resend_domain.staging.spf_mx_record.priority == "" ? null : tonumber(resend_domain.staging.spf_mx_record.priority)
+  ttl      = resend_domain.staging.spf_mx_record.ttl == "Auto" ? 1 : tonumber(resend_domain.staging.spf_mx_record.ttl)
   proxied  = false
+}
+
+# ---------------------------------------------------------------------------
+# Cloudflare DNS — Worker proxy records (subdomain deployments only)
+# ---------------------------------------------------------------------------
+
+resource "cloudflare_dns_record" "worker_a" {
+  count   = local.subdomain != "" ? 1 : 0
+  zone_id = data.cloudflare_zone.feedmail.zone_id
+  type    = "A"
+  name    = local.subdomain
+  content = "192.0.2.1"
+  ttl     = 1
+  proxied = true
+}
+
+resource "cloudflare_dns_record" "worker_aaaa" {
+  count   = local.subdomain != "" ? 1 : 0
+  zone_id = data.cloudflare_zone.feedmail.zone_id
+  type    = "AAAA"
+  name    = local.subdomain
+  content = "100::"
+  ttl     = 1
+  proxied = true
 }
 
 # ---------------------------------------------------------------------------
@@ -101,7 +157,7 @@ resource "local_file" "wrangler_prod" {
     [[d1_databases]]
     binding = "DB"
     database_name = "${var.worker_name}"
-    database_id = "${cloudflare_d1_database.feedmail.id}"
+    database_id = "${local.d1_database_id}"
 
     [[routes]]
     pattern = "${var.domain}/api/*"
@@ -132,7 +188,7 @@ resource "local_file" "wrangler_admin_prod" {
     [[d1_databases]]
     binding = "DB"
     database_name = "${var.worker_name}"
-    database_id = "${cloudflare_d1_database.feedmail.id}"
+    database_id = "${local.d1_database_id}"
 
     [[routes]]
     pattern = "${var.domain}/admin*"

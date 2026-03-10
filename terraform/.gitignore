@@ -4,3 +4,4 @@
 *.tfvars
 !*.tfvars.example
 .terraform.lock.hcl
+d1_output.txt

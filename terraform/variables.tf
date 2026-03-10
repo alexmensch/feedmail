@@ -4,11 +4,6 @@ variable "cloudflare_api_token" {
   sensitive   = true
 }
 
-variable "cloudflare_account_id" {
-  description = "Cloudflare account ID"
-  type        = string
-}
-
 variable "resend_api_key" {
   description = "Resend API key (with full_access permission to create domains and API keys)"
   type        = string

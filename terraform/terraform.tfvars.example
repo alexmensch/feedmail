@@ -1,5 +1,4 @@
 cloudflare_api_token  = ""
-cloudflare_account_id = ""
 resend_api_key        = ""
 admin_email           = "admin@example.com"
 domain                = "newsletter.yourdomain.com"
