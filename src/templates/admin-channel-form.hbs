@@ -168,21 +168,23 @@
     }
 
     // Channel ID inline validation (create only)
+    // Validation rules mirror validateChannelId() in src/shared/lib/config.js
     (function() {
       var idInput = document.getElementById('id');
       if (!idInput) return;
       var helper = document.getElementById('id-helper');
-      var pattern = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+      var defaultText = helper.textContent;
+      var pattern = new RegExp(idInput.getAttribute('pattern'));
 
       idInput.addEventListener('input', function() {
         var val = idInput.value;
-        if (!val) { showHelper(helper, 'Unique identifier used in your subscribe form and API calls'); return; }
+        if (!val) { showHelper(helper, defaultText); return; }
         if (/[A-Z]/.test(val)) { showError(helper, 'Must be lowercase'); return; }
         if (/\s/.test(val)) { showError(helper, 'No spaces allowed'); return; }
         if (val.startsWith('-') || val.endsWith('-')) { showError(helper, 'Must not start or end with a hyphen'); return; }
         if (/--/.test(val)) { showError(helper, 'No consecutive hyphens'); return; }
         if (!pattern.test(val)) { showError(helper, 'Only lowercase letters, numbers, and hyphens'); return; }
-        showHelper(helper, 'Unique identifier used in your subscribe form and API calls');
+        showHelper(helper, defaultText);
       });
     })();
 
@@ -191,13 +193,14 @@
       var input = document.getElementById('fromUser');
       if (!input) return;
       var helper = document.getElementById('fromUser-helper');
+      var defaultText = helper.textContent;
 
       input.addEventListener('input', function() {
         var val = input.value;
-        if (!val) { showHelper(helper, 'Combined with your domain to form the sender address'); return; }
+        if (!val) { showHelper(helper, defaultText); return; }
         if (val.indexOf('@') !== -1) { showError(helper, 'Enter just the local part (before the @)'); return; }
         if (/\s/.test(val)) { showError(helper, 'No spaces allowed'); return; }
-        showHelper(helper, 'Combined with your domain to form the sender address');
+        showHelper(helper, defaultText);
       });
     })();
 

@@ -104,6 +104,21 @@ function feedRowsForTemplate(feedRows) {
 }
 
 /**
+ * Build a channel object for template rendering from an API body and channel ID.
+ * Converts corsOrigins array back to newline-separated string for textarea.
+ * @param {string} channelId
+ * @param {object} body - API body from buildChannelBody()
+ * @returns {object}
+ */
+function buildTemplateChannel(channelId, body) {
+  return {
+    id: channelId,
+    ...body,
+    corsOrigins: (body.corsOrigins || []).join("\n")
+  };
+}
+
+/**
  * GET /admin/channels — Channel list page.
  */
 export async function handleChannelList(request, env) {
@@ -173,21 +188,23 @@ export async function handleChannelCreate(request, env) {
   body.id = channelId;
   const feedRows = parseFeedRows(formData);
 
-  // Handle noscript add-feed action
-  if (action === "add-feed") {
-    feedRows.push({ name: "", url: "" });
+  // Helper to re-render the form with error
+  const renderWithError = (errorMsg, submittedFeeds) => {
     const html = render("adminChannelForm", {
       activePage: "channels",
       isEdit: false,
-      channel: {
-        id: channelId,
-        ...body,
-        corsOrigins: (body.corsOrigins || []).join("\n")
-      },
-      feeds: feedRowsForTemplate(feedRows),
-      domain: env.DOMAIN
+      channel: buildTemplateChannel(channelId, body),
+      feeds: feedRowsForTemplate(submittedFeeds),
+      domain: env.DOMAIN,
+      error: errorMsg
     });
     return htmlResponse(html);
+  };
+
+  // Handle noscript add-feed action
+  if (action === "add-feed") {
+    feedRows.push({ name: "", url: "" });
+    return renderWithError(null, feedRows);
   }
 
   // Handle noscript remove-feed action
@@ -196,36 +213,16 @@ export async function handleChannelCreate(request, env) {
     if (!isNaN(removeIndex) && feedRows.length > 1) {
       feedRows.splice(removeIndex, 1);
     }
-    const html = render("adminChannelForm", {
-      activePage: "channels",
-      isEdit: false,
-      channel: {
-        id: channelId,
-        ...body,
-        corsOrigins: (body.corsOrigins || []).join("\n")
-      },
-      feeds: feedRowsForTemplate(feedRows),
-      domain: env.DOMAIN
-    });
-    return htmlResponse(html);
+    return renderWithError(null, feedRows);
   }
 
   // Validate at least one feed with data
   const nonEmptyFeeds = feedRows.filter((f) => f.name || f.url);
   if (nonEmptyFeeds.length === 0) {
-    const html = render("adminChannelForm", {
-      activePage: "channels",
-      isEdit: false,
-      channel: {
-        id: channelId,
-        ...body,
-        corsOrigins: (body.corsOrigins || []).join("\n")
-      },
-      feeds: feedRowsForTemplate(feedRows.length > 0 ? feedRows : [{ name: "", url: "" }]),
-      domain: env.DOMAIN,
-      error: "At least one feed is required"
-    });
-    return htmlResponse(html);
+    return renderWithError(
+      "At least one feed is required",
+      feedRows.length > 0 ? feedRows : [{ name: "", url: "" }]
+    );
   }
 
   body.feeds = nonEmptyFeeds;
@@ -233,19 +230,10 @@ export async function handleChannelCreate(request, env) {
   const result = await callApi(env, "POST", "/admin/channels", body);
 
   if (!result.ok) {
-    const html = render("adminChannelForm", {
-      activePage: "channels",
-      isEdit: false,
-      channel: {
-        id: channelId,
-        ...body,
-        corsOrigins: (body.corsOrigins || []).join("\n")
-      },
-      feeds: feedRowsForTemplate(feedRows),
-      domain: env.DOMAIN,
-      error: result.data?.error || "Failed to create channel"
-    });
-    return htmlResponse(html);
+    return renderWithError(
+      result.data?.error || "Failed to create channel",
+      feedRows
+    );
   }
 
   return Response.redirect(
@@ -291,10 +279,7 @@ export async function handleChannelDetail(request, env, channelId) {
   const html = render("adminChannelForm", {
     activePage: "channels",
     isEdit: true,
-    channel: {
-      ...channel,
-      corsOrigins: (channel.corsOrigins || []).join("\n")
-    },
+    channel: buildTemplateChannel(channel.id, channel),
     feeds,
     domain: env.DOMAIN,
     success,
@@ -323,15 +308,11 @@ export async function handleChannelUpdate(request, env, channelId) {
   const feedRows = parseFeedRows(formData);
 
   // Helper to re-render the form with error
-  const renderWithError = async (errorMsg, submittedFeeds) => {
+  const renderWithError = (errorMsg, submittedFeeds) => {
     const html = render("adminChannelForm", {
       activePage: "channels",
       isEdit: true,
-      channel: {
-        id: channelId,
-        ...body,
-        corsOrigins: (body.corsOrigins || []).join("\n")
-      },
+      channel: buildTemplateChannel(channelId, body),
       feeds: feedRowsForTemplate(submittedFeeds),
       domain: env.DOMAIN,
       error: errorMsg
