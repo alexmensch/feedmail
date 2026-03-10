@@ -32,9 +32,9 @@ A reader who follows a personal website or blog and prefers to receive new posts
 
 A plain HTML admin console with all management functionality — completing the browser-based management story with improved channel form validation and unified channel+feed management.
 
-| #   | Feature                                                                                | Description                                                                                                                                       | GUID                                   |
-| --- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 1   | [channel-form-improvements](./admin-console-functional/channel-form-improvements.md)   | Unified channel+feed form, inline validation (slug, from-user, CORS auto-populate), contextual helper text, and dashboard empty state link fix    | `14348F72-DA1E-4E93-853E-AE11BD8C1470` |
+| #   | Feature                                                                              | Description                                                                                                                                    | GUID                                   |
+| --- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| 1   | [channel-form-improvements](./admin-console-functional/channel-form-improvements.md) | Unified channel+feed form, inline validation (slug, from-user, CORS auto-populate), contextual helper text, and dashboard empty state link fix | `14348F72-DA1E-4E93-853E-AE11BD8C1470` |
 
 ### Release: Admin Console (Styled)
 
