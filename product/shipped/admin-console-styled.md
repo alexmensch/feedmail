@@ -1,0 +1,219 @@
+---
+guid: D04F43C0-AF8F-4CDA-B9ED-4E9C1D3ACA1B
+date: 2026-03-09
+feature: admin-console-styled
+depends-on:
+  - 5A963535-83B6-4BA9-AB36-0A8C4F29E7BC
+---
+
+## Feature: Admin Console (Styled)
+
+Transforms the plain HTML admin console into a polished, responsive, interactive application. Adds a sidebar layout with CUBE CSS methodology, HTMX-powered interactions for in-page operations, fluid responsive design, dark mode, and visual styling for all pages including the auth flow. This feature changes how the console looks and feels without altering what it does — all functional behaviour established in admin-console-functional is preserved.
+
+## Requirements
+
+| #   | Requirement                      | Description                                                                                                                                                                                                                                                                                                                                                                                                                             | Acceptance Criteria                                                                                                                                                                                                                                                                                                                                                                                    | Edge Cases / Error Conditions                                                                                                                                                                                                                                                       |
+| --- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | CUBE CSS architecture            | The admin console uses its own self-contained CSS following CUBE CSS methodology: Compositions (layout primitives), Utilities (single-purpose classes), Blocks (component styles), Exceptions (data-attribute state variations). Design tokens define the color scheme, typography, and spacing scales using Utopia fluid `clamp()` values. No hardcoded pixel values for spacing or font sizes.                                        | All styles follow CUBE CSS layer ordering. Spacing and typography scale fluidly using `clamp()`. Design tokens are defined as CSS custom properties. Styles are self-contained — no dependency on external stylesheets. CSS is structured so that compositions, utilities, blocks, and exceptions are clearly separated.                                                                               | High contrast mode (`prefers-contrast: more`) is respected — sufficient contrast ratios maintained. Reduced motion preference (`prefers-reduced-motion: reduce`) disables any transitions or animations.                                                                            |
+| 2   | Sidebar layout and navigation    | Authenticated pages use a sidebar + main content layout built with Every Layout primitives. The sidebar contains navigation links to Dashboard, Channels, Subscribers, and Settings, with a logout action at the bottom. The active section is visually indicated. The sidebar layout replaces the top navigation bar from the functional version. Layout adapts fluidly from narrow to wide viewports without media query breakpoints. | Sidebar and main content area render correctly. Navigation links route to the correct pages. Active page is visually distinguished. Layout adapts fluidly — sidebar reflows naturally on narrow viewports without hardcoded breakpoints. Logout triggers session destruction. The Every Layout sidebar primitive governs the reflow behaviour.                                                         | On narrow viewports (phone-width), sidebar collapses or reflows so that navigation and content both remain accessible. Navigation remains usable with keyboard-only interaction.                                                                                                    |
+| 3   | Dark mode                        | The admin console supports dark mode via `prefers-color-scheme: dark`. Design tokens define both light and dark color schemes. All pages — including auth pages — respect the user's system preference.                                                                                                                                                                                                                                 | Light color scheme renders by default. Dark color scheme activates when `prefers-color-scheme: dark` matches. All text, backgrounds, borders, form elements, and feedback messages are legible in both modes. No manual toggle — system preference only.                                                                                                                                               | System preference changes while the page is open: colors update without reload (CSS media query behaviour). Images or icons (if any) remain visible in both modes.                                                                                                                  |
+| 4   | HTMX for in-page operations      | Form submissions and actions that stay on the same page use HTMX to update page fragments without full page reloads. This includes: channel save (with inline feeds), subscriber list filtering, dashboard "Check all feeds", and passkey management actions. The admin Worker returns HTML fragments for HTMX requests (detected via `HX-Request` header) and full pages for standard navigation. Feeds are managed inline on the unified channel form — add/remove feed rows remain client-side form operations; HTMX handles the overall channel save that persists all feed changes. | Channel save (including feed additions, edits, and removals) updates the form area with success/error feedback without reload. Subscriber filters update the table without reload. Dashboard send button shows feedback without reload. Passkey actions update the passkey list without reload. Browser back/forward navigation works correctly with HTMX history. | Network failure during HTMX request: error message displayed inline in the target element. Slow responses: a loading indicator is visible in the target area during the request.                                                                                                    |
+| 5   | Standard navigation preserved    | Page-level navigation — top nav/sidebar links, channel list to channel detail, channel creation redirect to detail page, channel deletion redirect to list — continues to use standard full-page navigation (not HTMX). HTMX is only used for in-page fragment updates per R4.                                                                                                                                                          | Clicking sidebar nav links loads the full target page. Creating a channel redirects to the new channel's detail page via standard navigation. Deleting a channel redirects to the channel list. These navigations appear in browser history and work with back/forward buttons.                                                                                                                        | None specific — this requirement exists to explicitly scope the HTMX boundary.                                                                                                                                                                                                      |
+| 6   | Inline destructive confirmations | Destructive actions (delete channel, remove passkey) use an HTMX-powered inline confirmation pattern instead of browser `confirm()` dialogs. Clicking a delete button swaps the button area with a confirmation prompt (e.g., "Delete channel 'blog'? This cannot be undone. [Confirm] [Cancel]"). Confirming submits the deletion. Cancelling restores the original button. Feed removal is not a destructive action — feeds are added and removed as rows on the unified channel form and only take effect when the form is saved.                                               | Clicking delete replaces the button with an inline confirmation prompt via HTMX swap. The prompt names the specific item and warns the action is irreversible. Confirm executes the deletion. Cancel restores the original state. Channel deletion confirmation mentions impact on subscribers and feeds.                                                                                              | Rapid double-click on delete: only one confirmation prompt appears. Multiple delete buttons on the same page (e.g., passkey list): each operates independently. Confirmation prompt is keyboard-accessible (tab to Confirm/Cancel, Enter to activate).                                 |
+| 7   | Session expiry during HTMX       | When an HTMX request is made with an expired session, the admin Worker returns an inline message ("Session expired — [log in](/admin/login)") in the HTMX target area, along with an `HX-Redirect` header set to `/admin/login` with a 5-second delay via a `<meta http-equiv="refresh">` tag in the fragment. The user can click the link immediately or wait for the automatic redirect.                                              | Expired session during HTMX request shows an inline message with a login link in the fragment area. Automatic redirect to `/admin/login` occurs after 5 seconds if the user does not click. Clicking the link navigates immediately. The message is clearly styled as an alert/warning.                                                                                                                | Multiple HTMX requests with expired session (e.g., user clicks several things): each target area shows the expiry message independently; the first redirect wins. Full-page requests with expired session continue to redirect to login immediately (existing behaviour unchanged). |
+| 8   | Loading indicators               | HTMX requests display a loading indicator in the target area while the request is in flight. The indicator replaces or overlays the content being updated. It is visible for requests that take longer than a brief threshold (avoiding flicker on fast responses).                                                                                                                                                                     | A loading indicator appears in the HTMX target element during requests. The indicator is unobtrusive but clearly visible. Fast responses (under ~200ms) do not show a flash of the indicator. The indicator respects `prefers-reduced-motion`.                                                                                                                                                         | Multiple concurrent HTMX requests: each target area shows its own loading state independently. Request fails: loading indicator is replaced by the error message.                                                                                                                   |
+| 9   | Auth page styling                | Unauthenticated pages — login, "check your email" confirmation, magic link error, and auth error pages — are styled using a shared centered layout template with the CUBE CSS design system. These pages stand alone visually (no sidebar) but share the same design tokens, typography, and color scheme as the console. The login page's passkey button and magic link form are visually polished.                                    | Login page uses consistent typography, spacing, and color scheme. Confirmation and error pages use a centered layout with clear messaging. All auth pages respect dark mode. All auth pages use fluid responsive sizing. A shared auth layout template is used across all unauthenticated pages.                                                                                                       | Auth pages rendered before CSS is loaded: flash of unstyled content minimized by inlining critical CSS or appropriate loading strategy. Auth pages at extremely narrow viewports remain usable.                                                                                     |
+| 10  | Console page styling             | All authenticated pages (dashboard, channel list, channel detail, subscriber list, settings) are styled with the CUBE CSS design system. Forms use consistent field styling, labels, and spacing. Tables (subscriber list, feed list) use consistent styling. Feedback messages (success, error, validation) are visually distinct and clearly styled. The overall visual treatment is clean, functional, and professional.             | All console pages use the CUBE CSS design tokens and follow the composition/utility/block/exception structure. Forms have consistent visual treatment across all pages. Tables are readable and well-spaced. Success messages are visually distinct from error messages. Validation errors are visually associated with their fields.                                                                  | Pages with no data (empty channel list, no subscribers) display empty states that are visually consistent with the page design. Long content (many feeds, long channel names) does not break the layout.                                                                            |
+
+## Out of scope
+
+- **New functional behaviour** — this feature changes presentation and interaction patterns only; no new pages, data operations, or management capabilities are added
+- **Manual dark mode toggle** — system preference only; a toggle could be added later
+- **Admin console theming or branding customization** — the console has a single, fixed visual design
+- **Offline support or service worker caching** — admin console requires network access
+- **Keyboard shortcuts** — standard browser and form keyboard behaviour only
+- **Real-time updates** (WebSocket or SSE) — data refreshes on page load and explicit HTMX actions only
+- **Session lifetime policy changes** (rolling sessions, re-auth intervals) — session behaviour is unchanged from the functional feature; only the UX for expired sessions during HTMX requests is addressed
+- **Separating feed management from channel form** — feeds are managed inline on the unified channel form (established in channel-form-improvements v2.5.0); this feature must not reintroduce separate feed pages or forms
+
+## Technical Specification
+
+### Summary
+
+Transform the plain HTML admin console into a polished, responsive application by introducing CUBE CSS methodology with fluid design tokens, a sidebar layout using Every Layout primitives, HTMX-powered in-page operations, dark mode, and consistent visual styling across all pages. This is a presentation-layer change only — all existing functional behaviour (routes, data operations, session management) is preserved. CSS and HTMX are served as external static files via Cloudflare Workers static assets from the `assets/` directory.
+
+### Requirements Table
+
+| # | Requirement | Description | Acceptance Criteria | Edge Cases / Error Conditions |
+|---|-------------|-------------|---------------------|-------------------------------|
+| 1 | CUBE CSS architecture | The admin console uses its own self-contained CSS following CUBE CSS methodology: Compositions (layout primitives), Utilities (single-purpose classes), Blocks (component styles), Exceptions (data-attribute state variations). Design tokens define the color scheme, typography, and spacing scales using Utopia fluid `clamp()` values. No hardcoded pixel values for spacing or font sizes. CSS is delivered as an external stylesheet at `assets/admin/styles.css`, served by Cloudflare Workers static assets. The `admin-head.hbs` partial references it via a `<link>` tag. | All styles follow CUBE CSS layer ordering. Spacing and typography scale fluidly using `clamp()`. Design tokens are defined as CSS custom properties. CSS lives in `assets/admin/styles.css` as a standalone `.css` file (not inlined in templates). `admin-head.hbs` contains `<meta>` tags and a `<link rel="stylesheet" href="/admin/styles.css">` tag — no `<style>` block. Compositions, utilities, blocks, and exceptions are clearly separated within the file using CSS comments. A `prefers-reduced-motion: reduce` media query disables any transitions or animations. A `prefers-contrast: more` consideration ensures all color pairings meet WCAG AAA contrast (7:1). | `prefers-contrast: more` — sufficient contrast ratios in both light and dark modes. `prefers-reduced-motion: reduce` — all transitions and animations are disabled. First visit before CSS is cached: brief FOUC is acceptable for a single-user admin console; no additional mitigation needed. |
+| 2 | Sidebar layout and navigation | Replace the pipe-delimited top nav (`admin-nav.hbs`) with a sidebar + main content layout using the Every Layout Sidebar composition primitive. The sidebar contains nav links (Dashboard, Channels, Subscribers, Settings) and a logout action at the bottom. Active page is visually indicated via `data-state="active"` exception attribute (CUBE CSS pattern). Layout adapts fluidly: on wide viewports, sidebar sits beside content; on narrow viewports, it reflows above content. No media query breakpoints — the Sidebar primitive's `min-inline-size` threshold governs the reflow. | Sidebar and main content area render on all authenticated pages. Nav links route correctly (`/admin`, `/admin/channels`, `/admin/subscribers`, `/admin/settings`). Active page link has visual distinction. Layout reflows from side-by-side to stacked without media queries. Logout link at bottom of sidebar triggers session destruction via `GET /admin/logout`. Keyboard navigation (Tab) moves through all nav links and logout in logical order. | Narrow viewports (< ~400px): sidebar reflows above content, both remain accessible. Very long page names or breadcrumbs in the main content area do not push the sidebar off screen. |
+| 3 | Admin console layout partial | Create a new `admin-layout.hbs` partial that wraps authenticated page content with the sidebar layout. Each authenticated template includes this partial instead of manually including `admin-head` and `admin-nav`. The partial accepts `activePage` for navigation highlighting and renders the sidebar + main content wrapper. Auth pages do NOT use this partial — they use `admin-auth-layout.hbs` instead. Uses Handlebars partial block pattern (`{{#> admin-layout}}{{#*inline "content"}}...{{/inline}}{{/admin-layout}}`) with `{{> @partial-block}}` in the layout. | All authenticated templates (`admin-dashboard.hbs`, `admin-channels.hbs`, `admin-channel-form.hbs`, `admin-subscribers.hbs`, `admin-settings.hbs`) use `admin-layout` partial. The partial includes `admin-head`, the sidebar nav, and wraps yielded content in the main content area. The `admin-nav.hbs` partial is no longer referenced directly by page templates — it is embedded within `admin-layout.hbs`. | Templates that pass unexpected `activePage` values: no nav item is highlighted (graceful degradation). |
+| 4 | Auth page layout partial | Create a new `admin-auth-layout.hbs` partial for unauthenticated pages. Provides a centered, single-column layout using the CUBE CSS design tokens, with consistent typography and spacing. Does NOT include the HTMX script tag. Used by `admin-login.hbs`, `admin-login-sent.hbs`, and `admin-auth-error.hbs`. | All three auth page templates use the `admin-auth-layout` partial. Pages render with centered content, consistent styling, and no sidebar. All auth pages respect dark mode. Auth pages include `admin-head` partial for design tokens and styles. | Extremely narrow viewports: content remains readable with appropriate padding. |
+| 5 | Dark mode | Define light and dark color schemes as design token sets in `assets/admin/styles.css`. Light is the default. Dark activates via `@media (prefers-color-scheme: dark)` which overrides the CSS custom properties. All pages (auth and console) respect the system preference. | Light scheme renders by default. Dark scheme activates when `prefers-color-scheme: dark` matches. All text, backgrounds, borders, form elements, feedback messages, tables, and navigation are legible in both modes. Colors update live when system preference changes (CSS media query behavior, no JS needed). | System preference toggled while page is open: colors update without reload. Form elements (inputs, selects, textareas, buttons) have appropriate dark mode styling. Success/error message colors remain distinguishable in both modes. |
+| 6 | HTMX integration | Add HTMX for in-page fragment updates. HTMX requests are detected server-side via the `HX-Request` header. Route handlers that currently redirect with query-param feedback must be updated to return HTML fragments when `HX-Request` is present, and continue returning redirects for standard requests. Specifically: (a) channel create — HTMX response uses `HX-Redirect` header to redirect to the new channel detail page; (b) channel update — HTMX response re-renders the form area with success/error; (c) subscriber filter — filter form uses `hx-get` to replace the table area; (d) dashboard send — HTMX response returns inline feedback message; (e) passkey rename/register — HTMX response updates the passkey list area. Feed add/remove row operations remain client-side JavaScript (no HTMX). | Channel save via HTMX updates the form area with success/error feedback without full page reload. Channel create success redirects to detail page via `HX-Redirect` header. Subscriber filter via HTMX replaces the subscriber table without reload. Dashboard "Check all feeds" button shows inline feedback without reload. Passkey rename and register update the passkey list without reload. Standard (non-HTMX) requests continue working identically to current behavior (redirects with query params). Browser back/forward works correctly (HTMX pushes URLs for subscriber filter changes via `hx-push-url`). | Network failure during HTMX request: `htmx:responseError` event triggers an error message in the target element. HTMX request to a route that returns a redirect (302): HTMX follows the redirect transparently. |
+| 7 | HTMX request detection helper | Add a helper function `isHtmxRequest(request)` in `src/admin/lib/htmx.js` that checks for the `HX-Request: true` header. Route handlers use this to branch between fragment and full-page responses. Also add `fragmentResponse(html)` for creating HTML fragment responses. | `isHtmxRequest(request)` returns `true` when the `HX-Request` header is present and truthy, `false` otherwise. Used in `dashboard.js`, `channels.js`, `subscribers.js`, `passkeys.js`, and `settings.js` route handlers. | Missing header returns false. Header with unexpected value (e.g., empty string) returns false. |
+| 8 | HTMX fragment templates | Create Handlebars templates for the HTML fragments returned during HTMX requests. These fragments contain only the content that replaces a target element — no `<!DOCTYPE>`, `<html>`, or `<head>` wrapper. Fragments needed: (a) channel form result (success/error feedback + re-rendered form for update), (b) subscriber table (filtered results), (c) send feedback (success/error message), (d) passkey list (updated passkey table after rename/register/delete), (e) session expired message, (f) delete confirmation prompt. | Each fragment template renders valid HTML that can be swapped into a target element. Fragments do not contain document-level elements. Fragments include appropriate CUBE CSS classes. All fragments are registered in `precompile-templates.mjs` and `templates.js`. | Fragment rendered with empty data (e.g., no subscribers): renders appropriate empty state message within the fragment. |
+| 9 | Standard navigation preserved | Sidebar nav links, channel list-to-detail links, channel creation redirect-to-detail, and channel deletion redirect-to-list continue to use standard full-page navigation. These links do NOT use HTMX attributes. Only the specific in-page operations identified in R6 use HTMX. | Clicking sidebar nav links loads full target page. Creating a channel redirects to detail page via standard navigation (or `HX-Redirect`). Deleting a channel redirects to channel list. All navigations appear in browser history. Back/forward buttons work correctly. | None specific — this requirement exists to explicitly scope the HTMX boundary. |
+| 10 | Inline destructive confirmations | Replace `confirm()` dialogs on delete channel and delete passkey with HTMX-powered inline confirmation patterns. Clicking delete triggers an HTMX request to a confirmation endpoint that returns a confirmation fragment. The fragment names the specific item, warns the action is irreversible, and provides Confirm and Cancel buttons. Confirm submits the actual delete via HTMX. Cancel restores the original button. Channel delete confirmation mentions impact on subscribers and feeds. Feed row removal remains client-side `confirm()` (not destructive until save). | Clicking a delete button replaces the button area with an inline confirmation prompt via HTMX. Prompt names the specific item. Prompt warns the action is irreversible. Channel delete prompt mentions subscriber/feed impact. Confirm executes the deletion. Cancel restores the original button state. | Rapid double-click on delete: HTMX's built-in request indicator prevents duplicate requests. Multiple delete buttons on same page (passkey list): each operates independently with its own target. Confirmation prompt is keyboard-accessible. |
+| 11 | Confirmation fragment endpoints | Add new route handlers in the Admin Worker for returning confirmation fragments. Routes: `GET /admin/channels/{id}/delete/confirm` returns the channel delete confirmation fragment, `GET /admin/passkeys/{id}/delete/confirm` returns the passkey delete confirmation fragment. These are HTMX-only endpoints (they return fragments, not full pages). | Each endpoint returns an HTML fragment containing the confirmation prompt for the specific item. Channel confirmation includes the channel ID/name and warns about subscriber/feed deletion. Endpoints require a valid session. | Request without `HX-Request` header: return 400 or redirect to the parent page. Item not found: return an error fragment. |
+| 12 | Session expiry during HTMX requests | Modify `requireSession` in `src/admin/lib/session.js` so that when an HTMX request has an expired/missing session, instead of returning a 302 redirect, it returns an HTML fragment containing a session-expired message with a login link and a `<meta http-equiv="refresh" content="5;url=/admin/login">` for automatic redirect after 5 seconds. | Expired session during HTMX request: returns 200 with a session-expired HTML fragment containing a link to `/admin/login` and a meta-refresh tag. Standard (non-HTMX) requests with expired session continue to return 302 redirect (existing behavior unchanged). | Multiple HTMX requests with expired session: each target area shows the expiry message independently. Full-page requests remain unaffected. |
+| 13 | Loading indicators | Use HTMX's built-in `htmx-indicator` CSS class mechanism to show a loading indicator during in-flight requests. CSS shows the indicator after a ~200ms delay (using `transition-delay`) to prevent flicker on fast responses. Respects `prefers-reduced-motion` by showing the indicator immediately without animation. | A loading indicator appears in the HTMX target element during requests. The indicator uses the `htmx-indicator` class. Fast responses (~200ms) do not flash the indicator. `prefers-reduced-motion: reduce` shows the indicator immediately (no delay/animation). | Multiple concurrent HTMX requests: each target area shows its own loading state. Request failure: loading indicator disappears and is replaced by error content. |
+| 14 | Console page styling | Apply CUBE CSS design system to all authenticated pages. Forms get consistent field styling (labels, inputs, textareas, selects, buttons, helper text, validation errors). Tables (subscribers, channels, passkeys) get consistent styling. Feedback messages (`.success`, `.error`, `.passkey-prompt`) get visually distinct treatment. Empty states are visually consistent. | All console pages use CSS custom properties from design tokens. Forms have consistent visual treatment. Tables are readable with appropriate spacing. Success messages are visually distinct from error messages. Validation errors are visually associated with their fields. | Empty states (no channels, no subscribers, no passkeys): display styled empty-state messages. Long content (many feeds, long channel names): text truncates or wraps without breaking layout. |
+| 15 | Auth page styling | Apply CUBE CSS design tokens to all unauthenticated pages via the `admin-auth-layout` partial. The login page's passkey button is visually prominent. The magic link form is clearly styled. Error and confirmation pages have clear messaging. | Login page uses consistent typography, spacing, and color scheme. Passkey button is visually prominent (primary action styling). All auth pages respect dark mode. All auth pages use fluid responsive sizing. | Auth pages at extremely narrow viewports remain usable. Login page without passkeys: magic link form is the primary visual element. |
+| 16 | Remove dead `admin-nav` direct usage | After R3 embeds navigation within the `admin-layout.hbs` partial, all direct `{{> admin-nav}}` calls in page templates are removed. The `admin-nav` partial itself is retained (included by `admin-layout.hbs`). | No page template contains `{{> admin-nav}}` — navigation is rendered exclusively through `admin-layout.hbs`. | None. |
+| 17 | Remove inline confirm dialogs | Remove the `onsubmit="return confirm(...)"` attributes from the channel delete form in `admin-channel-form.hbs` and the passkey delete forms in `admin-settings.hbs`. The `confirm('Remove this feed?')` in the feed row removal JavaScript remains. | No `onsubmit="return confirm(..."` attributes remain in channel delete or passkey delete forms. The `confirm()` call in the `removeFeedRow()` JavaScript function is unchanged. | None. |
+| 18 | HTMX script delivery | Include the HTMX library as a static file at `assets/admin/htmx.min.js`, served by Cloudflare Workers static assets. The `admin-layout.hbs` partial references it via a `<script src="/admin/htmx.min.js">` tag. Auth pages do NOT load HTMX. HTMX version is pinned — the file is committed to the repository with a comment at the top noting the exact version and source URL. | HTMX is available on all authenticated pages via the `admin-layout` partial. Auth pages do not load HTMX. The file `assets/admin/htmx.min.js` is the official minified distribution, committed to the repository. | If the static asset fails to load: forms still work via standard POST (progressive enhancement). HTMX attributes on elements are inert when the library is not loaded. |
+| 19 | Static assets configuration | Add `[assets]` configuration to `wrangler.admin.toml` pointing to the `./assets` directory so that Cloudflare Workers serves static files from that directory. The `assets/admin/` subdirectory holds CSS and JS files for the admin console. The route pattern `YOUR_DOMAIN/admin*` catches paths like `/admin/styles.css` and `/admin/htmx.min.js` — the static assets binding intercepts matching paths before the Worker's `fetch()` handler. The same `[assets]` block must also be added to `wrangler.admin.prod.toml` (deployer-specific, gitignored). | `wrangler.admin.toml` contains `[assets]` with `directory = "./assets"`. Requesting `GET /admin/styles.css` returns the CSS file. Requesting `GET /admin/htmx.min.js` returns the JS file. The Worker's `fetch()` handler is NOT invoked for these paths. `build:check:admin` dry-run succeeds with the assets configuration. | The `assets/` directory must exist at deploy time or wrangler will error. Unmatched paths fall through to the Worker's `fetch()` handler, which returns 404 for unknown routes. |
+
+### Implementation Notes
+
+#### R1 (CUBE CSS architecture)
+
+**Files to change:**
+- `src/templates/partials/admin-head.hbs` — Remove the entire `<style>` block. Replace with a `<link rel="stylesheet" href="/admin/styles.css">` tag.
+
+**New files:**
+- `assets/admin/styles.css` — The complete CUBE CSS system with clearly commented sections: tokens (`:root` custom properties), `@media (prefers-color-scheme: dark)` overrides, reset/base, compositions, utilities, blocks, exceptions.
+
+**Design tokens:**
+- Colors: `--color-bg`, `--color-text`, `--color-text-muted`, `--color-border`, `--color-link`, `--color-link-hover`, `--color-success-bg`, `--color-success-text`, `--color-error-bg`, `--color-error-text`, `--color-surface`, `--color-surface-raised`, `--color-nav-bg`, `--color-nav-active`
+- Spacing: `--space-3xs` through `--space-3xl` using Utopia fluid `clamp()` values
+- Typography: `--step--1` through `--step-4` using Utopia fluid `clamp()` values
+- Measure: `--measure` for max line length (e.g., `65ch`)
+
+**CSS patterns:**
+- Compositions: `.sidebar-layout`, `.stack`, `.cluster`, `.center`, `.cover`
+- Utilities: `.text-muted`, `.flow`, `.visually-hidden`
+- Blocks: `.nav-sidebar`, `.card`, `.table`, `.form-field`, `.feedback`
+- Exceptions: `[data-state="active"]`, `[data-variant="error"]`, `[data-variant="success"]`
+
+#### R2 (Sidebar layout and navigation)
+
+**Files to change:**
+- `src/templates/partials/admin-nav.hbs` — Rewrite from pipe-delimited links to a vertical `<nav>` list with `<ul>/<li>/<a>` structure. Add `data-state="active"` to the active link. Logout link at bottom, separated visually.
+
+**Every Layout Sidebar pattern:**
+```css
+.sidebar-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-l);
+}
+.sidebar-layout > :first-child {
+  flex-basis: 15rem;
+  flex-grow: 1;
+}
+.sidebar-layout > :last-child {
+  flex-basis: 0;
+  flex-grow: 999;
+  min-inline-size: 50%;
+}
+```
+
+#### R3, R4 (Layout partials)
+
+**New files:**
+- `src/templates/partials/admin-layout.hbs` — Full page wrapper with sidebar layout. Uses `{{> @partial-block}}` for content injection.
+- `src/templates/partials/admin-auth-layout.hbs` — Centered single-column layout for auth pages. Does NOT include HTMX script.
+
+**Files to change:**
+- All authenticated templates — Remove `<!DOCTYPE>`, `<html>`, `<head>`, `{{> admin-head}}`, `{{> admin-nav}}`, `<body>` wrapping. Use `{{#> admin-layout activePage="..."}}{{#*inline "content"}}...{{/inline}}{{/admin-layout}}`.
+- All auth templates — Remove boilerplate, use `admin-auth-layout` partial.
+- `src/shared/lib/templates.js` — Register new partials `admin-layout` and `admin-auth-layout`.
+
+#### R6, R7, R8 (HTMX integration)
+
+**New files:**
+- `src/admin/lib/htmx.js` — `isHtmxRequest(request)` and `fragmentResponse(html)` helpers.
+- Fragment templates: `admin-channel-form-result.hbs`, `admin-subscriber-table.hbs`, `admin-send-feedback.hbs`, `admin-passkey-list.hbs`, `admin-session-expired.hbs`, `admin-delete-confirm.hbs`.
+
+**Files to change:**
+- `src/admin/routes/dashboard.js` — For HTMX requests, return feedback fragment instead of redirect.
+- `src/admin/routes/channels.js` — For HTMX update, return form result fragment. For HTMX create, return `HX-Redirect`.
+- `src/admin/routes/subscribers.js` — For HTMX requests, return subscriber table fragment.
+- `src/admin/routes/passkeys.js` — For HTMX requests, return passkey list fragment.
+- `src/admin/lib/session.js` — Detect HTMX requests; return session-expired fragment instead of 302.
+- `src/shared/lib/templates.js` — Register all new fragment templates.
+
+**HTMX attributes in templates:**
+- Dashboard: `hx-post="/admin/send"`, `hx-target="#send-feedback"`, `hx-swap="innerHTML"`
+- Channel form (edit mode): `hx-post`, `hx-target="#form-result"`, `hx-swap="innerHTML"`
+- Subscribers: `hx-get="/admin/subscribers"`, `hx-target="#subscriber-table"`, `hx-push-url="true"`
+- Settings: Passkey rename forms get `hx-post`, `hx-target="#passkey-list"`
+
+#### R10, R11 (Inline confirmations)
+
+**New routes:**
+- `GET /admin/channels/{id}/delete/confirm` — Channel delete confirmation fragment
+- `GET /admin/passkeys/{id}/delete/confirm` — Passkey delete confirmation fragment
+
+**New handler functions:**
+- `handleChannelDeleteConfirm(request, env, channelId)` in `channels.js`
+- `handlePasskeyDeleteConfirm(request, env, credentialId)` in `passkeys.js`
+
+**Files to change:**
+- `src/admin/worker.js` — Add route patterns for `/delete/confirm` endpoints.
+- Templates — Delete buttons get HTMX attributes targeting confirmation endpoints.
+
+#### R18 (HTMX script delivery)
+
+**New files:**
+- `assets/admin/htmx.min.js` — Official minified HTMX 2.x distribution with version comment.
+
+**Files to change:**
+- `src/templates/partials/admin-layout.hbs` — Include `<script src="/admin/htmx.min.js"></script>`.
+
+#### R19 (Static assets configuration)
+
+**Files to change:**
+- `wrangler.admin.toml` — Add `[assets]` block with `directory = "./assets"`.
+
+**New directories:**
+- `assets/admin/` — Contains `styles.css` and `htmx.min.js`.
+
+### HTMX target IDs
+
+- `#form-result` — Channel form target area
+- `#send-feedback` — Dashboard send button feedback area
+- `#subscriber-table` — Subscriber table area
+- `#passkey-list` — Passkey list area
+- `#channel-actions` — Channel actions area (delete button target)
+
+### Ordering constraints
+
+1. R19 (static assets config) must be completed first so assets can be served during development.
+2. R1 (CSS file) depends on R19.
+3. R3 (admin-layout) and R4 (auth-layout) depend on R1 and R2.
+4. R16 (remove admin-nav direct usage) is done as part of R3.
+5. R7 (HTMX request helper) must precede R6, R8, R11, R12.
+6. R18 (HTMX script) must precede R6.
+7. R8 (fragment templates) must precede R6.
+8. R11 (confirmation endpoints) must precede R10.
+9. R17 (remove confirm dialogs) is done as part of R10.
+10. R14 and R15 (page styling) can proceed once R1, R3, R4 are complete.
+
+### Out of scope
+
+- New functional behaviour — presentation and interaction patterns only
+- Manual dark mode toggle — system preference only
+- Admin console theming or branding customization
+- Offline support or service worker caching
+- Keyboard shortcuts — standard browser/form behaviour only
+- Real-time updates (WebSocket/SSE)
+- Session lifetime policy changes
+- Separating feed management from channel form
+- CSS build tooling or minification pipeline — CSS is committed as-is
+- JavaScript bundling — HTMX is committed as-is, existing inline scripts remain inline
+- Database schema changes — no migrations needed
+- API Worker changes — all changes confined to Admin Worker, templates, and shared modules
+
+### Out-of-spec changes
+
+| # | Change | Description |
+|---|--------|-------------|
+| 1 | Extract `admin-channel-form-body` partial | DRY fix: shared form body partial extracted from `admin-channel-form.hbs` and `admin-channel-form-result.hbs` to eliminate ~100 lines of duplication |
+| 2 | Register `admin-subscriber-table` as partial | DRY fix: subscriber table fragment registered as a Handlebars partial so `admin-subscribers.hbs` can use `{{> admin-subscriber-table}}` instead of duplicating markup |
+| 3 | Extract `renderChannelFormFragment()` helper | DRY fix: consolidated duplicate fragment-rendering logic in `channels.js` into a shared helper function |
+| 4 | Use `fragmentResponse()` in session expiry | Consistency fix: replaced manual `new Response()` construction with the project's `fragmentResponse()` helper |
+| 5 | Remove duplicate JSDoc in `response.js` | Incidental fix: orphaned JSDoc block for `htmlResponse` was sitting above `rateLimitResponse` |
