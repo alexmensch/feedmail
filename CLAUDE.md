@@ -162,8 +162,8 @@ To test the full email flow locally:
 - **Structured feeds:** Each feed is an object with `name`, `url`, and integer `id` (auto-increment PK for stable REST URLs).
 - **No info leakage:** Subscribe endpoint always returns the same success response regardless of whether email is new, already subscribed, rate-limited, or unsubscribed. Verify endpoint shows the same error for invalid and expired tokens.
 - **Verification rate limiting:** `verification_attempts` table tracks emails sent per subscriber. Rolling window (default 24h) with max attempts (default 3). Configurable at runtime via admin config API.
-- **IP-based rate limiting:** `rate_limits` table tracks requests per IP per endpoint using a rolling window. Default limits per endpoint (subscribe: 10/hr, verify: 20/hr, unsubscribe: 20/hr, send: 5/hr, admin: 30/hr) stored as `RATE_LIMIT_DEFAULTS` in `config.js`, overridable via `rate_limit_config` DB table and admin config API. Rate limiting runs before authentication to protect against brute-force API key guessing. `Retry-After` header uses oldest-request-expiry strategy with 0–30s random jitter to prevent thundering herd retries. Expired rows for the specific IP+endpoint are cleaned up on every check; rows older than 7 days (from IPs that stopped visiting) are pruned probabilistically — 1% chance per check — via a fire-and-forget global DELETE, distributing cleanup load across normal traffic without blocking request handling. **Internal admin requests** (via the Service Binding) are identified by an `X-Internal-Request: true` header set by `callApi()`. For `/api/admin/*` routes, rate limiting is deferred until after auth: authenticated internal requests skip rate limiting entirely; failed-auth internal requests are rate-limited retroactively. Non-admin routes ignore the header. The shared `rateLimitResponse()` helper in `response.js` constructs 429 responses for both workers.
-- **Strict HTTP method enforcement:** `ROUTE_METHODS` in `index.js` explicitly lists every route and its allowed methods. Known routes with wrong methods receive a deliberate 10-second delay then 408 timeout (discourages bot probing). Unknown paths get an immediate 404 with no body.
+- **IP-based rate limiting:** `rate_limits` table tracks requests per IP per endpoint using a rolling window. Default limits per endpoint (subscribe: 10/hr, verify: 20/hr, unsubscribe: 20/hr, send: 5/hr, admin: 30/hr, admin_login: 10/hr, admin_verify: 10/hr) stored as `RATE_LIMIT_DEFAULTS` in `config.js`, overridable via `rate_limit_config` DB table and admin config API. Rate limiting runs before authentication to protect against brute-force API key guessing. `Retry-After` header uses oldest-request-expiry strategy with 0–30s random jitter to prevent thundering herd retries. Expired rows for the specific IP+endpoint are cleaned up on every check; rows older than 7 days (from IPs that stopped visiting) are pruned probabilistically — 1% chance per check — via a fire-and-forget global DELETE, distributing cleanup load across normal traffic without blocking request handling. **Internal admin requests** (via the Service Binding) are identified by an `X-Internal-Request: true` header set by `callApi()`. For `/api/admin/*` routes, rate limiting is deferred until after auth: authenticated internal requests skip rate limiting entirely; failed-auth internal requests are rate-limited retroactively. Non-admin routes ignore the header. The shared `rateLimitResponse()` helper in `response.js` constructs 429 responses for both workers.
+- **Strict HTTP method enforcement:** `ROUTE_METHODS` in `worker.js` explicitly lists every route and its allowed methods. Known routes with wrong methods receive a deliberate 10-second delay then 408 timeout (discourages bot probing). Unknown paths get an immediate 404 with no body.
 - **Strict input validation:** Subscribe endpoint rejects requests with any fields beyond `email` and `channelId` (same error as malformed JSON — no info leak). This enables invisible honeypot fields in the subscribe form.
 - **Feed bootstrapping:** First time a feed URL is seen, all existing items are inserted into `sent_items` with `recipient_count = 0` — prevents blasting historical content on first deployment.
 - **Per-subscriber sends:** Each subscriber gets an individual email with personalized `List-Unsubscribe` headers. Template uses `%%UNSUBSCRIBE_URL%%` placeholder replaced per-subscriber before sending. The `subscriber_sends` table tracks delivery per-subscriber so partial sends (from quota exhaustion) can resume on the next cron run without duplicates.
@@ -198,7 +198,7 @@ To test the full email flow locally:
 **Passkey tables (migration 0007):**
 
 - `passkey_credentials` — credential_id (PK, base64url TEXT), public_key (base64url TEXT), counter (INTEGER), transports (JSON TEXT), name (TEXT, nullable), created_at.
-- `webauthn_challenges` — session_token + type (composite PK), challenge (TEXT), expires_at. Temporary challenge storage for WebAuthn ceremonies.
+- `webauthn_challenges` — id (auto-increment PK), session_token, type, challenge (TEXT), expires_at. Temporary challenge storage for WebAuthn ceremonies.
 
 ### API Routes
 
@@ -233,7 +233,7 @@ To test the full email flow locally:
 - `GET /admin/channels/{id}` — Channel detail/edit form with feed list (requires session)
 - `POST /admin/channels/{id}` — Update a channel (requires session)
 - `POST /admin/channels/{id}/delete` — Delete a channel (requires session)
-- `POST /admin/channels/{id}/delete/confirm` — HTMX fragment: delete confirmation dialog for a channel (requires session)
+- `GET /admin/channels/{id}/delete/confirm` — HTMX fragment: delete confirmation dialog for a channel (requires session)
 - `GET /admin/subscribers` — Subscriber list with channel/status filtering (requires session)
 - `GET /admin/settings` — Settings page with passkey management (requires session)
 - `GET /admin/passkeys` — Redirects to /admin/settings (requires session)
@@ -243,7 +243,7 @@ To test the full email flow locally:
 - `POST /admin/passkeys/authenticate/verify` — Verify authentication and create session (public, rate-limited)
 - `POST /admin/passkeys/{id}/rename` — Rename a passkey credential (requires session)
 - `POST /admin/passkeys/{id}/delete` — Delete a passkey credential (requires session)
-- `POST /admin/passkeys/{id}/delete/confirm` — HTMX fragment: delete confirmation dialog for a passkey (requires session)
+- `GET /admin/passkeys/{id}/delete/confirm` — HTMX fragment: delete confirmation dialog for a passkey (requires session)
 
 ### Security Layers
 
