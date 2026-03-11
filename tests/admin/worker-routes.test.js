@@ -14,7 +14,8 @@ vi.mock("../../src/admin/routes/passkeys.js", () => ({
   handleAuthenticateVerify: vi.fn(),
   handlePasskeyManagement: vi.fn(),
   handlePasskeyRename: vi.fn(),
-  handlePasskeyDelete: vi.fn()
+  handlePasskeyDelete: vi.fn(),
+  handlePasskeyDeleteConfirm: vi.fn()
 }));
 vi.mock("../../src/admin/routes/dashboard.js", () => ({
   handleDashboard: vi.fn(),
@@ -26,7 +27,8 @@ vi.mock("../../src/admin/routes/channels.js", () => ({
   handleChannelCreate: vi.fn(),
   handleChannelDetail: vi.fn(),
   handleChannelUpdate: vi.fn(),
-  handleChannelDelete: vi.fn()
+  handleChannelDelete: vi.fn(),
+  handleChannelDeleteConfirm: vi.fn()
 }));
 vi.mock("../../src/admin/routes/subscribers.js", () => ({
   handleSubscriberList: vi.fn()
@@ -107,8 +109,10 @@ import {
   handleChannelCreate,
   handleChannelDetail,
   handleChannelUpdate,
-  handleChannelDelete
+  handleChannelDelete,
+  handleChannelDeleteConfirm
 } from "../../src/admin/routes/channels.js";
+import { handlePasskeyDeleteConfirm } from "../../src/admin/routes/passkeys.js";
 import { handleSubscriberList } from "../../src/admin/routes/subscribers.js";
 import { handleSettings } from "../../src/admin/routes/settings.js";
 
@@ -182,6 +186,8 @@ describe("admin worker — new route dispatching", () => {
     );
     handleSubscriberList.mockResolvedValue(okResponse);
     handleSettings.mockResolvedValue(okResponse);
+    handleChannelDeleteConfirm.mockResolvedValue(okResponse);
+    handlePasskeyDeleteConfirm.mockResolvedValue(okResponse);
   });
 
   describe("dashboard routes", () => {
@@ -408,6 +414,55 @@ describe("admin worker — new route dispatching", () => {
       expect(requireSession).toHaveBeenCalled();
       expect(response.status).toBe(302);
       expect(handleChannelDelete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("channel delete confirmation routes", () => {
+    it("routes GET /admin/channels/{id}/delete/confirm to handleChannelDeleteConfirm", async () => {
+      const request = makeRequest("GET", "/admin/channels/test-ch/delete/confirm");
+      await adminApp.fetch(request, env);
+
+      expect(handleChannelDeleteConfirm).toHaveBeenCalledWith(
+        request,
+        env,
+        "test-ch"
+      );
+    });
+
+    it("returns 405 for POST /admin/channels/{id}/delete/confirm", async () => {
+      const request = makeRequest(
+        "POST",
+        "/admin/channels/test-ch/delete/confirm"
+      );
+      const response = await adminApp.fetch(request, env);
+
+      expect(response.status).toBe(405);
+    });
+  });
+
+  describe("passkey delete confirmation routes", () => {
+    it("routes GET /admin/passkeys/{id}/delete/confirm to handlePasskeyDeleteConfirm", async () => {
+      const request = makeRequest(
+        "GET",
+        "/admin/passkeys/cred-1/delete/confirm"
+      );
+      await adminApp.fetch(request, env);
+
+      expect(handlePasskeyDeleteConfirm).toHaveBeenCalledWith(
+        request,
+        env,
+        "cred-1"
+      );
+    });
+
+    it("returns 405 for POST /admin/passkeys/{id}/delete/confirm", async () => {
+      const request = makeRequest(
+        "POST",
+        "/admin/passkeys/cred-1/delete/confirm"
+      );
+      const response = await adminApp.fetch(request, env);
+
+      expect(response.status).toBe(405);
     });
   });
 

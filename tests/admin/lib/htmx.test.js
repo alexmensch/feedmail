@@ -36,13 +36,13 @@ describe("isHtmxRequest", () => {
     expect(isHtmxRequest(request)).toBe(false);
   });
 
-  it("is case-insensitive for header value", () => {
+  it("returns false for non-lowercase 'true' value", () => {
     const request = new Request("https://example.com/admin", {
       headers: { "HX-Request": "True" }
     });
 
-    // HX-Request: true is the standard value; True should also work
-    expect(isHtmxRequest(request)).toBe(true);
+    // HTMX always sends lowercase "true"; only accept the exact value
+    expect(isHtmxRequest(request)).toBe(false);
   });
 });
 

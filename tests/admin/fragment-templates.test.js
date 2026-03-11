@@ -20,8 +20,7 @@ describe("fragment templates do not contain document-level elements", () => {
     "admin-channel-form-result.hbs",
     "admin-subscriber-table.hbs",
     "admin-passkey-list.hbs",
-    "admin-channel-delete-confirm.hbs",
-    "admin-passkey-delete-confirm.hbs",
+    "admin-delete-confirm.hbs",
     "admin-session-expired.hbs"
   ];
 

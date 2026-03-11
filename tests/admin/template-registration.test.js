@@ -32,8 +32,7 @@ describe("template registration in templates.js", () => {
     "adminChannelFormResult",
     "adminSubscriberTable",
     "adminPasskeyList",
-    "adminChannelDeleteConfirm",
-    "adminPasskeyDeleteConfirm",
+    "adminDeleteConfirm",
     "adminSessionExpired"
   ];
 
@@ -45,7 +44,7 @@ describe("template registration in templates.js", () => {
   }
 
   // New partials expected for the styled console
-  const expectedPartials = ["admin-sidebar"];
+  const expectedPartials = ["admin-layout", "admin-auth-layout"];
 
   for (const partialName of expectedPartials) {
     it(`registers the '${partialName}' partial`, () => {

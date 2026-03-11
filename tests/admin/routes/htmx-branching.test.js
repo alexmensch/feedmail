@@ -136,6 +136,9 @@ describe("HTMX branching — dashboard send trigger", () => {
 describe("HTMX branching — channel update", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  function mockChannelUpdateSuccess() {
     callApi
       .mockResolvedValueOnce({
         ok: true,
@@ -147,10 +150,11 @@ describe("HTMX branching — channel update", () => {
         status: 200,
         data: { feeds: [] }
       });
-  });
+  }
 
   it("returns a redirect for standard requests on success", async () => {
     isHtmxRequest.mockReturnValue(false);
+    mockChannelUpdateSuccess();
 
     const request = new Request(
       "https://feedmail.example.com/admin/channels/blog",
@@ -169,6 +173,26 @@ describe("HTMX branching — channel update", () => {
 
   it("returns an HTML fragment (not a redirect) for HTMX requests on success", async () => {
     isHtmxRequest.mockReturnValue(true);
+    mockChannelUpdateSuccess();
+    // Re-fetch after successful update
+    callApi.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      data: {
+        id: "blog",
+        siteName: "Blog",
+        siteUrl: "https://blog.example.com",
+        fromUser: "blog",
+        fromName: "Blog",
+        feeds: [
+          {
+            id: 1,
+            name: "Main",
+            url: "https://blog.example.com/feed.xml"
+          }
+        ]
+      }
+    });
 
     const request = new Request(
       "https://feedmail.example.com/admin/channels/blog",
@@ -184,7 +208,97 @@ describe("HTMX branching — channel update", () => {
 
     const response = await handleChannelUpdate(request, env, "blog");
 
-    // HTMX request should get a fragment response, not a redirect
+    expect(response.status).not.toBe(302);
+    expect(render).toHaveBeenCalledWith(
+      "adminChannelFormResult",
+      expect.objectContaining({ success: expect.any(String) })
+    );
+  });
+
+  it("returns an HTML fragment with error for HTMX requests when channel update fails", async () => {
+    isHtmxRequest.mockReturnValue(true);
+    // Channel PUT fails
+    callApi
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        data: { error: "Invalid channel data" }
+      });
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/channels/blog",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "HX-Request": "true"
+        },
+        body: "siteName=Blog&siteUrl=https://blog.example.com&fromUser=blog&fromName=Blog&feeds[0][name]=Main&feeds[0][url]=https://blog.example.com/feed.xml&feeds[0][id]=1"
+      }
+    );
+
+    const response = await handleChannelUpdate(request, env, "blog");
+
+    expect(response.status).not.toBe(302);
+  });
+
+  it("returns an HTML fragment with error for HTMX requests when feed operations partially fail", async () => {
+    isHtmxRequest.mockReturnValue(true);
+    // Channel PUT succeeds
+    callApi
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        data: { id: "blog" }
+      })
+      // Feed list returns existing feeds for diff
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        data: {
+          feeds: [{ id: 1, name: "Main", url: "https://blog.example.com/old-feed.xml" }]
+        }
+      })
+      // Feed update fails
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        data: { error: "Feed URL invalid" }
+      })
+      // Re-fetch channel for re-render
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        data: {
+          id: "blog",
+          siteName: "Blog",
+          siteUrl: "https://blog.example.com",
+          fromUser: "blog",
+          fromName: "Blog",
+          feeds: [
+            {
+              id: 1,
+              name: "Main",
+              url: "https://blog.example.com/old-feed.xml"
+            }
+          ]
+        }
+      });
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/channels/blog",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "HX-Request": "true"
+        },
+        body: "siteName=Blog&siteUrl=https://blog.example.com&fromUser=blog&fromName=Blog&feeds[0][name]=Main&feeds[0][url]=https://blog.example.com/new-feed.xml&feeds[0][id]=1"
+      }
+    );
+
+    const response = await handleChannelUpdate(request, env, "blog");
+
     expect(response.status).not.toBe(302);
   });
 });
@@ -290,6 +404,27 @@ describe("HTMX branching — subscriber list filtering", () => {
     );
   });
 
+  it("returns a subscriber table fragment with error for HTMX requests when API fails", async () => {
+    isHtmxRequest.mockReturnValue(true);
+    callApi.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      data: { error: "API error" }
+    });
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/subscribers",
+      {
+        headers: { "HX-Request": "true" }
+      }
+    );
+    const response = await handleSubscriberList(request, env);
+
+    expect(response.status).toBe(200);
+    const body = await response.text();
+    expect(body).not.toContain("<!DOCTYPE");
+  });
+
   it("returns a subscriber table fragment for HTMX requests", async () => {
     isHtmxRequest.mockReturnValue(true);
     callApi
@@ -377,7 +512,75 @@ describe("HTMX branching — passkey rename", () => {
 
     const response = await handlePasskeyRename(request, env, "cred-1");
 
-    // HTMX requests should return a fragment, not a redirect
+    expect(response.status).not.toBe(302);
+  });
+
+  it("returns a fragment with error for HTMX requests when passkey not found", async () => {
+    isHtmxRequest.mockReturnValue(true);
+    getPasskeyCredentialById.mockResolvedValue(null);
+    getPasskeyCredentials.mockResolvedValue([]);
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/passkeys/cred-1/rename",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "HX-Request": "true"
+        },
+        body: "name=New+Name"
+      }
+    );
+
+    const response = await handlePasskeyRename(request, env, "cred-1");
+
+    expect(response.status).not.toBe(302);
+  });
+
+  it("returns a fragment with error for HTMX requests when name is empty", async () => {
+    isHtmxRequest.mockReturnValue(true);
+    getPasskeyCredentials.mockResolvedValue([
+      { credential_id: "cred-1", name: "Old Name", created_at: "2025-01-01" }
+    ]);
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/passkeys/cred-1/rename",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "HX-Request": "true"
+        },
+        body: "name="
+      }
+    );
+
+    const response = await handlePasskeyRename(request, env, "cred-1");
+
+    expect(response.status).not.toBe(302);
+  });
+
+  it("returns a fragment with error for HTMX requests when name exceeds 100 chars", async () => {
+    isHtmxRequest.mockReturnValue(true);
+    getPasskeyCredentials.mockResolvedValue([
+      { credential_id: "cred-1", name: "Old Name", created_at: "2025-01-01" }
+    ]);
+
+    const longName = "a".repeat(101);
+    const request = new Request(
+      "https://feedmail.example.com/admin/passkeys/cred-1/rename",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "HX-Request": "true"
+        },
+        body: `name=${longName}`
+      }
+    );
+
+    const response = await handlePasskeyRename(request, env, "cred-1");
+
     expect(response.status).not.toBe(302);
   });
 });

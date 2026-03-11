@@ -69,11 +69,13 @@ describe("channel delete confirmation fragment", () => {
     const response = await handleChannelDeleteConfirm(request, env, "blog");
 
     expect(response.status).toBe(200);
-    // The rendered template should include channel identification info
+    // The shared delete confirm template receives message, confirmAction, cancelHtml
     expect(render).toHaveBeenCalledWith(
-      expect.any(String),
+      "adminDeleteConfirm",
       expect.objectContaining({
-        channelId: "blog"
+        message: expect.stringContaining("blog"),
+        confirmAction: expect.stringContaining("/admin/channels/blog/delete"),
+        cancelHtml: expect.any(String)
       })
     );
   });
@@ -116,19 +118,16 @@ describe("channel delete confirmation fragment", () => {
     );
 
     expect(response.status).toBe(200);
-    // Should render an error state in the fragment
+    // Not-found case still renders the shared delete confirm template with a message
     expect(render).toHaveBeenCalledWith(
-      expect.any(String),
+      "adminDeleteConfirm",
       expect.objectContaining({
-        error: expect.any(String)
+        message: expect.stringContaining("not found")
       })
     );
   });
 });
 
-// Passkey delete confirmation fragment is expected to be a new handler.
-// It may live in passkeys.js or channels.js depending on implementation.
-// We import from passkeys.js for the passkey-specific one.
 import {
   handlePasskeyDeleteConfirm
 } from "../../../src/admin/routes/passkeys.js";
@@ -146,7 +145,8 @@ describe("passkey delete confirmation fragment", () => {
     });
 
     const request = new Request(
-      "https://feedmail.example.com/admin/passkeys/cred-abc123/delete/confirm"
+      "https://feedmail.example.com/admin/passkeys/cred-abc123/delete/confirm",
+      { headers: { "HX-Request": "true" } }
     );
     const response = await handlePasskeyDeleteConfirm(
       request,
@@ -156,9 +156,12 @@ describe("passkey delete confirmation fragment", () => {
 
     expect(response.status).toBe(200);
     expect(render).toHaveBeenCalledWith(
-      expect.any(String),
+      "adminDeleteConfirm",
       expect.objectContaining({
-        credentialId: "cred-abc123"
+        message: expect.stringContaining("MacBook Pro"),
+        confirmAction: expect.stringContaining(
+          "/admin/passkeys/cred-abc123/delete"
+        )
       })
     );
   });
@@ -167,7 +170,8 @@ describe("passkey delete confirmation fragment", () => {
     getPasskeyCredentialById.mockResolvedValue(null);
 
     const request = new Request(
-      "https://feedmail.example.com/admin/passkeys/nonexistent/delete/confirm"
+      "https://feedmail.example.com/admin/passkeys/nonexistent/delete/confirm",
+      { headers: { "HX-Request": "true" } }
     );
     const response = await handlePasskeyDeleteConfirm(
       request,
@@ -177,9 +181,9 @@ describe("passkey delete confirmation fragment", () => {
 
     expect(response.status).toBe(200);
     expect(render).toHaveBeenCalledWith(
-      expect.any(String),
+      "adminDeleteConfirm",
       expect.objectContaining({
-        error: expect.any(String)
+        message: expect.stringContaining("not found")
       })
     );
   });
