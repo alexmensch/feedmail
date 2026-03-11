@@ -11,6 +11,7 @@ import {
 import { isoBase64URL } from "@simplewebauthn/server/helpers";
 
 import { jsonResponse } from "../../shared/lib/response.js";
+import { render } from "../../shared/lib/templates.js";
 import { getCredential } from "../../shared/lib/db.js";
 import {
   createPasskeyCredential,
@@ -31,6 +32,7 @@ import {
   createSessionCookie,
   SESSION_TTL_SECONDS
 } from "../lib/session.js";
+import { isHtmxRequest, fragmentResponse } from "../lib/htmx.js";
 
 /** Fixed WebAuthn user ID for the single admin user (as Uint8Array). */
 const WEBAUTHN_USER_ID = new TextEncoder().encode(
@@ -52,6 +54,22 @@ const CHALLENGE_COOKIE_NAME = "feedmail_webauthn_challenge";
  */
 function passkeyManagementUrl(domain, param, value) {
   return `https://${domain}/admin/settings?${param}=${encodeURIComponent(value)}`;
+}
+
+/**
+ * Render the passkey list fragment with current credentials.
+ * @param {object} db - D1 database binding
+ * @param {object} [feedbackData] - Optional {success, error} for feedback messages
+ * @returns {Promise<Response>}
+ */
+async function renderPasskeyListFragment(db, feedbackData = {}) {
+  const credentials = await getPasskeyCredentials(db);
+  return fragmentResponse(
+    render("adminPasskeyList", {
+      credentials,
+      ...feedbackData
+    })
+  );
 }
 
 /**
@@ -375,11 +393,19 @@ export async function handleAuthenticateVerify(request, env) {
 /**
  * POST /admin/passkeys/{credentialId}/rename
  * Rename a passkey credential. Requires authenticated session.
+ * For HTMX requests, returns the passkey list fragment.
  */
 export async function handlePasskeyRename(request, env, credentialId) {
+  const htmx = isHtmxRequest(request);
+
   // Check credential exists
   const credential = await getPasskeyCredentialById(env.DB, credentialId);
   if (!credential) {
+    if (htmx) {
+      return renderPasskeyListFragment(env.DB, {
+        error: "Passkey not found"
+      });
+    }
     return Response.redirect(
       passkeyManagementUrl(env.DOMAIN, "error", "Passkey not found"),
       302
@@ -391,6 +417,11 @@ export async function handlePasskeyRename(request, env, credentialId) {
     const formData = await request.formData();
     name = formData.get("name") || "";
   } catch {
+    if (htmx) {
+      return renderPasskeyListFragment(env.DB, {
+        error: "Invalid form data"
+      });
+    }
     return Response.redirect(
       passkeyManagementUrl(env.DOMAIN, "error", "Invalid form data"),
       302
@@ -400,6 +431,11 @@ export async function handlePasskeyRename(request, env, credentialId) {
   name = name.trim();
 
   if (!name) {
+    if (htmx) {
+      return renderPasskeyListFragment(env.DB, {
+        error: "Name cannot be empty"
+      });
+    }
     return Response.redirect(
       passkeyManagementUrl(env.DOMAIN, "error", "Name cannot be empty"),
       302
@@ -407,6 +443,11 @@ export async function handlePasskeyRename(request, env, credentialId) {
   }
 
   if (name.length > 100) {
+    if (htmx) {
+      return renderPasskeyListFragment(env.DB, {
+        error: "Name must be 100 characters or fewer"
+      });
+    }
     return Response.redirect(
       passkeyManagementUrl(
         env.DOMAIN,
@@ -419,6 +460,10 @@ export async function handlePasskeyRename(request, env, credentialId) {
 
   await updatePasskeyCredentialName(env.DB, credentialId, name);
 
+  if (htmx) {
+    return renderPasskeyListFragment(env.DB, { success: "Passkey renamed" });
+  }
+
   return Response.redirect(
     passkeyManagementUrl(env.DOMAIN, "success", "Passkey renamed"),
     302
@@ -428,12 +473,58 @@ export async function handlePasskeyRename(request, env, credentialId) {
 /**
  * POST /admin/passkeys/{credentialId}/delete
  * Delete a passkey credential. Idempotent. Requires authenticated session.
+ * For HTMX requests, returns the passkey list fragment.
  */
 export async function handlePasskeyDelete(request, env, credentialId) {
+  const htmx = isHtmxRequest(request);
+
   await deletePasskeyCredential(env.DB, credentialId);
+
+  if (htmx) {
+    return renderPasskeyListFragment(env.DB, { success: "Passkey deleted" });
+  }
 
   return Response.redirect(
     passkeyManagementUrl(env.DOMAIN, "success", "Passkey deleted"),
     302
   );
+}
+
+/**
+ * GET /admin/passkeys/{credentialId}/delete/confirm
+ * Returns an inline confirmation fragment for passkey deletion.
+ */
+export async function handlePasskeyDeleteConfirm(request, env, credentialId) {
+  if (!isHtmxRequest(request)) {
+    return Response.redirect(`https://${env.DOMAIN}/admin/settings`, 302);
+  }
+
+  const credential = await getPasskeyCredentialById(env.DB, credentialId);
+
+  if (!credential) {
+    return fragmentResponse(
+      render("adminDeleteConfirm", {
+        message: "Passkey not found.",
+        confirmAction: `/admin/passkeys/${encodeURIComponent(credentialId)}/delete`,
+        cancelHtml: `<button type="button" class="btn-small btn-danger" hx-get="/admin/passkeys/${encodeURIComponent(credentialId)}/delete/confirm" hx-target="#passkey-delete-${encodeURIComponent(credentialId)}" hx-swap="innerHTML">Delete</button>`
+      })
+    );
+  }
+
+  const passkeyName = credential.name || "Unnamed passkey";
+  const allCredentials = await getPasskeyCredentials(env.DB);
+  const isOnlyPasskey = allCredentials.length <= 1;
+  const warning = isOnlyPasskey
+    ? ` This is your only passkey — magic link will be the only login method.`
+    : "";
+
+  const html = render("adminDeleteConfirm", {
+    message: `Delete passkey "${passkeyName}"?${warning} This cannot be undone.`,
+    confirmAction: `/admin/passkeys/${encodeURIComponent(credentialId)}/delete`,
+    htmxPost: `/admin/passkeys/${encodeURIComponent(credentialId)}/delete`,
+    htmxTarget: "#passkey-list",
+    htmxSwap: "innerHTML",
+    cancelHtml: `<button type="button" class="btn-small btn-danger" hx-get="/admin/passkeys/${encodeURIComponent(credentialId)}/delete/confirm" hx-target="#passkey-delete-${encodeURIComponent(credentialId)}" hx-swap="innerHTML">Delete</button>`
+  });
+  return fragmentResponse(html);
 }

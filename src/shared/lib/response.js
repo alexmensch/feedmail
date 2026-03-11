@@ -16,12 +16,6 @@ export function jsonResponse(status, body) {
 }
 
 /**
- * Create an HTML response.
- * @param {string} html - HTML content
- * @param {number} [status=200] - HTTP status code
- * @returns {Response}
- */
-/**
  * Create a 429 Too Many Requests JSON response with Retry-After header.
  * @param {number} retryAfter - Seconds until the client should retry
  * @returns {Response}

@@ -28,5 +28,8 @@ DOMAIN = "YOUR_DOMAIN"
 # Secrets (set via `wrangler secret put`):
 # None — credentials are stored in D1
 
+[assets]
+directory = "./assets"
+
 [observability.logs]
 enabled = true

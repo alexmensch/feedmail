@@ -3,6 +3,8 @@
  */
 
 import { getSession } from "./db.js";
+import { isHtmxRequest, fragmentResponse } from "./htmx.js";
+import { render } from "../../shared/lib/templates.js";
 
 /** Cookie name for admin sessions. */
 export const SESSION_COOKIE_NAME = "feedmail_admin_session";
@@ -60,6 +62,8 @@ export function clearSessionCookie() {
 /**
  * Session middleware: validates the session cookie against D1.
  * Returns the session object if valid, or a redirect Response if not.
+ * For HTMX requests with expired sessions, returns a session-expired fragment
+ * instead of a redirect.
  *
  * @param {Request} request
  * @param {object} env
@@ -69,22 +73,36 @@ export async function requireSession(request, env) {
   const token = getSessionFromCookie(request);
 
   if (!token) {
-    return { session: null, response: redirectToLogin(request) };
+    return { session: null, response: sessionExpiredResponse(request) };
   }
 
   const session = await getSession(env.DB, token);
 
   if (!session) {
-    return { session: null, response: redirectToLogin(request) };
+    return { session: null, response: sessionExpiredResponse(request) };
   }
 
   // Check expiry
   const expiresAt = new Date(`${session.expires_at}Z`);
   if (expiresAt <= new Date()) {
-    return { session: null, response: redirectToLogin(request) };
+    return { session: null, response: sessionExpiredResponse(request) };
   }
 
   return { session, response: null };
+}
+
+/**
+ * Build the appropriate response for an expired/missing session.
+ * HTMX requests get a session-expired fragment; standard requests get a redirect.
+ * @param {Request} request
+ * @returns {Response}
+ */
+function sessionExpiredResponse(request) {
+  if (isHtmxRequest(request)) {
+    const html = render("adminSessionExpired", {});
+    return fragmentResponse(html);
+  }
+  return redirectToLogin(request);
 }
 
 /**

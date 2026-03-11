@@ -5,6 +5,7 @@
 import { callApi, API_UNREACHABLE_ERROR } from "../lib/api.js";
 import { render } from "../../shared/lib/templates.js";
 import { htmlResponse } from "../../shared/lib/response.js";
+import { isHtmxRequest, fragmentResponse } from "../lib/htmx.js";
 
 /**
  * Parse corsOrigins textarea value into a JSON array.
@@ -164,8 +165,11 @@ export async function handleChannelNew(_request, env) {
 
 /**
  * POST /admin/channels — Create a new channel.
+ * For HTMX requests, returns HX-Redirect header on success.
  */
 export async function handleChannelCreate(request, env) {
+  const htmx = isHtmxRequest(request);
+
   let formData;
   try {
     formData = await request.formData();
@@ -236,10 +240,19 @@ export async function handleChannelCreate(request, env) {
     );
   }
 
-  return Response.redirect(
-    `https://${env.DOMAIN}/admin/channels/${encodeURIComponent(channelId)}?success=${encodeURIComponent("Channel created")}`,
-    302
-  );
+  const redirectUrl = `/admin/channels/${encodeURIComponent(channelId)}?success=${encodeURIComponent("Channel created")}`;
+
+  // HTMX: use HX-Redirect header
+  if (htmx) {
+    return new Response("", {
+      status: 200,
+      headers: {
+        "HX-Redirect": redirectUrl
+      }
+    });
+  }
+
+  return Response.redirect(`https://${env.DOMAIN}${redirectUrl}`, 302);
 }
 
 /**
@@ -291,12 +304,25 @@ export async function handleChannelDetail(request, env, channelId) {
 /**
  * POST /admin/channels/{id} — Update a channel.
  * Orchestrates channel update + feed create/update/delete.
+ * For HTMX requests, returns the form result fragment.
  */
 export async function handleChannelUpdate(request, env, channelId) {
+  const htmx = isHtmxRequest(request);
+
   let formData;
   try {
     formData = await request.formData();
   } catch {
+    if (htmx) {
+      return fragmentResponse(
+        render("adminChannelFormResult", {
+          error: "Invalid form data",
+          channel: { id: channelId },
+          feeds: [],
+          domain: env.DOMAIN
+        })
+      );
+    }
     return Response.redirect(
       `https://${env.DOMAIN}/admin/channels/${encodeURIComponent(channelId)}?error=${encodeURIComponent("Invalid form data")}`,
       302
@@ -307,15 +333,24 @@ export async function handleChannelUpdate(request, env, channelId) {
   const body = buildChannelBody(formData);
   const feedRows = parseFeedRows(formData);
 
-  // Helper to re-render the form with error
-  const renderWithError = (errorMsg, submittedFeeds) => {
-    const html = render("adminChannelForm", {
-      activePage: "channels",
+  // Helper to re-render the form with error — for both HTMX and standard
+  const renderFormResult = (errorMsg, successMsg, submittedFeeds) => {
+    const templateData = {
       isEdit: true,
       channel: buildTemplateChannel(channelId, body),
       feeds: feedRowsForTemplate(submittedFeeds),
       domain: env.DOMAIN,
-      error: errorMsg
+      error: errorMsg || "",
+      success: successMsg || ""
+    };
+
+    if (htmx) {
+      return fragmentResponse(render("adminChannelFormResult", templateData));
+    }
+
+    const html = render("adminChannelForm", {
+      activePage: "channels",
+      ...templateData
     });
     return htmlResponse(html);
   };
@@ -323,7 +358,7 @@ export async function handleChannelUpdate(request, env, channelId) {
   // Handle noscript add-feed action
   if (action === "add-feed") {
     feedRows.push({ name: "", url: "" });
-    return renderWithError(null, feedRows);
+    return renderFormResult(null, null, feedRows);
   }
 
   // Handle noscript remove-feed action
@@ -332,14 +367,15 @@ export async function handleChannelUpdate(request, env, channelId) {
     if (!isNaN(removeIndex) && feedRows.length > 1) {
       feedRows.splice(removeIndex, 1);
     }
-    return renderWithError(null, feedRows);
+    return renderFormResult(null, null, feedRows);
   }
 
   // Validate at least one feed
   const nonEmptyFeeds = feedRows.filter((f) => f.name || f.url);
   if (nonEmptyFeeds.length === 0) {
-    return renderWithError(
+    return renderFormResult(
       "At least one feed is required",
+      null,
       feedRows.length > 0 ? feedRows : [{ name: "", url: "" }]
     );
   }
@@ -353,8 +389,9 @@ export async function handleChannelUpdate(request, env, channelId) {
   );
 
   if (!channelResult.ok) {
-    return renderWithError(
+    return renderFormResult(
       channelResult.data?.error || "Failed to update channel",
+      null,
       feedRows
     );
   }
@@ -423,10 +460,21 @@ export async function handleChannelUpdate(request, env, channelId) {
 
   if (errors.length > 0) {
     const errorMsg = `Channel saved, but ${errors.join("; ")}`;
+    if (htmx) {
+      return renderChannelFormFragment(env, channelId, body, feedRows, {
+        error: errorMsg
+      });
+    }
     return Response.redirect(
       `https://${env.DOMAIN}/admin/channels/${encodeURIComponent(channelId)}?error=${encodeURIComponent(errorMsg)}`,
       302
     );
+  }
+
+  if (htmx) {
+    return renderChannelFormFragment(env, channelId, body, [], {
+      success: "Channel updated"
+    });
   }
 
   return Response.redirect(
@@ -438,6 +486,35 @@ export async function handleChannelUpdate(request, env, channelId) {
 /**
  * POST /admin/channels/{id}/delete — Delete a channel.
  */
+/**
+ * Re-fetch channel data and render an HTMX fragment for the channel form.
+ */
+async function renderChannelFormFragment(
+  env,
+  channelId,
+  body,
+  fallbackFeeds,
+  feedback
+) {
+  const updatedResult = await callApi(
+    env,
+    "GET",
+    `/admin/channels/${encodeURIComponent(channelId)}`
+  );
+  const updatedChannel = updatedResult.ok
+    ? updatedResult.data
+    : { id: channelId, ...body };
+  const updatedFeeds = updatedChannel.feeds || fallbackFeeds;
+  return fragmentResponse(
+    render("adminChannelFormResult", {
+      ...feedback,
+      channel: buildTemplateChannel(channelId, updatedChannel),
+      feeds: updatedFeeds,
+      domain: env.DOMAIN
+    })
+  );
+}
+
 export async function handleChannelDelete(request, env, channelId) {
   const result = await callApi(
     env,
@@ -456,4 +533,42 @@ export async function handleChannelDelete(request, env, channelId) {
     `https://${env.DOMAIN}/admin/channels?success=${encodeURIComponent("Channel deleted")}`,
     302
   );
+}
+
+/**
+ * GET /admin/channels/{id}/delete/confirm — Channel delete confirmation fragment.
+ * Returns an inline confirmation prompt for HTMX.
+ */
+export async function handleChannelDeleteConfirm(request, env, channelId) {
+  if (!isHtmxRequest(request)) {
+    return Response.redirect(
+      `https://${env.DOMAIN}/admin/channels/${encodeURIComponent(channelId)}`,
+      302
+    );
+  }
+
+  // Fetch channel to get name
+  const result = await callApi(
+    env,
+    "GET",
+    `/admin/channels/${encodeURIComponent(channelId)}`
+  );
+
+  if (!result.ok) {
+    return fragmentResponse(
+      render("adminDeleteConfirm", {
+        message: "Channel not found.",
+        confirmAction: `/admin/channels/${encodeURIComponent(channelId)}/delete`,
+        cancelHtml: `<button type="button" class="btn-danger" hx-get="/admin/channels/${encodeURIComponent(channelId)}/delete/confirm" hx-target="#channel-actions" hx-swap="innerHTML">Delete channel</button>`
+      })
+    );
+  }
+
+  const channel = result.data;
+  const html = render("adminDeleteConfirm", {
+    message: `Delete channel "${channel.id}" (${channel.siteName})? This will remove all subscribers and feeds. This cannot be undone.`,
+    confirmAction: `/admin/channels/${encodeURIComponent(channelId)}/delete`,
+    cancelHtml: `<button type="button" class="btn-danger" hx-get="/admin/channels/${encodeURIComponent(channelId)}/delete/confirm" hx-target="#channel-actions" hx-swap="innerHTML">Delete channel</button>`
+  });
+  return fragmentResponse(html);
 }

@@ -1,65 +1,48 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  {{> admin-head}}
-  <title>Subscribers — feedmail admin</title>
-</head>
-<body>
-  <h1>Subscribers</h1>
-  {{> admin-nav}}
+{{#> admin-layout pageTitle="Subscribers" activePage="subscribers"}}
+{{#*inline "content"}}
 
-  {{#if error}}
-  <div class="error">{{error}}</div>
-  {{/if}}
+<h1>Subscribers</h1>
 
-  {{#if hasChannels}}
-  <form method="GET" action="/admin/subscribers" style="margin-bottom: 20px;">
-    <label for="channelId"><strong>Channel:</strong></label>
-    <select id="channelId" name="channelId">
-      <option value="">Select a channel</option>
-      {{#each channels}}
-      <option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{this.siteName}} ({{this.id}})</option>
-      {{/each}}
-    </select>
+{{#if error}}
+<div class="feedback" data-variant="error" role="alert">{{error}}</div>
+{{/if}}
 
-    <label for="status" style="margin-left: 12px;"><strong>Status:</strong></label>
-    <select id="status" name="status">
-      <option value="" {{#unless selectedStatus}}selected{{/unless}}>All</option>
-      <option value="pending" {{#if (eq selectedStatus "pending")}}selected{{/if}}>Pending</option>
-      <option value="verified" {{#if (eq selectedStatus "verified")}}selected{{/if}}>Verified</option>
-      <option value="unsubscribed" {{#if (eq selectedStatus "unsubscribed")}}selected{{/if}}>Unsubscribed</option>
-    </select>
-
-    <button type="submit" style="margin-left: 8px;">Filter</button>
-  </form>
-
-  {{#if showTable}}
-    {{#if hasSubscribers}}
-    <table>
-      <thead>
-        <tr><th>Email</th><th>Channel</th><th>Status</th><th>Subscribed</th></tr>
-      </thead>
-      <tbody>
-        {{#each subscribers}}
-        <tr>
-          <td>{{this.email}}</td>
-          <td>{{../selectedChannelId}}</td>
-          <td>{{this.status}}</td>
-          <td>{{formatDate this.created_at}}</td>
-        </tr>
+{{#if hasChannels}}
+<form method="GET" action="/admin/subscribers"
+  hx-get="/admin/subscribers" hx-target="#subscriber-table" hx-swap="innerHTML" hx-push-url="true">
+  <div class="cluster">
+    <div class="form-field">
+      <label for="channelId">Channel</label>
+      <select id="channelId" name="channelId">
+        <option value="">Select a channel</option>
+        {{#each channels}}
+        <option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{this.siteName}} ({{this.id}})</option>
         {{/each}}
-      </tbody>
-    </table>
-    {{else}}
-    <p>No subscribers match the current filters.</p>
-    {{/if}}
-  {{else}}
-    {{#unless selectedChannelId}}
-    <p>Select a channel to view subscribers.</p>
-    {{/unless}}
-  {{/if}}
-  {{else}}
-  <p>No channels available. <a href="/admin/channels">Create a channel</a> first.</p>
-  {{/if}}
-</body>
-</html>
+      </select>
+    </div>
+
+    <div class="form-field">
+      <label for="status">Status</label>
+      <select id="status" name="status">
+        <option value="" {{#unless selectedStatus}}selected{{/unless}}>All</option>
+        <option value="pending" {{#if (eq selectedStatus "pending")}}selected{{/if}}>Pending</option>
+        <option value="verified" {{#if (eq selectedStatus "verified")}}selected{{/if}}>Verified</option>
+        <option value="unsubscribed" {{#if (eq selectedStatus "unsubscribed")}}selected{{/if}}>Unsubscribed</option>
+      </select>
+    </div>
+
+    <button type="submit">Filter</button>
+    <span class="htmx-indicator"><span class="loading-spinner"></span></span>
+  </div>
+</form>
+
+<div id="subscriber-table">
+{{> admin-subscriber-table}}
+</div>
+
+{{else}}
+<p class="text-muted">No channels available. <a href="/admin/channels">Create a channel</a> first.</p>
+{{/if}}
+
+{{/inline}}
+{{/admin-layout}}

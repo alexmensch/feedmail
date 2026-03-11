@@ -1,0 +1,20 @@
+{{#if error}}
+<div class="feedback" data-variant="error" role="alert">{{error}}</div>
+{{/if}}
+
+{{#if success}}
+<div class="feedback" data-variant="success" role="status">{{success}}</div>
+{{/if}}
+
+<form method="POST" action="/admin/channels/{{channel.id}}" id="channel-form"
+  hx-post="/admin/channels/{{channel.id}}" hx-target="#form-result" hx-swap="innerHTML">
+
+  <div class="stack" data-gap="m">
+    {{> admin-channel-form-body isEdit=true}}
+
+    <div class="cluster">
+      <button type="submit" name="action" value="save" class="btn-primary">Save Changes</button>
+      <span class="htmx-indicator"><span class="loading-spinner"></span></span>
+    </div>
+  </div>
+</form>

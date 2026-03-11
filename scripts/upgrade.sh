@@ -77,6 +77,83 @@ fi
 
 echo ""
 
+# --- Regenerate prod configs from templates ---
+#
+# The template configs (wrangler.toml, wrangler.admin.toml) may have gained new
+# blocks (e.g. [assets]), changed defaults, or removed stale config since the
+# prod configs were originally generated. This step rebuilds the prod configs
+# from the current templates while preserving deployer-specific values.
+
+echo "Syncing prod configs with templates ..."
+
+# Helper: extract a TOML value by key from a file (handles quoted and unquoted values)
+toml_get() {
+  local file="$1" key="$2"
+  grep -m1 "^${key} = " "$file" | sed -E 's/^[^=]+= "?([^"]*)"?$/\1/'
+}
+
+# --- Regenerate wrangler.prod.toml ---
+
+WORKER_NAME=$(toml_get wrangler.prod.toml "name")
+DATABASE_ID=$(toml_get wrangler.prod.toml "database_id")
+DOMAIN=$(toml_get wrangler.prod.toml "DOMAIN")
+
+# Check if routes were uncommented (deployer has configured DNS routing)
+ROUTES_ACTIVE=false
+if grep -q '^pattern = ' wrangler.prod.toml; then
+  ROUTES_ACTIVE=true
+  ZONE_NAME=$(toml_get wrangler.prod.toml "zone_name")
+fi
+
+cp wrangler.toml wrangler.prod.toml
+sed -i '' "s/^name = .*/name = \"$WORKER_NAME\"/" wrangler.prod.toml
+sed -i '' "s/YOUR_DATABASE_ID/$DATABASE_ID/" wrangler.prod.toml
+sed -i '' "s/YOUR_DOMAIN/$DOMAIN/g" wrangler.prod.toml
+sed -i '' "s/^database_name = .*/database_name = \"$WORKER_NAME\"/" wrangler.prod.toml
+
+if [ "$ROUTES_ACTIVE" = true ]; then
+  # Deployer has real routes — set the actual zone_name
+  sed -i '' "s/^zone_name = .*/zone_name = \"$ZONE_NAME\"/" wrangler.prod.toml
+else
+  # Routes were commented out — keep them commented
+  sed -i '' 's/^\(\[\[routes\]\]\)/# \1/' wrangler.prod.toml
+  sed -i '' 's/^pattern = /# pattern = /' wrangler.prod.toml
+  sed -i '' 's/^zone_name = /# zone_name = /' wrangler.prod.toml
+fi
+
+echo "  wrangler.prod.toml ... synced"
+
+# --- Regenerate wrangler.admin.prod.toml ---
+
+ADMIN_WORKER_NAME=$(toml_get wrangler.admin.prod.toml "name")
+ADMIN_DATABASE_ID=$(toml_get wrangler.admin.prod.toml "database_id")
+ADMIN_DOMAIN=$(toml_get wrangler.admin.prod.toml "DOMAIN")
+API_SERVICE_NAME=$(toml_get wrangler.admin.prod.toml "service")
+
+ADMIN_ROUTES_ACTIVE=false
+if grep -q '^pattern = ' wrangler.admin.prod.toml; then
+  ADMIN_ROUTES_ACTIVE=true
+  ADMIN_ZONE_NAME=$(toml_get wrangler.admin.prod.toml "zone_name")
+fi
+
+cp wrangler.admin.toml wrangler.admin.prod.toml
+sed -i '' "s/^name = .*/name = \"$ADMIN_WORKER_NAME\"/" wrangler.admin.prod.toml
+sed -i '' "s/YOUR_DATABASE_ID/$ADMIN_DATABASE_ID/" wrangler.admin.prod.toml
+sed -i '' "s/YOUR_DOMAIN/$ADMIN_DOMAIN/g" wrangler.admin.prod.toml
+sed -i '' "s/YOUR_API_WORKER_NAME/$API_SERVICE_NAME/" wrangler.admin.prod.toml
+sed -i '' "s/^database_name = .*/database_name = \"${ADMIN_WORKER_NAME%-admin}\"/" wrangler.admin.prod.toml
+
+if [ "$ADMIN_ROUTES_ACTIVE" = true ]; then
+  sed -i '' "s/^zone_name = .*/zone_name = \"$ADMIN_ZONE_NAME\"/" wrangler.admin.prod.toml
+else
+  sed -i '' 's/^\(\[\[routes\]\]\)/# \1/' wrangler.admin.prod.toml
+  sed -i '' 's/^pattern = /# pattern = /' wrangler.admin.prod.toml
+  sed -i '' 's/^zone_name = /# zone_name = /' wrangler.admin.prod.toml
+fi
+
+echo "  wrangler.admin.prod.toml ... synced"
+echo ""
+
 # --- Install dependencies ---
 
 echo "Installing dependencies ..."

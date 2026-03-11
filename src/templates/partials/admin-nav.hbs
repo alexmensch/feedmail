@@ -1,11 +1,13 @@
-<nav style="margin-bottom: 24px; padding-bottom: 12px; border-bottom: 1px solid #ddd;">
-  {{#if (eq activePage "dashboard")}}<strong>Dashboard</strong>{{else}}<a href="/admin">Dashboard</a>{{/if}}
-  &nbsp;|&nbsp;
-  {{#if (eq activePage "channels")}}<strong>Channels</strong>{{else}}<a href="/admin/channels">Channels</a>{{/if}}
-  &nbsp;|&nbsp;
-  {{#if (eq activePage "subscribers")}}<strong>Subscribers</strong>{{else}}<a href="/admin/subscribers">Subscribers</a>{{/if}}
-  &nbsp;|&nbsp;
-  {{#if (eq activePage "settings")}}<strong>Settings</strong>{{else}}<a href="/admin/settings">Settings</a>{{/if}}
-  &nbsp;|&nbsp;
-  <a href="/admin/logout">Logout</a>
+<nav class="nav-sidebar" aria-label="Admin navigation">
+  <a href="/admin" class="app-shell__brand">feedmail</a>
+  <ul class="nav-sidebar__list">
+    <li><a href="/admin" class="nav-sidebar__link" {{#if (eq activePage "dashboard")}}data-state="active" aria-current="page"{{/if}}>Dashboard</a></li>
+    <li><a href="/admin/channels" class="nav-sidebar__link" {{#if (eq activePage "channels")}}data-state="active" aria-current="page"{{/if}}>Channels</a></li>
+    <li><a href="/admin/subscribers" class="nav-sidebar__link" {{#if (eq activePage "subscribers")}}data-state="active" aria-current="page"{{/if}}>Subscribers</a></li>
+    <li><a href="/admin/settings" class="nav-sidebar__link" {{#if (eq activePage "settings")}}data-state="active" aria-current="page"{{/if}}>Settings</a></li>
+  </ul>
+  <div class="nav-sidebar__spacer"></div>
+  <div class="nav-sidebar__bottom">
+    <a href="/admin/logout" class="nav-sidebar__link">Logout</a>
+  </div>
 </nav>

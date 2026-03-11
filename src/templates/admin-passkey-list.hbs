@@ -1,0 +1,38 @@
+{{#if error}}
+<div class="feedback" data-variant="error" role="alert">{{error}}</div>
+{{/if}}
+
+{{#if success}}
+<div class="feedback" data-variant="success" role="status">{{success}}</div>
+{{/if}}
+
+{{#if credentials.length}}
+<table class="table">
+  <thead>
+    <tr><th>Name</th><th>Registered</th><th>Actions</th></tr>
+  </thead>
+  <tbody>
+    {{#each credentials}}
+    <tr>
+      <td>
+        <span id="name-display-{{this.credential_id}}">{{#if this.name}}{{this.name}}{{else}}Unnamed passkey{{/if}}</span>
+        <form method="POST" action="/admin/passkeys/{{this.credential_id}}/rename" class="cluster"
+          hx-post="/admin/passkeys/{{this.credential_id}}/rename" hx-target="#passkey-list" hx-swap="innerHTML">
+          <input type="text" name="name" value="{{this.name}}" maxlength="100" placeholder="Passkey name" required>
+          <button type="submit" class="btn-small">Rename</button>
+        </form>
+      </td>
+      <td>{{formatDate this.created_at}}</td>
+      <td>
+        <div id="passkey-delete-{{this.credential_id}}">
+          <button type="button" class="btn-small btn-danger"
+            hx-get="/admin/passkeys/{{this.credential_id}}/delete/confirm" hx-target="#passkey-delete-{{this.credential_id}}" hx-swap="innerHTML">Delete</button>
+        </div>
+      </td>
+    </tr>
+    {{/each}}
+  </tbody>
+</table>
+{{else}}
+<p class="text-muted">No passkeys registered yet.</p>
+{{/if}}

@@ -1,13 +1,11 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Error — feedmail admin</title>
-</head>
-<body>
-  <h1>Unable to sign in</h1>
-  <p>{{error}}</p>
+{{#> admin-auth-layout pageTitle="Error"}}
+{{#*inline "content"}}
+
+<h1>Unable to sign in</h1>
+<div class="stack" data-gap="xs">
+  <div class="feedback" data-variant="error">{{error}}</div>
   <p><a href="/admin/login">Back to login</a></p>
-</body>
-</html>
+</div>
+
+{{/inline}}
+{{/admin-auth-layout}}
