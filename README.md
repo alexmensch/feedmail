@@ -13,7 +13,7 @@ An open-source RSS-to-email microservice that runs on Cloudflare Workers. Monito
 - **Multi-feed** — Each channel can monitor multiple named feeds
 - **Zero tracking** — No open or click tracking; privacy by default
 - **Customizable templates** — Handlebars templates for emails and confirmation pages
-- **Admin console** — Browser-based dashboard, channel/feed CRUD, subscriber list, and settings with passkey and magic link authentication
+- **Admin console** — Styled browser-based dashboard with HTMX interactions, responsive sidebar layout, dark mode, channel/feed CRUD, subscriber list, and settings with passkey and magic link authentication
 - **Admin API** — Runtime config management, subscriber stats, channel/feed CRUD
 - **IP rate limiting** — Per-endpoint rolling window rate limiting via D1
 - **Bot protection** — Strict input validation with honeypot support, method enforcement with deliberate timeouts

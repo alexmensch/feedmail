@@ -58,15 +58,16 @@ src/
     worker.js             # Admin fetch handler: routing, rate limiting, session middleware
     routes/
       auth.js             # Login, magic link verification, logout handlers
-      channels.js         # Channel CRUD: list, new, create, detail, update, delete + parseFeedRows() + inline feed diffing
-      dashboard.js        # Dashboard with per-channel stats, send trigger
-      passkeys.js         # WebAuthn passkey registration, authentication, management
+      channels.js         # Channel CRUD: list, new, create, detail, update, delete + parseFeedRows() + inline feed diffing + HTMX fragment responses
+      dashboard.js        # Dashboard with per-channel stats, send trigger + HTMX feedback
+      passkeys.js         # WebAuthn passkey registration, authentication, management + HTMX fragment responses
       settings.js         # Settings page (passkey management with bootstrap prompt)
-      subscribers.js      # Subscriber list with channel/status filtering
+      subscribers.js      # Subscriber list with channel/status filtering + HTMX table updates
     lib/
       api.js              # API client helper: callApi(env, method, path, body?) + API_UNREACHABLE_ERROR constant
       db.js               # Admin D1 helpers (magic link tokens, sessions, passkey credentials, WebAuthn challenges)
-      session.js          # Session middleware, cookie/session helpers, getCookieValue utility
+      htmx.js             # HTMX helpers: isHtmxRequest(request), fragmentResponse(html, status?, headers?)
+      session.js          # Session middleware, cookie/session helpers, getCookieValue utility, HTMX-aware session expiry
   shared/                 # Shared modules used by both Workers
     lib/
       config.js           # DB-backed config reads, validation helpers (validateChannelId, validateChannelFields, validateFeedFields), rate limit defaults
@@ -77,8 +78,11 @@ src/
       templates.js        # Handlebars precompiled template rendering — render(name, data)
   templates/              # Handlebars (.hbs) source files, precompiled at build time
     partials/
-      admin-head.hbs      # Shared CSS partial for all admin console pages
+      admin-head.hbs      # Shared <head> partial for all admin console pages (links to external CSS)
       admin-nav.hbs       # Navigation bar partial with activePage highlighting
+      admin-layout.hbs    # Authenticated page layout: sidebar nav, HTMX script, content via {{> @partial-block}}
+      admin-auth-layout.hbs  # Auth page layout: centered, no sidebar, no HTMX
+      admin-channel-form-body.hbs  # Shared channel form body partial (used by full-page and fragment templates)
       email-footer.hbs    # Shared email footer partial (copyright, unsubscribe, company info)
       webauthn-helpers.hbs  # Shared base64url conversion functions for WebAuthn inline JS
     newsletter.hbs        # HTML newsletter email (table-based, inline styles)
@@ -87,15 +91,25 @@ src/
     verify-page.hbs       # "You're subscribed" confirmation page
     unsubscribe-page.hbs  # "You've been unsubscribed" page
     error-page.hbs        # Error page (invalid/expired tokens)
-    admin-login.hbs       # Admin login form
-    admin-login-sent.hbs  # "Check your email" confirmation
-    admin-auth-error.hbs  # Auth error page (expired/used magic link)
+    admin-login.hbs       # Admin login form (uses admin-auth-layout)
+    admin-login-sent.hbs  # "Check your email" confirmation (uses admin-auth-layout)
+    admin-auth-error.hbs  # Auth error page (uses admin-auth-layout)
     admin-magic-link.hbs  # Magic link email body
     admin-dashboard.hbs   # Dashboard with per-channel stats and passkey bootstrap prompt
     admin-channels.hbs    # Channel list page
     admin-channel-form.hbs # Unified channel create/edit form with inline feed management, slug validation, CORS auto-populate, helper text
+    admin-channel-form-result.hbs  # HTMX fragment: channel form result after save (success/error + form)
     admin-subscribers.hbs # Subscriber table with channel/status filter dropdowns
+    admin-subscriber-table.hbs  # HTMX fragment + partial: subscriber table rows (used inline and as partial)
     admin-settings.hbs    # Settings page with passkey management
+    admin-send-feedback.hbs  # HTMX fragment: send trigger feedback (success/error)
+    admin-passkey-list.hbs  # HTMX fragment: passkey list after rename/delete
+    admin-session-expired.hbs  # HTMX fragment: session expired message with login link
+    admin-delete-confirm.hbs  # HTMX fragment: generic delete confirmation dialog
+assets/
+  admin/
+    styles.css            # CUBE CSS design system: tokens, dark mode, reset, compositions, utilities, blocks, exceptions
+    htmx.min.js           # HTMX 2.0.4 — committed as-is, no build pipeline
 migrations/
   0001_initial.sql        # D1 schema: subscribers, verification_attempts, sent_items
   0002_subscriber_sends.sql  # Per-subscriber send tracking for partial send recovery
@@ -135,7 +149,10 @@ To test the full email flow locally:
 ### Key Design Decisions
 
 - **Two-worker architecture:** The API Worker (`src/api/worker.js`) handles `/api/*` routes and cron triggers. The Admin Worker (`src/admin/worker.js`) handles `/admin/*` routes for the browser-based admin console. Both share the same D1 database and shared modules in `src/shared/`. Each Worker has its own wrangler config (`wrangler.toml` / `wrangler.admin.toml`).
-- **Admin console as API proxy:** The Admin Worker renders server-side HTML and acts as a proxy to the API Worker. All data operations go through `callApi()` in `src/admin/lib/api.js`, which reads `admin_api_key` from D1 and makes authenticated requests to the API Worker via a Cloudflare Service Binding (`env.API_SERVICE`). The service binding sends requests directly to the API Worker without going through public HTTP/edge routing, avoiding subrequest loop issues inherent in same-zone worker-to-worker `fetch()` calls. Route handlers parse form data, call the API, and either render a template or redirect with query-param feedback (`?success=` / `?error=`). Templates use `isEdit` boolean to toggle between create and edit modes. The channel form is a unified page combining channel config and inline feed management — on create, at least one feed is required; on edit, the handler diffs submitted feeds against current server state and issues individual create/update/delete API calls. Noscript fallback actions (`add-feed`, `remove-feed`) allow feed row management without JavaScript.
+- **Admin console as API proxy:** The Admin Worker renders server-side HTML and acts as a proxy to the API Worker. All data operations go through `callApi()` in `src/admin/lib/api.js`, which reads `admin_api_key` from D1 and makes authenticated requests to the API Worker via a Cloudflare Service Binding (`env.API_SERVICE`). The service binding sends requests directly to the API Worker without going through public HTTP/edge routing, avoiding subrequest loop issues inherent in same-zone worker-to-worker `fetch()` calls. Route handlers parse form data, call the API, and either render a full page or return an HTMX fragment response (detected via `isHtmxRequest()` checking the `HX-Request` header). Templates use `isEdit` boolean to toggle between create and edit modes. The channel form is a unified page combining channel config and inline feed management — on create, at least one feed is required; on edit, the handler diffs submitted feeds against current server state and issues individual create/update/delete API calls. Noscript fallback actions (`add-feed`, `remove-feed`) allow feed row management without JavaScript.
+- **HTMX integration:** HTMX 2.0.4 is served as a static asset (`assets/admin/htmx.min.js`) via Cloudflare Workers static assets (`[assets]` config in `wrangler.admin.toml`). Route handlers detect HTMX requests via the `HX-Request: true` header and return HTML fragments instead of full-page redirects. Fragment templates (e.g. `admin-channel-form-result.hbs`, `admin-subscriber-table.hbs`) are rendered into `hx-target` containers. Session expiry during HTMX requests returns a session-expired fragment instead of a redirect. `isHtmxRequest()` uses strict `=== "true"` comparison.
+- **CUBE CSS design system:** Admin console styling uses CUBE CSS methodology (Compositions, Utilities, Blocks, Exceptions) with Every Layout primitives. CSS is a single external file (`assets/admin/styles.css`) served as a static asset — no build pipeline or minification. Design tokens use Utopia fluid `clamp()` values for responsive typography and spacing. Dark mode via `prefers-color-scheme`. Layout partials (`admin-layout.hbs` for authenticated pages with sidebar nav, `admin-auth-layout.hbs` for centered auth pages) use Handlebars partial blocks (`{{> @partial-block}}`).
+- **Admin console static assets:** The Admin Worker serves static files from the `assets/` directory via Cloudflare Workers static assets (`[assets]` config in `wrangler.admin.toml`). Currently contains `admin/styles.css` and `admin/htmx.min.js`. The `assets/` directory is excluded from ESLint.
 - **Admin authentication:** Passkey (WebAuthn) authentication as primary login method, with magic link email as fallback. Uses `@simplewebauthn/server` for server-side WebAuthn operations; client-side ceremony code is inline JS (no `@simplewebauthn/browser`). A single admin email is stored in the `credentials` table. Passkey credentials are stored in `passkey_credentials` with public keys as base64url TEXT. WebAuthn challenges are stored in `webauthn_challenges` (Workers are stateless — no in-memory storage). Login page shows passkey button when credentials exist, with magic link form always available. Session cookie is `HttpOnly; Secure; SameSite=Strict; Path=/admin`. Magic link tokens expire after 15 minutes; WebAuthn challenges expire after 5 minutes; sessions expire after 24 hours. Single admin user model — fixed UUID for WebAuthn user ID. Dashboard shows a passkey bootstrap prompt when no passkeys are registered.
 - **Credentials in D1:** Secrets (`resend_api_key`, `admin_api_key`, `admin_email`) are stored in the `credentials` table. The shared `getResendApiKey(env)` helper checks `env.RESEND_API_KEY` first (backward compat) then falls back to D1. The Admin Worker has no Wrangler secrets — it reads all credentials from D1.
 - **DB-backed configuration:** Channel, feed, site settings, and rate limit config are stored in D1 tables (not env vars). Config is read asynchronously via `config.js` helpers that accept the `env` object. Admin API endpoints provide runtime CRUD management without redeployment. `RATE_LIMIT_DEFAULTS` in `config.js` provides hardcoded fallbacks when no DB rows exist.
@@ -151,7 +168,7 @@ To test the full email flow locally:
 - **Feed bootstrapping:** First time a feed URL is seen, all existing items are inserted into `sent_items` with `recipient_count = 0` — prevents blasting historical content on first deployment.
 - **Per-subscriber sends:** Each subscriber gets an individual email with personalized `List-Unsubscribe` headers. Template uses `%%UNSUBSCRIBE_URL%%` placeholder replaced per-subscriber before sending. The `subscriber_sends` table tracks delivery per-subscriber so partial sends (from quota exhaustion) can resume on the next cron run without duplicates.
 - **Resend rate limit handling:** The email module retries 429 responses up to 3 times, respecting the `retry-after` header (capped at 60s). If quota is exhausted, the send loop halts and the item is left unmarked in `sent_items` so the next run retries remaining subscribers.
-- **Handlebars templates** are precompiled at build time (`scripts/precompile-templates.mjs`) because Cloudflare Workers disallow `new Function()`. The runtime uses `Handlebars.template()` with precompiled specs. Partials live in `src/templates/partials/` and are registered both at precompile time (so templates can reference them) and at runtime (via `Handlebars.registerPartial`).
+- **Handlebars templates** are precompiled at build time (`scripts/precompile-templates.mjs`) because Cloudflare Workers disallow `new Function()`. The runtime uses `Handlebars.template()` with precompiled specs. Partials live in `src/templates/partials/` and are registered both at precompile time (so templates can reference them) and at runtime (via `Handlebars.registerPartial`). Some fragment templates (e.g. `admin-subscriber-table`) are registered as both templates and partials so they can be rendered standalone (for HTMX responses) or included in full-page templates. Custom helpers: `formatDate`, `currentYear`, `eq` (strict equality), `iif` (inline ternary: `{{iif condition trueVal falseVal}}`).
 - **User-Agent** uses semver from `package.json` (imported with `{ type: "json" }`).
 - **Zero tracking:** No open pixels or click tracking.
 
@@ -216,6 +233,7 @@ To test the full email flow locally:
 - `GET /admin/channels/{id}` — Channel detail/edit form with feed list (requires session)
 - `POST /admin/channels/{id}` — Update a channel (requires session)
 - `POST /admin/channels/{id}/delete` — Delete a channel (requires session)
+- `POST /admin/channels/{id}/delete/confirm` — HTMX fragment: delete confirmation dialog for a channel (requires session)
 - `GET /admin/subscribers` — Subscriber list with channel/status filtering (requires session)
 - `GET /admin/settings` — Settings page with passkey management (requires session)
 - `GET /admin/passkeys` — Redirects to /admin/settings (requires session)
@@ -225,6 +243,7 @@ To test the full email flow locally:
 - `POST /admin/passkeys/authenticate/verify` — Verify authentication and create session (public, rate-limited)
 - `POST /admin/passkeys/{id}/rename` — Rename a passkey credential (requires session)
 - `POST /admin/passkeys/{id}/delete` — Delete a passkey credential (requires session)
+- `POST /admin/passkeys/{id}/delete/confirm` — HTMX fragment: delete confirmation dialog for a passkey (requires session)
 
 ### Security Layers
 
