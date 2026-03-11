@@ -3,7 +3,7 @@
  */
 
 import { getSession } from "./db.js";
-import { isHtmxRequest } from "./htmx.js";
+import { isHtmxRequest, fragmentResponse } from "./htmx.js";
 import { render } from "../../shared/lib/templates.js";
 
 /** Cookie name for admin sessions. */
@@ -100,10 +100,7 @@ export async function requireSession(request, env) {
 function sessionExpiredResponse(request) {
   if (isHtmxRequest(request)) {
     const html = render("adminSessionExpired", {});
-    return new Response(html, {
-      status: 200,
-      headers: { "Content-Type": "text/html; charset=utf-8" }
-    });
+    return fragmentResponse(html);
   }
   return redirectToLogin(request);
 }

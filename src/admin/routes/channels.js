@@ -466,22 +466,7 @@ export async function handleChannelUpdate(request, env, channelId) {
   if (errors.length > 0) {
     const errorMsg = `Channel saved, but ${errors.join("; ")}`;
     if (htmx) {
-      // Re-fetch updated channel data for the fragment
-      const updatedResult = await callApi(
-        env,
-        "GET",
-        `/admin/channels/${encodeURIComponent(channelId)}`
-      );
-      const updatedChannel = updatedResult.ok ? updatedResult.data : { id: channelId, ...body };
-      const updatedFeeds = updatedChannel.feeds || feedRows;
-      return fragmentResponse(
-        render("adminChannelFormResult", {
-          error: errorMsg,
-          channel: buildTemplateChannel(channelId, updatedChannel),
-          feeds: updatedFeeds,
-          domain: env.DOMAIN
-        })
-      );
+      return renderChannelFormFragment(env, channelId, body, feedRows, { error: errorMsg });
     }
     return Response.redirect(
       `https://${env.DOMAIN}/admin/channels/${encodeURIComponent(channelId)}?error=${encodeURIComponent(errorMsg)}`,
@@ -490,22 +475,7 @@ export async function handleChannelUpdate(request, env, channelId) {
   }
 
   if (htmx) {
-    // Re-fetch updated channel data for the fragment
-    const updatedResult = await callApi(
-      env,
-      "GET",
-      `/admin/channels/${encodeURIComponent(channelId)}`
-    );
-    const updatedChannel = updatedResult.ok ? updatedResult.data : { id: channelId, ...body };
-    const updatedFeeds = updatedChannel.feeds || [];
-    return fragmentResponse(
-      render("adminChannelFormResult", {
-        success: "Channel updated",
-        channel: buildTemplateChannel(channelId, updatedChannel),
-        feeds: updatedFeeds,
-        domain: env.DOMAIN
-      })
-    );
+    return renderChannelFormFragment(env, channelId, body, [], { success: "Channel updated" });
   }
 
   return Response.redirect(
@@ -517,6 +487,27 @@ export async function handleChannelUpdate(request, env, channelId) {
 /**
  * POST /admin/channels/{id}/delete — Delete a channel.
  */
+/**
+ * Re-fetch channel data and render an HTMX fragment for the channel form.
+ */
+async function renderChannelFormFragment(env, channelId, body, fallbackFeeds, feedback) {
+  const updatedResult = await callApi(
+    env,
+    "GET",
+    `/admin/channels/${encodeURIComponent(channelId)}`
+  );
+  const updatedChannel = updatedResult.ok ? updatedResult.data : { id: channelId, ...body };
+  const updatedFeeds = updatedChannel.feeds || fallbackFeeds;
+  return fragmentResponse(
+    render("adminChannelFormResult", {
+      ...feedback,
+      channel: buildTemplateChannel(channelId, updatedChannel),
+      feeds: updatedFeeds,
+      domain: env.DOMAIN
+    })
+  );
+}
+
 export async function handleChannelDelete(request, env, channelId) {
   const result = await callApi(
     env,

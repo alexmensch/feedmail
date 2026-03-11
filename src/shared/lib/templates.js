@@ -17,6 +17,7 @@ import adminNavSpec from "../../templates/compiled/partials/admin-nav.js";
 import adminHeadSpec from "../../templates/compiled/partials/admin-head.js";
 import adminLayoutSpec from "../../templates/compiled/partials/admin-layout.js";
 import adminAuthLayoutSpec from "../../templates/compiled/partials/admin-auth-layout.js";
+import adminChannelFormBodySpec from "../../templates/compiled/partials/admin-channel-form-body.js";
 
 // Import precompiled template specs
 import newsletterSpec from "../../templates/compiled/newsletter.js";
@@ -84,6 +85,14 @@ Handlebars.registerPartial(
 Handlebars.registerPartial(
   "admin-auth-layout",
   Handlebars.template(adminAuthLayoutSpec)
+);
+Handlebars.registerPartial(
+  "admin-channel-form-body",
+  Handlebars.template(adminChannelFormBodySpec)
+);
+Handlebars.registerPartial(
+  "admin-subscriber-table",
+  Handlebars.template(adminSubscriberTableSpec)
 );
 
 // Instantiate templates from precompiled specs
