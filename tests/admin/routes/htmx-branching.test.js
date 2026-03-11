@@ -218,12 +218,11 @@ describe("HTMX branching — channel update", () => {
   it("returns an HTML fragment with error for HTMX requests when channel update fails", async () => {
     isHtmxRequest.mockReturnValue(true);
     // Channel PUT fails
-    callApi
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 400,
-        data: { error: "Invalid channel data" }
-      });
+    callApi.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      data: { error: "Invalid channel data" }
+    });
 
     const request = new Request(
       "https://feedmail.example.com/admin/channels/blog",
@@ -256,7 +255,13 @@ describe("HTMX branching — channel update", () => {
         ok: true,
         status: 200,
         data: {
-          feeds: [{ id: 1, name: "Main", url: "https://blog.example.com/old-feed.xml" }]
+          feeds: [
+            {
+              id: 1,
+              name: "Main",
+              url: "https://blog.example.com/old-feed.xml"
+            }
+          ]
         }
       })
       // Feed update fails
@@ -316,14 +321,11 @@ describe("HTMX branching — channel create", () => {
       data: { id: "new-channel" }
     });
 
-    const request = new Request(
-      "https://feedmail.example.com/admin/channels",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: "id=new-channel&siteName=New+Channel&siteUrl=https://example.com&fromUser=news&fromName=News&feeds[0][name]=Main&feeds[0][url]=https://example.com/feed.xml"
-      }
-    );
+    const request = new Request("https://feedmail.example.com/admin/channels", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "id=new-channel&siteName=New+Channel&siteUrl=https://example.com&fromUser=news&fromName=News&feeds[0][name]=Main&feeds[0][url]=https://example.com/feed.xml"
+    });
 
     const response = await handleChannelCreate(request, env);
 
@@ -341,17 +343,14 @@ describe("HTMX branching — channel create", () => {
       data: { id: "new-channel" }
     });
 
-    const request = new Request(
-      "https://feedmail.example.com/admin/channels",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "HX-Request": "true"
-        },
-        body: "id=new-channel&siteName=New+Channel&siteUrl=https://example.com&fromUser=news&fromName=News&feeds[0][name]=Main&feeds[0][url]=https://example.com/feed.xml"
-      }
-    );
+    const request = new Request("https://feedmail.example.com/admin/channels", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "HX-Request": "true"
+      },
+      body: "id=new-channel&siteName=New+Channel&siteUrl=https://example.com&fromUser=news&fromName=News&feeds[0][name]=Main&feeds[0][url]=https://example.com/feed.xml"
+    });
 
     const response = await handleChannelCreate(request, env);
 

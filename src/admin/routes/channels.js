@@ -252,10 +252,7 @@ export async function handleChannelCreate(request, env) {
     });
   }
 
-  return Response.redirect(
-    `https://${env.DOMAIN}${redirectUrl}`,
-    302
-  );
+  return Response.redirect(`https://${env.DOMAIN}${redirectUrl}`, 302);
 }
 
 /**
@@ -348,9 +345,7 @@ export async function handleChannelUpdate(request, env, channelId) {
     };
 
     if (htmx) {
-      return fragmentResponse(
-        render("adminChannelFormResult", templateData)
-      );
+      return fragmentResponse(render("adminChannelFormResult", templateData));
     }
 
     const html = render("adminChannelForm", {
@@ -466,7 +461,9 @@ export async function handleChannelUpdate(request, env, channelId) {
   if (errors.length > 0) {
     const errorMsg = `Channel saved, but ${errors.join("; ")}`;
     if (htmx) {
-      return renderChannelFormFragment(env, channelId, body, feedRows, { error: errorMsg });
+      return renderChannelFormFragment(env, channelId, body, feedRows, {
+        error: errorMsg
+      });
     }
     return Response.redirect(
       `https://${env.DOMAIN}/admin/channels/${encodeURIComponent(channelId)}?error=${encodeURIComponent(errorMsg)}`,
@@ -475,7 +472,9 @@ export async function handleChannelUpdate(request, env, channelId) {
   }
 
   if (htmx) {
-    return renderChannelFormFragment(env, channelId, body, [], { success: "Channel updated" });
+    return renderChannelFormFragment(env, channelId, body, [], {
+      success: "Channel updated"
+    });
   }
 
   return Response.redirect(
@@ -490,13 +489,21 @@ export async function handleChannelUpdate(request, env, channelId) {
 /**
  * Re-fetch channel data and render an HTMX fragment for the channel form.
  */
-async function renderChannelFormFragment(env, channelId, body, fallbackFeeds, feedback) {
+async function renderChannelFormFragment(
+  env,
+  channelId,
+  body,
+  fallbackFeeds,
+  feedback
+) {
   const updatedResult = await callApi(
     env,
     "GET",
     `/admin/channels/${encodeURIComponent(channelId)}`
   );
-  const updatedChannel = updatedResult.ok ? updatedResult.data : { id: channelId, ...body };
+  const updatedChannel = updatedResult.ok
+    ? updatedResult.data
+    : { id: channelId, ...body };
   const updatedFeeds = updatedChannel.feeds || fallbackFeeds;
   return fragmentResponse(
     render("adminChannelFormResult", {

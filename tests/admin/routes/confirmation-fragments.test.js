@@ -35,9 +35,7 @@ vi.mock("../../../src/admin/lib/htmx.js", () => ({
 
 // The confirmation fragment handlers will be imported from their respective route modules.
 // These are new endpoints that do not yet exist.
-import {
-  handleChannelDeleteConfirm
-} from "../../../src/admin/routes/channels.js";
+import { handleChannelDeleteConfirm } from "../../../src/admin/routes/channels.js";
 import { callApi } from "../../../src/admin/lib/api.js";
 import { getPasskeyCredentialById } from "../../../src/admin/lib/db.js";
 import { render } from "../../../src/shared/lib/templates.js";
@@ -128,9 +126,7 @@ describe("channel delete confirmation fragment", () => {
   });
 });
 
-import {
-  handlePasskeyDeleteConfirm
-} from "../../../src/admin/routes/passkeys.js";
+import { handlePasskeyDeleteConfirm } from "../../../src/admin/routes/passkeys.js";
 
 describe("passkey delete confirmation fragment", () => {
   beforeEach(() => {

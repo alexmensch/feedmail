@@ -4,9 +4,7 @@ vi.mock("../../src/admin/lib/db.js", () => ({
   getSession: vi.fn()
 }));
 
-import {
-  requireSession
-} from "../../src/admin/lib/session.js";
+import { requireSession } from "../../src/admin/lib/session.js";
 import { getSession } from "../../src/admin/lib/db.js";
 
 describe("session expiry during HTMX requests", () => {

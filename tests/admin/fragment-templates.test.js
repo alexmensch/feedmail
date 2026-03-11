@@ -8,10 +8,7 @@ import { resolve } from "path";
  * contain the HTML fragment to be swapped into the page, not full documents.
  */
 describe("fragment templates do not contain document-level elements", () => {
-  const templatesDir = resolve(
-    import.meta.dirname,
-    "../../src/templates"
-  );
+  const templatesDir = resolve(import.meta.dirname, "../../src/templates");
 
   // Fragment template filenames — these are templates designed for HTMX partial responses.
   // They should contain only HTML fragments, not full documents.

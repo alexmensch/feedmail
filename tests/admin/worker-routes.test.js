@@ -419,7 +419,10 @@ describe("admin worker — new route dispatching", () => {
 
   describe("channel delete confirmation routes", () => {
     it("routes GET /admin/channels/{id}/delete/confirm to handleChannelDeleteConfirm", async () => {
-      const request = makeRequest("GET", "/admin/channels/test-ch/delete/confirm");
+      const request = makeRequest(
+        "GET",
+        "/admin/channels/test-ch/delete/confirm"
+      );
       await adminApp.fetch(request, env);
 
       expect(handleChannelDeleteConfirm).toHaveBeenCalledWith(

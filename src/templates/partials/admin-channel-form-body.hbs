@@ -1,0 +1,113 @@
+{{#if isEdit}}
+<div class="form-field">
+  <label>Channel ID</label>
+  <p>{{channel.id}}</p>
+  <small class="helper-text">Unique identifier used in your subscribe form and API calls</small>
+</div>
+{{else}}
+<div class="form-field">
+  <label for="id" class="required">Channel ID</label>
+  <input type="text" id="id" name="id" value="{{channel.id}}" required pattern="^[a-z0-9]+(-[a-z0-9]+)*$">
+  <small class="helper-text" id="id-helper">Unique identifier used in your subscribe form and API calls</small>
+</div>
+{{/if}}
+
+<div class="form-field">
+  <label for="siteName" class="required">Site Name</label>
+  <input type="text" id="siteName" name="siteName" value="{{channel.siteName}}" required>
+  <small class="helper-text">Your site or publication name, shown in emails</small>
+</div>
+
+<div class="form-field">
+  <label for="siteUrl" class="required">Site URL</label>
+  <input type="url" id="siteUrl" name="siteUrl" value="{{channel.siteUrl}}" required>
+  <small class="helper-text">Your website address, linked in emails</small>
+</div>
+
+<div class="form-field">
+  <label for="fromUser" class="required">From User</label>
+  <div class="input-suffix">
+    <input type="text" id="fromUser" name="fromUser" value="{{channel.fromUser}}" required>
+    <span>@{{domain}}</span>
+  </div>
+  <small class="helper-text" id="fromUser-helper">Combined with your domain to form the sender address</small>
+</div>
+
+<div class="form-field">
+  <label for="fromName" class="required">From Name</label>
+  <input type="text" id="fromName" name="fromName" value="{{channel.fromName}}" required>
+  <small class="helper-text">Display name shown in the From field of emails</small>
+</div>
+
+<div class="form-field">
+  <label for="replyTo">Reply To</label>
+  <input type="text" id="replyTo" name="replyTo" value="{{channel.replyTo}}">
+  <small class="helper-text">Email address for subscriber replies (optional)</small>
+</div>
+
+<div class="form-field">
+  <label for="companyName">Company Name</label>
+  <input type="text" id="companyName" name="companyName" value="{{channel.companyName}}">
+  <small class="helper-text">Shown in email footer for CAN-SPAM compliance (optional)</small>
+</div>
+
+<div class="form-field">
+  <label for="companyAddress">Company Address</label>
+  <input type="text" id="companyAddress" name="companyAddress" value="{{channel.companyAddress}}">
+  <small class="helper-text">Physical address for email footer (optional)</small>
+</div>
+
+<div class="form-field">
+  <label for="corsOrigins" class="required">CORS Origins (one per line)</label>
+  <textarea id="corsOrigins" name="corsOrigins">{{channel.corsOrigins}}</textarea>
+  <small class="helper-text">Origins allowed to submit the subscribe form, one per line</small>
+</div>
+
+<h2>Feeds</h2>
+
+<div class="feed-rows" id="feed-rows">
+  {{#each feeds}}
+  <div class="feed-row" data-index="{{@index}}">
+    <input type="hidden" name="feeds[{{@index}}][id]" value="{{this.id}}">
+    <div class="form-field">
+      <label class="required">Feed Name</label>
+      <input type="text" name="feeds[{{@index}}][name]" value="{{this.name}}" required>
+      <small class="helper-text">Display name for this feed in emails</small>
+    </div>
+    <div class="form-field">
+      <label class="required">Feed URL</label>
+      <input type="url" name="feeds[{{@index}}][url]" value="{{this.url}}" required>
+      <small class="helper-text">URL of the RSS or Atom feed</small>
+    </div>
+    <div class="feed-row-actions">
+      <button type="button" class="remove-feed-btn btn-small" onclick="removeFeedRow(this)">Remove</button>
+      <noscript>
+        <button type="submit" name="action" value="remove-feed" class="btn-small" onclick="this.form.querySelector('[name=removeIndex]') || this.form.insertAdjacentHTML('beforeend','<input type=hidden name=removeIndex value={{@index}}>')">Remove (noscript)</button>
+      </noscript>
+    </div>
+  </div>
+  {{else}}
+  <div class="feed-row" data-index="0">
+    <div class="form-field">
+      <label class="required">Feed Name</label>
+      <input type="text" name="feeds[0][name]" value="" required>
+      <small class="helper-text">Display name for this feed in emails</small>
+    </div>
+    <div class="form-field">
+      <label class="required">Feed URL</label>
+      <input type="url" name="feeds[0][url]" value="" required>
+      <small class="helper-text">URL of the RSS or Atom feed</small>
+    </div>
+    <div class="feed-row-actions">
+      <button type="button" class="remove-feed-btn btn-small" onclick="removeFeedRow(this)" disabled>Remove</button>
+    </div>
+  </div>
+  {{/each}}
+</div>
+
+<div class="cluster">
+  <button type="button" id="add-feed-btn" onclick="addFeedRow()">Add feed</button>
+  <noscript><button type="submit" name="action" value="add-feed">Add feed</button></noscript>
+</div>
+
+<input type="hidden" name="removeIndex" id="removeIndex" value="">

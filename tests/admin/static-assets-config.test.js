@@ -3,10 +3,7 @@ import { readFileSync } from "fs";
 import { resolve } from "path";
 
 describe("wrangler.admin.toml static assets configuration", () => {
-  const tomlPath = resolve(
-    import.meta.dirname,
-    "../../wrangler.admin.toml"
-  );
+  const tomlPath = resolve(import.meta.dirname, "../../wrangler.admin.toml");
   let tomlContent;
 
   try {

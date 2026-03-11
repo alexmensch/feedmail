@@ -496,10 +496,7 @@ export async function handlePasskeyDelete(request, env, credentialId) {
  */
 export async function handlePasskeyDeleteConfirm(request, env, credentialId) {
   if (!isHtmxRequest(request)) {
-    return Response.redirect(
-      `https://${env.DOMAIN}/admin/settings`,
-      302
-    );
+    return Response.redirect(`https://${env.DOMAIN}/admin/settings`, 302);
   }
 
   const credential = await getPasskeyCredentialById(env.DB, credentialId);
