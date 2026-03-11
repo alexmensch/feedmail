@@ -1,0 +1,11 @@
+<div class="inline-confirm" role="alert">
+  <span>{{message}}</span>
+  <div class="inline-confirm__actions">
+    <form method="POST" action="{{confirmAction}}">
+      <button type="submit" class="btn-small btn-danger"
+        {{#if htmxPost}}hx-post="{{htmxPost}}" hx-target="{{htmxTarget}}" hx-swap="{{htmxSwap}}"{{/if}}>Confirm</button>
+    </form>
+    <button type="button" class="btn-small"
+      {{#if htmxCancelGet}}hx-get="{{htmxCancelGet}}" hx-target="{{htmxCancelTarget}}" hx-swap="innerHTML"{{else}}onclick="this.closest('.inline-confirm').outerHTML = '{{cancelHtml}}'"{{/if}}>Cancel</button>
+  </div>
+</div>

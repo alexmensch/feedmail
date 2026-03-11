@@ -1,0 +1,29 @@
+{{#if error}}
+<div class="feedback" data-variant="error" role="alert">{{error}}</div>
+{{/if}}
+
+{{#if showTable}}
+  {{#if hasSubscribers}}
+  <table class="table">
+    <thead>
+      <tr><th>Email</th><th>Channel</th><th>Status</th><th>Subscribed</th></tr>
+    </thead>
+    <tbody>
+      {{#each subscribers}}
+      <tr>
+        <td>{{this.email}}</td>
+        <td>{{../selectedChannelId}}</td>
+        <td>{{this.status}}</td>
+        <td>{{formatDate this.created_at}}</td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="text-muted">No subscribers match the current filters.</p>
+  {{/if}}
+{{else}}
+  {{#unless selectedChannelId}}
+  <p class="text-muted">Select a channel to view subscribers.</p>
+  {{/unless}}
+{{/if}}

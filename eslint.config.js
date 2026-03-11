@@ -67,7 +67,8 @@ export default [
       "dist/",
       "coverage/",
       ".wrangler/",
-      "src/templates/compiled/"
+      "src/templates/compiled/",
+      "assets/"
     ]
   }
 ];

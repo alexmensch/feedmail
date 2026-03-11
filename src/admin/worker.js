@@ -19,7 +19,8 @@ import {
   handleAuthenticateOptions,
   handleAuthenticateVerify,
   handlePasskeyRename,
-  handlePasskeyDelete
+  handlePasskeyDelete,
+  handlePasskeyDeleteConfirm
 } from "./routes/passkeys.js";
 import { handleDashboard, handleSendTrigger } from "./routes/dashboard.js";
 import {
@@ -28,7 +29,8 @@ import {
   handleChannelCreate,
   handleChannelDetail,
   handleChannelUpdate,
-  handleChannelDelete
+  handleChannelDelete,
+  handleChannelDeleteConfirm
 } from "./routes/channels.js";
 import { handleSubscriberList } from "./routes/subscribers.js";
 import { handleSettings } from "./routes/settings.js";
@@ -159,6 +161,18 @@ export default {
         return new Response(null, { status: 405 });
       }
 
+      // Passkey delete confirmation: /admin/passkeys/{credentialId}/delete/confirm
+      const passkeyDeleteConfirmMatch = url.pathname.match(
+        /^\/admin\/passkeys\/([^/]+)\/delete\/confirm$/
+      );
+      if (passkeyDeleteConfirmMatch) {
+        const credentialId = decodeURIComponent(passkeyDeleteConfirmMatch[1]);
+        if (request.method === "GET") {
+          return await handlePasskeyDeleteConfirm(request, env, credentialId);
+        }
+        return new Response(null, { status: 405 });
+      }
+
       // Dynamic passkey routes: /admin/passkeys/{credentialId}/rename or /delete
       const passkeyActionMatch = url.pathname.match(
         /^\/admin\/passkeys\/([^/]+)\/(rename|delete)$/
@@ -223,6 +237,18 @@ export default {
       if (url.pathname === "/admin/channels/new") {
         if (request.method === "GET") {
           return await handleChannelNew(request, env);
+        }
+        return new Response(null, { status: 405 });
+      }
+
+      // Channel delete confirmation: /admin/channels/{id}/delete/confirm
+      const channelDeleteConfirmMatch = url.pathname.match(
+        /^\/admin\/channels\/([^/]+)\/delete\/confirm$/
+      );
+      if (channelDeleteConfirmMatch) {
+        const channelId = decodeURIComponent(channelDeleteConfirmMatch[1]);
+        if (request.method === "GET") {
+          return await handleChannelDeleteConfirm(request, env, channelId);
         }
         return new Response(null, { status: 405 });
       }
