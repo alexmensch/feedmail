@@ -27,6 +27,7 @@ fs.mkdirSync(path.join(OUTPUT_DIR, "partials"), { recursive: true });
 Handlebars.registerHelper("eq", (a, b) => a === b);
 Handlebars.registerHelper("formatDate", () => "");
 Handlebars.registerHelper("currentYear", () => new Date().getFullYear());
+Handlebars.registerHelper("iif", (a, b, c) => a ? b : c);
 
 // Register and precompile partials first (so templates can reference them)
 const partialFiles = fs.existsSync(PARTIALS_DIR)

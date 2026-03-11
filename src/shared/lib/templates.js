@@ -15,6 +15,8 @@ import emailFooterSpec from "../../templates/compiled/partials/email-footer.js";
 import webauthnHelpersSpec from "../../templates/compiled/partials/webauthn-helpers.js";
 import adminNavSpec from "../../templates/compiled/partials/admin-nav.js";
 import adminHeadSpec from "../../templates/compiled/partials/admin-head.js";
+import adminLayoutSpec from "../../templates/compiled/partials/admin-layout.js";
+import adminAuthLayoutSpec from "../../templates/compiled/partials/admin-auth-layout.js";
 
 // Import precompiled template specs
 import newsletterSpec from "../../templates/compiled/newsletter.js";
@@ -35,6 +37,14 @@ import adminChannelFormSpec from "../../templates/compiled/admin-channel-form.js
 import adminSubscribersSpec from "../../templates/compiled/admin-subscribers.js";
 import adminSettingsSpec from "../../templates/compiled/admin-settings.js";
 
+// Import precompiled fragment template specs
+import adminChannelFormResultSpec from "../../templates/compiled/admin-channel-form-result.js";
+import adminSubscriberTableSpec from "../../templates/compiled/admin-subscriber-table.js";
+import adminSendFeedbackSpec from "../../templates/compiled/admin-send-feedback.js";
+import adminPasskeyListSpec from "../../templates/compiled/admin-passkey-list.js";
+import adminSessionExpiredSpec from "../../templates/compiled/admin-session-expired.js";
+import adminDeleteConfirmSpec from "../../templates/compiled/admin-delete-confirm.js";
+
 // Register Handlebars helpers
 Handlebars.registerHelper("formatDate", (dateStr) => {
   if (!dateStr) {
@@ -52,6 +62,10 @@ Handlebars.registerHelper("currentYear", () => new Date().getFullYear());
 
 Handlebars.registerHelper("eq", (a, b) => a === b);
 
+Handlebars.registerHelper("iif", (conditional, trueVal, falseVal) =>
+  conditional ? trueVal : falseVal
+);
+
 // Register precompiled partials
 Handlebars.registerPartial(
   "email-footer",
@@ -63,6 +77,14 @@ Handlebars.registerPartial(
 );
 Handlebars.registerPartial("admin-nav", Handlebars.template(adminNavSpec));
 Handlebars.registerPartial("admin-head", Handlebars.template(adminHeadSpec));
+Handlebars.registerPartial(
+  "admin-layout",
+  Handlebars.template(adminLayoutSpec)
+);
+Handlebars.registerPartial(
+  "admin-auth-layout",
+  Handlebars.template(adminAuthLayoutSpec)
+);
 
 // Instantiate templates from precompiled specs
 const templates = {
@@ -80,7 +102,13 @@ const templates = {
   adminChannels: Handlebars.template(adminChannelsSpec),
   adminChannelForm: Handlebars.template(adminChannelFormSpec),
   adminSubscribers: Handlebars.template(adminSubscribersSpec),
-  adminSettings: Handlebars.template(adminSettingsSpec)
+  adminSettings: Handlebars.template(adminSettingsSpec),
+  adminChannelFormResult: Handlebars.template(adminChannelFormResultSpec),
+  adminSubscriberTable: Handlebars.template(adminSubscriberTableSpec),
+  adminSendFeedback: Handlebars.template(adminSendFeedbackSpec),
+  adminPasskeyList: Handlebars.template(adminPasskeyListSpec),
+  adminSessionExpired: Handlebars.template(adminSessionExpiredSpec),
+  adminDeleteConfirm: Handlebars.template(adminDeleteConfirmSpec)
 };
 
 /**

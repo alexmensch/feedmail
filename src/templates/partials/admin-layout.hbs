@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  {{> admin-head}}
+  <title>{{pageTitle}} — feedmail admin</title>
+</head>
+<body>
+  <div class="app-shell sidebar-layout">
+    {{> admin-nav activePage=activePage}}
+    <main class="main-content">
+      <div class="stack" data-gap="m">
+        {{> @partial-block}}
+      </div>
+    </main>
+  </div>
+  <script src="/admin/htmx.min.js"></script>
+</body>
+</html>

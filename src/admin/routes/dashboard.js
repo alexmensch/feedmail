@@ -6,6 +6,7 @@ import { callApi, API_UNREACHABLE_ERROR } from "../lib/api.js";
 import { render } from "../../shared/lib/templates.js";
 import { htmlResponse } from "../../shared/lib/response.js";
 import { getPasskeyCredentialCount } from "../lib/db.js";
+import { isHtmxRequest, fragmentResponse } from "../lib/htmx.js";
 
 /**
  * GET /admin — Dashboard page.
@@ -73,7 +74,8 @@ export async function handleDashboard(request, env) {
 /**
  * POST /admin/send — Trigger feed check and send.
  * Reads optional channelId from form data.
- * Redirects back to referring page with success/error feedback.
+ * For HTMX requests, returns inline feedback fragment.
+ * For standard requests, redirects back to referring page with query-param feedback.
  */
 export async function handleSendTrigger(request, env) {
   let channelId = null;
@@ -87,7 +89,16 @@ export async function handleSendTrigger(request, env) {
   const body = channelId ? { channelId } : undefined;
   const result = await callApi(env, "POST", "/send", body);
 
-  // Determine redirect target from Referer header
+  // HTMX request: return inline feedback fragment
+  if (isHtmxRequest(request)) {
+    const html = render("adminSendFeedback", {
+      success: result.ok ? "Feed check completed" : "",
+      error: result.ok ? "" : result.data?.error || "Feed check failed"
+    });
+    return fragmentResponse(html);
+  }
+
+  // Standard request: redirect with query-param feedback
   const referer = request.headers.get("Referer");
   let redirectPath = "/admin";
   if (referer) {

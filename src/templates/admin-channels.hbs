@@ -1,40 +1,37 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  {{> admin-head}}
-  <title>Channels — feedmail admin</title>
-</head>
-<body>
+{{#> admin-layout pageTitle="Channels" activePage="channels"}}
+{{#*inline "content"}}
+
+<div class="page-header">
   <h1>Channels</h1>
-  {{> admin-nav}}
+  <a href="/admin/channels/new" class="btn btn-primary">Create channel</a>
+</div>
 
-  {{#if error}}
-  <div class="error">{{error}}</div>
-  {{/if}}
+{{#if error}}
+<div class="feedback" data-variant="error" role="alert">{{error}}</div>
+{{/if}}
 
-  {{#if success}}
-  <div class="success">{{success}}</div>
-  {{/if}}
+{{#if success}}
+<div class="feedback" data-variant="success" role="status">{{success}}</div>
+{{/if}}
 
-  <p><a href="/admin/channels/new">Create channel</a></p>
+{{#if hasChannels}}
+<table class="table">
+  <thead>
+    <tr><th>ID</th><th>Site Name</th><th>Site URL</th></tr>
+  </thead>
+  <tbody>
+    {{#each channels}}
+    <tr>
+      <td><a href="/admin/channels/{{this.id}}">{{this.id}}</a></td>
+      <td>{{this.siteName}}</td>
+      <td>{{this.siteUrl}}</td>
+    </tr>
+    {{/each}}
+  </tbody>
+</table>
+{{else}}
+<p class="text-muted">No channels yet. Create your first channel to get started.</p>
+{{/if}}
 
-  {{#if hasChannels}}
-  <table>
-    <thead>
-      <tr><th>ID</th><th>Site Name</th><th>Site URL</th></tr>
-    </thead>
-    <tbody>
-      {{#each channels}}
-      <tr>
-        <td><a href="/admin/channels/{{this.id}}">{{this.id}}</a></td>
-        <td>{{this.siteName}}</td>
-        <td>{{this.siteUrl}}</td>
-      </tr>
-      {{/each}}
-    </tbody>
-  </table>
-  {{else}}
-  <p>No channels yet. Create your first channel to get started.</p>
-  {{/if}}
-</body>
-</html>
+{{/inline}}
+{{/admin-layout}}
