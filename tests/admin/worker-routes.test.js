@@ -12,7 +12,6 @@ vi.mock("../../src/admin/routes/passkeys.js", () => ({
   handleRegisterVerify: vi.fn(),
   handleAuthenticateOptions: vi.fn(),
   handleAuthenticateVerify: vi.fn(),
-  handlePasskeyManagement: vi.fn(),
   handlePasskeyRename: vi.fn(),
   handlePasskeyDelete: vi.fn(),
   handlePasskeyDeleteConfirm: vi.fn()
