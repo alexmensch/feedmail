@@ -477,12 +477,22 @@ export async function getSentItemStats(db, feedUrls) {
 
 export async function getSubscriberList(db, channelId, statusFilter) {
   let query =
-    "SELECT email, status, created_at, verified_at, unsubscribed_at FROM subscribers WHERE channel_id = ?";
-  const binds = [channelId];
+    "SELECT email, channel_id, status, created_at, verified_at, unsubscribed_at FROM subscribers";
+  const binds = [];
+  const conditions = [];
+
+  if (channelId) {
+    conditions.push("channel_id = ?");
+    binds.push(channelId);
+  }
 
   if (statusFilter) {
-    query += " AND status = ?";
+    conditions.push("status = ?");
     binds.push(statusFilter);
+  }
+
+  if (conditions.length > 0) {
+    query += ` WHERE ${conditions.join(" AND ")}`;
   }
 
   query += " ORDER BY created_at DESC";
