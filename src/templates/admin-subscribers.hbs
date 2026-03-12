@@ -14,7 +14,7 @@
     <div class="form-field">
       <label for="channelId">Channel</label>
       <select id="channelId" name="channelId">
-        <option value="">Select a channel</option>
+        <option value="" {{#if allSelected}}selected{{/if}}>All channels</option>
         {{#each channels}}
         <option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{this.siteName}} ({{this.id}})</option>
         {{/each}}

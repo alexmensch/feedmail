@@ -12,7 +12,7 @@
       {{#each subscribers}}
       <tr>
         <td>{{this.email}}</td>
-        <td>{{../selectedChannelId}}</td>
+        <td>{{this.channel_id}}</td>
         <td>{{this.status}}</td>
         <td>{{formatDate this.created_at}}</td>
       </tr>
@@ -22,8 +22,4 @@
   {{else}}
   <p class="text-muted">No subscribers match the current filters.</p>
   {{/if}}
-{{else}}
-  {{#unless selectedChannelId}}
-  <p class="text-muted">Select a channel to view subscribers.</p>
-  {{/unless}}
 {{/if}}

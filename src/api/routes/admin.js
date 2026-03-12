@@ -95,25 +95,32 @@ async function handleStats(env, url) {
  * GET /api/admin/subscribers?channelId=alxm.me&status=verified
  */
 async function handleSubscribers(env, url) {
-  const channelId = url.searchParams.get("channelId");
+  const channelId = url.searchParams.get("channelId") || "";
 
-  if (!channelId) {
-    return jsonResponse(400, { error: "Missing channelId query parameter" });
-  }
-
-  const channel = await getChannelById(env, channelId);
-  if (!channel) {
-    return jsonResponse(404, { error: "Unknown channel" });
+  if (channelId) {
+    const channel = await getChannelById(env, channelId);
+    if (!channel) {
+      return jsonResponse(404, { error: "Unknown channel" });
+    }
   }
 
   const statusFilter = url.searchParams.get("status") || null;
-  const subscribers = await getSubscriberList(env.DB, channelId, statusFilter);
+  const subscribers = await getSubscriberList(
+    env.DB,
+    channelId || null,
+    statusFilter
+  );
 
-  return jsonResponse(200, {
-    channelId,
+  const response = {
     count: subscribers.length,
     subscribers
-  });
+  };
+
+  if (channelId) {
+    response.channelId = channelId;
+  }
+
+  return jsonResponse(200, response);
 }
 
 function methodNotAllowed() {

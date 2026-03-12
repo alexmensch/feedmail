@@ -50,28 +50,33 @@ export async function handleSubscriberList(request, env) {
     activePage: "subscribers",
     channels: channelOptions,
     hasChannels: channels.length > 0,
-    selectedChannelId: channelId,
+    allSelected: !channelId,
     selectedStatus: status,
     error
   };
 
-  // Only fetch subscribers if a channel is selected
+  // Build API path — fetch all subscribers when no channel selected
+  const params = [];
   if (channelId) {
-    let apiPath = `/admin/subscribers?channelId=${encodeURIComponent(channelId)}`;
-    if (status) {
-      apiPath += `&status=${encodeURIComponent(status)}`;
-    }
+    params.push(`channelId=${encodeURIComponent(channelId)}`);
+  }
+  if (status) {
+    params.push(`status=${encodeURIComponent(status)}`);
+  }
+  let apiPath = "/admin/subscribers";
+  if (params.length > 0) {
+    apiPath += "?" + params.join("&");
+  }
 
-    const subscribersResult = await callApi(env, "GET", apiPath);
+  const subscribersResult = await callApi(env, "GET", apiPath);
 
-    if (subscribersResult.ok) {
-      templateData.subscribers = subscribersResult.data?.subscribers || [];
-      templateData.hasSubscribers = templateData.subscribers.length > 0;
-      templateData.showTable = true;
-    } else {
-      templateData.error =
-        subscribersResult.data?.error || "Failed to load subscribers";
-    }
+  if (subscribersResult.ok) {
+    templateData.subscribers = subscribersResult.data?.subscribers || [];
+    templateData.hasSubscribers = templateData.subscribers.length > 0;
+    templateData.showTable = true;
+  } else {
+    templateData.error =
+      subscribersResult.data?.error || "Failed to load subscribers";
   }
 
   // HTMX request: return just the subscriber table fragment
