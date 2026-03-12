@@ -65,7 +65,7 @@ export async function handleSubscriberList(request, env) {
   }
   let apiPath = "/admin/subscribers";
   if (params.length > 0) {
-    apiPath += "?" + params.join("&");
+    apiPath += `?${params.join("&")}`;
   }
 
   const subscribersResult = await callApi(env, "GET", apiPath);
