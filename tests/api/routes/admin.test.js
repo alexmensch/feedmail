@@ -251,17 +251,7 @@ describe("handleAdmin", () => {
   });
 
   describe("handleSubscribers", () => {
-    it("returns 400 when siteId is missing", async () => {
-      const { request, url } = makeRequest("/api/admin/subscribers");
-
-      const response = await handleAdmin(request, env, url);
-      const body = await response.json();
-
-      expect(response.status).toBe(400);
-      expect(body.error).toBe("Missing channelId query parameter");
-    });
-
-    it("returns 404 for unknown site", async () => {
+    it("returns 404 for unknown channel", async () => {
       getChannelById.mockReturnValue(null);
       const { request, url } = makeRequest("/api/admin/subscribers", {
         channelId: "nonexistent"
@@ -276,8 +266,8 @@ describe("handleAdmin", () => {
 
     it("returns subscriber list without status filter", async () => {
       const subscribers = [
-        { email: "a@b.com", status: "verified" },
-        { email: "c@d.com", status: "pending" }
+        { email: "a@b.com", status: "verified", channel_id: "test-site" },
+        { email: "c@d.com", status: "pending", channel_id: "test-site" }
       ];
       getSubscriberList.mockResolvedValue(subscribers);
 
@@ -314,7 +304,7 @@ describe("handleAdmin", () => {
 
     it("returns correct count for filtered results", async () => {
       getSubscriberList.mockResolvedValue([
-        { email: "a@b.com", status: "verified" }
+        { email: "a@b.com", status: "verified", channel_id: "test-site" }
       ]);
 
       const { request, url } = makeRequest("/api/admin/subscribers", {
@@ -340,6 +330,88 @@ describe("handleAdmin", () => {
 
       expect(body.count).toBe(0);
       expect(body.subscribers).toEqual([]);
+    });
+
+    it("returns 200 with all subscribers when channelId is omitted", async () => {
+      const subscribers = [
+        { email: "a@b.com", status: "verified", channel_id: "ch1" },
+        { email: "c@d.com", status: "pending", channel_id: "ch2" }
+      ];
+      getSubscriberList.mockResolvedValue(subscribers);
+
+      const { request, url } = makeRequest("/api/admin/subscribers");
+
+      const response = await handleAdmin(request, env, url);
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.count).toBe(2);
+      expect(body.subscribers).toEqual(subscribers);
+      expect(getSubscriberList).toHaveBeenCalledWith(env.DB, null, null);
+    });
+
+    it("filters by status across all channels when channelId is omitted", async () => {
+      const subscribers = [
+        { email: "a@b.com", status: "verified", channel_id: "ch1" },
+        { email: "b@b.com", status: "verified", channel_id: "ch2" }
+      ];
+      getSubscriberList.mockResolvedValue(subscribers);
+
+      const { request, url } = makeRequest("/api/admin/subscribers", {
+        status: "verified"
+      });
+
+      const response = await handleAdmin(request, env, url);
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.count).toBe(2);
+      expect(getSubscriberList).toHaveBeenCalledWith(
+        env.DB,
+        null,
+        "verified"
+      );
+    });
+
+    it("does not validate channel when channelId is omitted", async () => {
+      getSubscriberList.mockResolvedValue([]);
+
+      const { request, url } = makeRequest("/api/admin/subscribers");
+
+      await handleAdmin(request, env, url);
+
+      expect(getChannelById).not.toHaveBeenCalled();
+    });
+
+    it("every subscriber row includes channel_id field", async () => {
+      const subscribers = [
+        { email: "a@b.com", status: "verified", channel_id: "ch1" },
+        { email: "c@d.com", status: "pending", channel_id: "ch2" }
+      ];
+      getSubscriberList.mockResolvedValue(subscribers);
+
+      const { request, url } = makeRequest("/api/admin/subscribers");
+
+      const response = await handleAdmin(request, env, url);
+      const body = await response.json();
+
+      for (const sub of body.subscribers) {
+        expect(sub).toHaveProperty("channel_id");
+      }
+    });
+
+    it("validates channel and returns 404 for invalid channelId", async () => {
+      getChannelById.mockReturnValue(null);
+
+      const { request, url } = makeRequest("/api/admin/subscribers", {
+        channelId: "bad-channel"
+      });
+
+      const response = await handleAdmin(request, env, url);
+      const body = await response.json();
+
+      expect(response.status).toBe(404);
+      expect(body.error).toBe("Unknown channel");
     });
   });
 });

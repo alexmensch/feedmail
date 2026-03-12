@@ -152,18 +152,27 @@ describe("handleSubscriberList", () => {
     expect(render).toHaveBeenCalledWith(
       "adminSubscribers",
       expect.objectContaining({
-        selectedChannelId: "ch1",
         selectedStatus: "pending"
       })
     );
   });
 
-  it("shows empty state when no channelId is selected", async () => {
-    callApi.mockResolvedValue({
-      ok: true,
-      status: 200,
-      data: { channels: [{ id: "ch1", siteName: "Site One" }] }
-    });
+  it("fetches subscribers on initial page load with no params", async () => {
+    callApi
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        data: { channels: [{ id: "ch1", siteName: "Site One" }] }
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        data: {
+          subscribers: [
+            { email: "user@test.com", channel_id: "ch1", status: "verified" }
+          ]
+        }
+      });
 
     const request = new Request(
       "https://feedmail.example.com/admin/subscribers"
@@ -171,11 +180,112 @@ describe("handleSubscriberList", () => {
     const response = await handleSubscriberList(request, env);
 
     expect(response.status).toBe(200);
-    // Should not fetch subscribers when no channelId
-    expect(callApi).toHaveBeenCalledTimes(1); // Only channels call
+    // Should fetch subscribers even without channelId
+    expect(callApi).toHaveBeenCalledTimes(2);
     const templateData = render.mock.calls[0][1];
-    expect(templateData.showTable).toBeFalsy();
-    expect(templateData.subscribers).toBeUndefined();
+    expect(templateData.showTable).toBe(true);
+    expect(templateData.subscribers).toBeDefined();
+  });
+
+  it("sets allSelected to true when no channelId param", async () => {
+    callApi
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        data: { channels: [{ id: "ch1", siteName: "Site One" }] }
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        data: { subscribers: [] }
+      });
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/subscribers"
+    );
+    await handleSubscriberList(request, env);
+
+    const templateData = render.mock.calls[0][1];
+    expect(templateData.allSelected).toBe(true);
+  });
+
+  it("sets allSelected to false when channelId is provided", async () => {
+    callApi
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        data: { channels: [{ id: "ch1", siteName: "Site One" }] }
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        data: { subscribers: [] }
+      });
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/subscribers?channelId=ch1"
+    );
+    await handleSubscriberList(request, env);
+
+    const templateData = render.mock.calls[0][1];
+    expect(templateData.allSelected).toBe(false);
+  });
+
+  it("does not include selectedChannelId in template data", async () => {
+    callApi
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        data: { channels: [{ id: "ch1", siteName: "Site One" }] }
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        data: { subscribers: [] }
+      });
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/subscribers?channelId=ch1"
+    );
+    await handleSubscriberList(request, env);
+
+    const templateData = render.mock.calls[0][1];
+    expect(templateData).not.toHaveProperty("selectedChannelId");
+  });
+
+  it("returns HTMX fragment with subscriber data on initial load", async () => {
+    callApi
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        data: { channels: [{ id: "ch1", siteName: "Site One" }] }
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        data: {
+          subscribers: [
+            { email: "user@test.com", channel_id: "ch1", status: "verified" }
+          ]
+        }
+      });
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/subscribers",
+      { headers: { "HX-Request": "true" } }
+    );
+    const response = await handleSubscriberList(request, env);
+
+    expect(response.status).toBe(200);
+    expect(render).toHaveBeenCalledWith(
+      "adminSubscriberTable",
+      expect.objectContaining({
+        showTable: true,
+        subscribers: expect.arrayContaining([
+          expect.objectContaining({ email: "user@test.com" })
+        ])
+      })
+    );
   });
 
   it("shows empty message when no subscribers match filter", async () => {
