@@ -383,4 +383,31 @@ describe("handleSubscriberList", () => {
       })
     );
   });
+
+  it("uses fallback error message when subscriber fetch fails with null data", async () => {
+    callApi
+      .mockResolvedValueOnce({
+        ok: true,
+        data: { channels: [{ id: "ch1", siteName: "Site 1" }] }
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        data: null
+      });
+
+    const request = new Request(
+      "https://feedmail.example.com/admin/subscribers?channelId=ch1"
+    );
+
+    const response = await handleSubscriberList(request, env);
+
+    expect(response.status).toBe(200);
+    expect(render).toHaveBeenCalledWith(
+      "adminSubscribers",
+      expect.objectContaining({
+        error: "Failed to load subscribers"
+      })
+    );
+  });
 });
