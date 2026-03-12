@@ -608,6 +608,75 @@ describe("db", () => {
         );
         expect(db._chain.bind).toHaveBeenCalledWith("site1");
       });
+
+      it("omits channel_id WHERE clause when channelId is null", async () => {
+        const subscribers = [
+          {
+            email: "a@test.com",
+            status: "verified",
+            channel_id: "ch1"
+          },
+          {
+            email: "b@test.com",
+            status: "pending",
+            channel_id: "ch2"
+          }
+        ];
+        const db = mockDb({ results: subscribers });
+
+        const result = await getSubscriberList(db, null, null);
+
+        expect(result).toEqual(subscribers);
+        expect(db.prepare).toHaveBeenCalledWith(
+          expect.not.stringContaining("WHERE channel_id = ?")
+        );
+        expect(db._chain.bind).toHaveBeenCalledWith();
+      });
+
+      it("omits channel_id WHERE clause when channelId is undefined", async () => {
+        const db = mockDb({ results: [] });
+
+        await getSubscriberList(db, undefined, null);
+
+        expect(db.prepare).toHaveBeenCalledWith(
+          expect.not.stringContaining("WHERE channel_id = ?")
+        );
+        expect(db._chain.bind).toHaveBeenCalledWith();
+      });
+
+      it("filters by status across all channels when channelId is null", async () => {
+        const db = mockDb({ results: [] });
+
+        await getSubscriberList(db, null, "verified");
+
+        expect(db.prepare).toHaveBeenCalledWith(
+          expect.stringContaining("status = ?")
+        );
+        expect(db.prepare).toHaveBeenCalledWith(
+          expect.not.stringContaining("channel_id = ?")
+        );
+        expect(db._chain.bind).toHaveBeenCalledWith("verified");
+      });
+
+      it("always includes channel_id in SELECT columns", async () => {
+        const db = mockDb({ results: [] });
+
+        await getSubscriberList(db, null, null);
+
+        expect(db.prepare).toHaveBeenCalledWith(
+          expect.stringContaining("channel_id")
+        );
+      });
+
+      it("includes channel_id in SELECT columns when filtering by channel", async () => {
+        const db = mockDb({ results: [] });
+
+        await getSubscriberList(db, "site1", null);
+
+        expect(db.prepare).toHaveBeenCalledWith(
+          expect.stringContaining("channel_id")
+        );
+      });
     });
   });
 
