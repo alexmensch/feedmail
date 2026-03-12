@@ -366,11 +366,7 @@ describe("handleAdmin", () => {
 
       expect(response.status).toBe(200);
       expect(body.count).toBe(2);
-      expect(getSubscriberList).toHaveBeenCalledWith(
-        env.DB,
-        null,
-        "verified"
-      );
+      expect(getSubscriberList).toHaveBeenCalledWith(env.DB, null, "verified");
     });
 
     it("does not validate channel when channelId is omitted", async () => {
