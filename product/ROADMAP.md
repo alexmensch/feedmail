@@ -28,9 +28,9 @@ A reader who follows a personal website or blog and prefers to receive new posts
 
 ## Planned
 
-| #   | Feature                                                             | Description                                                                                                                                                                                                                                    | GUID                                   |
-| --- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 1   | [admin-console-pico-css](./admin-console-pico-css.md)               | Adds visual styling to all feedmail HTML pages using Pico CSS — semantic markup, professional defaults, dark mode, responsive design, with a minimal override stylesheet for feedmail-specific components. Supersedes admin-console-styled (PR #56) | `BF3EAFC3-7641-4004-A3CD-2C050677DDBC` |
+| #   | Feature                                               | Description                                                                                                                                                                                                                                         | GUID                                   |
+| --- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| 1   | [admin-console-pico-css](./admin-console-pico-css.md) | Adds visual styling to all feedmail HTML pages using Pico CSS — semantic markup, professional defaults, dark mode, responsive design, with a minimal override stylesheet for feedmail-specific components. Supersedes admin-console-styled (PR #56) | `BF3EAFC3-7641-4004-A3CD-2C050677DDBC` |
 
 ### Release: Quick Start
 
