@@ -34,22 +34,21 @@
   color: var(--pico-del-color);
 }
 
-/* ── Helper text ────────────────────────────────────────────────────── */
+/* ── Helper text / field error ──────────────────────────────────────── */
 
-.helper-text {
+.helper-text,
+.field-error {
   font-size: 0.875em;
-  color: var(--pico-muted-color);
   margin-top: calc(var(--pico-spacing) * -0.5);
   margin-bottom: var(--pico-spacing);
 }
 
-/* ── Field error ────────────────────────────────────────────────────── */
+.helper-text {
+  color: var(--pico-muted-color);
+}
 
 .field-error {
-  font-size: 0.875em;
   color: var(--pico-del-color);
-  margin-top: calc(var(--pico-spacing) * -0.5);
-  margin-bottom: var(--pico-spacing);
 }
 
 /* ── Input suffix (e.g., @domain) ───────────────────────────────────── */

@@ -118,3 +118,14 @@ Replace CUBE CSS with Pico CSS across all feedmail HTML pages. Pico CSS v2 (defa
 - Email templates (out of scope)
 - `partials/webauthn-helpers.hbs` (pure JavaScript)
 - `src/admin/lib/htmx.js`, `src/admin/lib/session.js`
+
+## Out-of-spec changes
+
+Changes made during code review that were not in the original specification:
+
+| #   | Change                                            | Description                                                                                                                                                                                                      |
+| --- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Extract public-page-layout partial                | Created `partials/public-page-layout.hbs` shared partial for verify, unsubscribe, and error pages. Eliminates duplication of CDN URL, `<head>`, `<main>`, `<article>`, and `<footer>` structure across 3 files.   |
+| 2   | Pin CDN Pico CSS version                          | Changed CDN URL from `@2` (floating) to `@2.1.1` (pinned) to match the vendored `pico.min.css` version and prevent silent version drift.                                                                        |
+| 3   | Deduplicate helper-text/field-error CSS           | Combined shared properties of `.helper-text` and `.field-error` into a grouped selector, with only `color` differing in individual rules.                                                                        |
+| 4   | Extract cancelHtml to local constants             | In `channels.js` and `passkeys.js`, extracted duplicated `cancelHtml` button strings to local `const` variables within each handler function.

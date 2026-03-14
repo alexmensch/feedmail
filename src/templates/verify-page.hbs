@@ -1,23 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>You're subscribed! - {{siteName}}</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
-</head>
-<body>
-  <main class="container">
-    <article>
-      <header>
-        <a href="{{siteUrl}}"><strong>{{siteName}}</strong></a>
-      </header>
+{{#> public-page-layout pageTitle="You're subscribed!" siteName=siteName siteUrl=siteUrl}}
+  {{#*inline "content"}}
       <h1>You're subscribed!</h1>
       <p>Your email has been verified. You'll receive an email when new content is published.</p>
-      <footer>
-        <a href="{{siteUrl}}">&larr; Back to {{siteName}}</a>
-      </footer>
-    </article>
-  </main>
-</body>
-</html>
+  {{/inline}}
+{{/public-page-layout}}

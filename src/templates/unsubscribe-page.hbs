@@ -1,23 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Unsubscribed - {{siteName}}</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
-</head>
-<body>
-  <main class="container">
-    <article>
-      <header>
-        <a href="{{siteUrl}}"><strong>{{siteName}}</strong></a>
-      </header>
+{{#> public-page-layout pageTitle="Unsubscribed" siteName=siteName siteUrl=siteUrl}}
+  {{#*inline "content"}}
       <h1>You've been unsubscribed</h1>
       <p>You won't receive any more emails from {{siteName}}. If you change your mind, you can subscribe again from the website.</p>
-      <footer>
-        <a href="{{siteUrl}}">&larr; Back to {{siteName}}</a>
-      </footer>
-    </article>
-  </main>
-</body>
-</html>
+  {{/inline}}
+{{/public-page-layout}}

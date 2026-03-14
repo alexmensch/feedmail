@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{pageTitle}} - {{siteName}}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2.1.1/css/pico.min.css">
+</head>
+<body>
+  <main class="container">
+    <article>
+      <header>
+        <a href="{{siteUrl}}"><strong>{{siteName}}</strong></a>
+      </header>
+      {{> content}}
+      <footer>
+        <a href="{{siteUrl}}">&larr; Back to {{siteName}}</a>
+      </footer>
+    </article>
+  </main>
+</body>
+</html>

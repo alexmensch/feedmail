@@ -148,8 +148,8 @@ describe("admin-layout partial", () => {
     expect(content).toMatch(/<main\s[^>]*class="container"/);
   });
 
-  it("contains a <nav> element", () => {
-    expect(content).toMatch(/<nav[\s>]/);
+  it("includes the admin-nav partial", () => {
+    expect(content).toContain("{{> admin-nav");
   });
 
   it("includes the HTMX script", () => {
@@ -571,6 +571,28 @@ describe("public-facing pages use CDN Pico", () => {
     "error-page.hbs",
   ];
 
+  describe("public-page-layout partial", () => {
+    let layout;
+
+    beforeAll(() => {
+      layout = readPartial("public-page-layout.hbs");
+    });
+
+    it("references Pico CSS from a CDN", () => {
+      expect(layout).toMatch(
+        /https?:\/\/(unpkg\.com|cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com)\/.*pico/i,
+      );
+    });
+
+    it("contains <main class=\"container\">", () => {
+      expect(layout).toMatch(/<main\s[^>]*class="container"/);
+    });
+
+    it("contains an <article> element", () => {
+      expect(layout).toMatch(/<article[\s>]/);
+    });
+  });
+
   for (const page of publicPages) {
     describe(page, () => {
       let content;
@@ -579,23 +601,12 @@ describe("public-facing pages use CDN Pico", () => {
         content = readTemplate(page);
       });
 
-      it("references Pico CSS from a CDN", () => {
-        // Should contain a CDN link for Pico CSS (e.g. unpkg, jsdelivr, or cdnjs)
-        expect(content).toMatch(
-          /https?:\/\/(unpkg\.com|cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com)\/.*pico/i,
-        );
+      it("uses the public-page-layout partial", () => {
+        expect(content).toContain("{{#> public-page-layout");
       });
 
       it("does not contain an inline <style> block", () => {
         expect(content).not.toMatch(/<style[\s>]/);
-      });
-
-      it("contains <main class=\"container\">", () => {
-        expect(content).toMatch(/<main\s[^>]*class="container"/);
-      });
-
-      it("contains an <article> element", () => {
-        expect(content).toMatch(/<article[\s>]/);
       });
     });
   }

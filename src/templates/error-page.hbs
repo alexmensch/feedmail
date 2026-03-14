@@ -1,23 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Something went wrong - {{siteName}}</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
-</head>
-<body>
-  <main class="container">
-    <article>
-      <header>
-        <a href="{{siteUrl}}"><strong>{{siteName}}</strong></a>
-      </header>
+{{#> public-page-layout pageTitle="Something went wrong" siteName=siteName siteUrl=siteUrl}}
+  {{#*inline "content"}}
       <h1>Something went wrong</h1>
       <p>{{errorMessage}}</p>
-      <footer>
-        <a href="{{siteUrl}}">&larr; Back to {{siteName}}</a>
-      </footer>
-    </article>
-  </main>
-</body>
-</html>
+  {{/inline}}
+{{/public-page-layout}}
