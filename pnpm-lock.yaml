@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@simplewebauthn/server':
-        specifier: ^13.1.1
-        version: 13.2.3
+        specifier: ^13.3.0
+        version: 13.3.0
       fast-xml-parser:
         specifier: ^5.4.2
         version: 5.4.2
@@ -683,8 +683,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@simplewebauthn/server@13.2.3':
-    resolution: {integrity: sha512-ZhcVBOw63birYx9jVfbhK6rTehckVes8PeWV324zpmdxr0BUfylospwMzcrxrdMcOi48MHWj2LCA+S528LnGvg==}
+  '@simplewebauthn/server@13.3.0':
+    resolution: {integrity: sha512-MLHYFrYG8/wK2i+86XMhiecK72nMaHKKt4bo+7Q1TbuG9iGjlSdfkPWKO5ZFE/BX+ygCJ7pr8H/AJeyAj1EaTQ==}
     engines: {node: '>=20.0.0'}
 
   '@sindresorhus/is@7.2.0':
@@ -1796,7 +1796,7 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.59.0':
     optional: true
 
-  '@simplewebauthn/server@13.2.3':
+  '@simplewebauthn/server@13.3.0':
     dependencies:
       '@hexagon/base64': 1.1.28
       '@levischuck/tiny-cbor': 0.2.11

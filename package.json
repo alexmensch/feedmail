@@ -28,7 +28,7 @@
     "upgrade": "bash scripts/upgrade.sh"
   },
   "dependencies": {
-    "@simplewebauthn/server": "^13.1.1",
+    "@simplewebauthn/server": "^13.3.0",
     "fast-xml-parser": "^5.4.2",
     "handlebars": "^4.7.8"
   },
