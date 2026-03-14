@@ -66,7 +66,7 @@ const CUBE_CSS_CLASSES = [
   "auth-card",
   "channel-actions",
   "page-header",
-  "visually-hidden",
+  "visually-hidden"
 ];
 
 // CUBE CSS data attributes that should no longer appear
@@ -79,7 +79,7 @@ const CUBE_CUSTOM_PROPERTIES = [
   "--step-",
   "--measure",
   "--radius",
-  "--transition-speed",
+  "--transition-speed"
 ];
 
 // ─── Pico CSS Static Asset ──────────────────────────────────────────────────
@@ -140,7 +140,7 @@ describe("admin-layout partial", () => {
     content = readPartial("admin-layout.hbs");
   });
 
-  it("contains <main class=\"container\">", () => {
+  it('contains <main class="container">', () => {
     expect(content).toMatch(/<main\s[^>]*class="container"/);
   });
 
@@ -182,11 +182,11 @@ describe("admin-nav partial", () => {
     content = readPartial("admin-nav.hbs");
   });
 
-  it("uses aria-current=\"page\" for active navigation", () => {
+  it('uses aria-current="page" for active navigation', () => {
     expect(content).toContain('aria-current="page"');
   });
 
-  it("does not use data-state=\"active\"", () => {
+  it('does not use data-state="active"', () => {
     expect(content).not.toContain('data-state="active"');
   });
 
@@ -273,7 +273,7 @@ describe("admin-dashboard template", () => {
     expect(content).toContain("hx-post");
   });
 
-  it("preserves hx-target=\"#send-feedback\"", () => {
+  it('preserves hx-target="#send-feedback"', () => {
     expect(content).toContain('hx-target="#send-feedback"');
   });
 
@@ -348,7 +348,7 @@ describe("admin-channel-form template", () => {
     expect(content).not.toMatch(/class="btn\s+btn-primary"/);
   });
 
-  it("preserves hx-target=\"#form-result\"", () => {
+  it('preserves hx-target="#form-result"', () => {
     expect(content).toContain("#form-result");
   });
 
@@ -564,7 +564,7 @@ describe("public-facing pages use CDN Pico", () => {
   const publicPages = [
     "verify-page.hbs",
     "unsubscribe-page.hbs",
-    "error-page.hbs",
+    "error-page.hbs"
   ];
 
   describe("public-page-layout partial", () => {
@@ -576,11 +576,11 @@ describe("public-facing pages use CDN Pico", () => {
 
     it("references Pico CSS from a CDN", () => {
       expect(layout).toMatch(
-        /https?:\/\/(unpkg\.com|cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com)\/.*pico/i,
+        /https?:\/\/(unpkg\.com|cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com)\/.*pico/i
       );
     });
 
-    it("contains <main class=\"container\">", () => {
+    it('contains <main class="container">', () => {
       expect(layout).toMatch(/<main\s[^>]*class="container"/);
     });
 
@@ -711,7 +711,7 @@ describe("no CUBE CSS remnants in templates", () => {
     allTemplateContents = allFiles.map((f) => ({
       path: f,
       name: f.replace(`${TEMPLATES_DIR}/`, ""),
-      content: readFileSync(f, "utf-8"),
+      content: readFileSync(f, "utf-8")
     }));
   });
 
@@ -719,10 +719,9 @@ describe("no CUBE CSS remnants in templates", () => {
     it(`no template uses the "${cls}" class`, () => {
       for (const tmpl of allTemplateContents) {
         // Match the class name in class= attributes, not in id= attributes or hx-target values
-        expect(
-          tmpl.content,
-          `Found "${cls}" in ${tmpl.name}`,
-        ).not.toMatch(new RegExp(`class="[^"]*\\b${cls}\\b`));
+        expect(tmpl.content, `Found "${cls}" in ${tmpl.name}`).not.toMatch(
+          new RegExp(`class="[^"]*\\b${cls}\\b`)
+        );
       }
     });
   }
@@ -730,10 +729,9 @@ describe("no CUBE CSS remnants in templates", () => {
   for (const attr of CUBE_DATA_ATTRS) {
     it(`no template uses the "${attr}" attribute`, () => {
       for (const tmpl of allTemplateContents) {
-        expect(
-          tmpl.content,
-          `Found "${attr}" in ${tmpl.name}`,
-        ).not.toContain(attr);
+        expect(tmpl.content, `Found "${attr}" in ${tmpl.name}`).not.toContain(
+          attr
+        );
       }
     });
   }
@@ -818,7 +816,7 @@ describe("HTMX preservation", () => {
 // ─── Accessibility ──────────────────────────────────────────────────────────
 
 describe("accessibility", () => {
-  it("admin-nav uses aria-current=\"page\" for active page", () => {
+  it('admin-nav uses aria-current="page" for active page', () => {
     const content = readPartial("admin-nav.hbs");
     expect(content).toContain('aria-current="page"');
   });
@@ -829,12 +827,12 @@ describe("accessibility", () => {
     expect(content).toContain("aria-live");
   });
 
-  it("feedback elements use role=\"alert\" or role=\"status\"", () => {
+  it('feedback elements use role="alert" or role="status"', () => {
     const content = readTemplate("admin-dashboard.hbs");
     expect(content).toMatch(/role="(alert|status)"/);
   });
 
-  it("send-feedback template has role=\"alert\" for errors", () => {
+  it('send-feedback template has role="alert" for errors', () => {
     const content = readTemplate("admin-send-feedback.hbs");
     expect(content).toContain('role="alert"');
   });
