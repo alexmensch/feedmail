@@ -1,10 +1,10 @@
 {{#if error}}
-<div class="feedback" data-variant="error" role="alert">{{error}}</div>
+<div class="feedback feedback--error" role="alert">{{error}}</div>
 {{/if}}
 
 {{#if showTable}}
   {{#if hasSubscribers}}
-  <table class="table">
+  <table>
     <thead>
       <tr><th>Email</th><th>Channel</th><th>Status</th><th>Subscribed</th></tr>
     </thead>
@@ -20,6 +20,6 @@
     </tbody>
   </table>
   {{else}}
-  <p class="text-muted">No subscribers match the current filters.</p>
+  <p><small>No subscribers match the current filters.</small></p>
   {{/if}}
 {{/if}}

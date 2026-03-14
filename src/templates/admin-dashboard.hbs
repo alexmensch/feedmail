@@ -4,11 +4,11 @@
 <h1>Dashboard</h1>
 
 {{#if error}}
-<div class="feedback" data-variant="error" role="alert">{{error}}</div>
+<div class="feedback feedback--error" role="alert">{{error}}</div>
 {{/if}}
 
 {{#if success}}
-<div class="feedback" data-variant="success" role="status">{{success}}</div>
+<div class="feedback feedback--success" role="status">{{success}}</div>
 {{/if}}
 
 {{#if showPasskeyPrompt}}
@@ -18,7 +18,7 @@
 </div>
 {{/if}}
 
-<div id="send-feedback"></div>
+<div id="send-feedback" aria-live="polite"></div>
 
 {{#if hasChannels}}
 <form method="POST" action="/admin/send"
@@ -28,12 +28,12 @@
 </form>
 
 {{#each channels}}
-<div class="card stack" data-gap="xs">
+<article>
   <h2><a href="/admin/channels/{{this.id}}">{{this.siteName}}</a></h2>
   {{#if this.error}}
-  <div class="feedback" data-variant="error">{{this.error}}</div>
+  <div class="feedback feedback--error">{{this.error}}</div>
   {{else}}
-  <table class="table">
+  <table>
     <tr><th>Verified</th><td>{{this.subscribers.verified}}</td></tr>
     <tr><th>Pending</th><td>{{this.subscribers.pending}}</td></tr>
     <tr><th>Unsubscribed</th><td>{{this.subscribers.unsubscribed}}</td></tr>
@@ -41,10 +41,10 @@
     <tr><th>Items sent</th><td>{{this.sentItems.total}}</td></tr>
   </table>
   {{/if}}
-</div>
+</article>
 {{/each}}
 {{else}}
-<p class="text-muted">No channels configured. <a href="/admin/channels/new">Create your first channel</a> to get started.</p>
+<p><small>No channels configured. <a href="/admin/channels/new">Create your first channel</a> to get started.</small></p>
 {{/if}}
 
 {{/inline}}

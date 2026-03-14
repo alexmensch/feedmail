@@ -1,13 +1,12 @@
-<nav class="nav-sidebar" aria-label="Admin navigation">
-  <a href="/admin" class="app-shell__brand">feedmail</a>
-  <ul class="nav-sidebar__list">
-    <li><a href="/admin" class="nav-sidebar__link" {{#if (eq activePage "dashboard")}}data-state="active" aria-current="page"{{/if}}>Dashboard</a></li>
-    <li><a href="/admin/channels" class="nav-sidebar__link" {{#if (eq activePage "channels")}}data-state="active" aria-current="page"{{/if}}>Channels</a></li>
-    <li><a href="/admin/subscribers" class="nav-sidebar__link" {{#if (eq activePage "subscribers")}}data-state="active" aria-current="page"{{/if}}>Subscribers</a></li>
-    <li><a href="/admin/settings" class="nav-sidebar__link" {{#if (eq activePage "settings")}}data-state="active" aria-current="page"{{/if}}>Settings</a></li>
+<nav aria-label="Admin navigation">
+  <ul>
+    <li><a href="/admin"><strong>feedmail</strong></a></li>
+    <li><a href="/admin" {{#if (eq activePage "dashboard")}}aria-current="page"{{/if}}>Dashboard</a></li>
+    <li><a href="/admin/channels" {{#if (eq activePage "channels")}}aria-current="page"{{/if}}>Channels</a></li>
+    <li><a href="/admin/subscribers" {{#if (eq activePage "subscribers")}}aria-current="page"{{/if}}>Subscribers</a></li>
+    <li><a href="/admin/settings" {{#if (eq activePage "settings")}}aria-current="page"{{/if}}>Settings</a></li>
   </ul>
-  <div class="nav-sidebar__spacer"></div>
-  <div class="nav-sidebar__bottom">
-    <a href="/admin/logout" class="nav-sidebar__link">Logout</a>
-  </div>
+  <ul>
+    <li><a href="/admin/logout">Logout</a></li>
+  </ul>
 </nav>
