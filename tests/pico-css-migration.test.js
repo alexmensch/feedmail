@@ -10,10 +10,6 @@ const PARTIALS_DIR = resolve(TEMPLATES_DIR, "partials");
 const ASSETS_DIR = resolve(ROOT, "assets/admin");
 const ADMIN_ROUTES_DIR = resolve(ROOT, "src/admin/routes");
 
-function readFile(relativePath) {
-  return readFileSync(resolve(ROOT, relativePath), "utf-8");
-}
-
 function fileExists(relativePath) {
   return existsSync(resolve(ROOT, relativePath));
 }
@@ -714,7 +710,7 @@ describe("no CUBE CSS remnants in templates", () => {
     const allFiles = getAllHbsFiles(TEMPLATES_DIR);
     allTemplateContents = allFiles.map((f) => ({
       path: f,
-      name: f.replace(TEMPLATES_DIR + "/", ""),
+      name: f.replace(`${TEMPLATES_DIR}/`, ""),
       content: readFileSync(f, "utf-8"),
     }));
   });
