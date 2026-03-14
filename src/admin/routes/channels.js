@@ -554,12 +554,14 @@ export async function handleChannelDeleteConfirm(request, env, channelId) {
     `/admin/channels/${encodeURIComponent(channelId)}`
   );
 
+  const cancelHtml = `<button type="button" class="btn-danger" hx-get="/admin/channels/${encodeURIComponent(channelId)}/delete/confirm" hx-target="#channel-actions" hx-swap="innerHTML">Delete channel</button>`;
+
   if (!result.ok) {
     return fragmentResponse(
       render("adminDeleteConfirm", {
         message: "Channel not found.",
         confirmAction: `/admin/channels/${encodeURIComponent(channelId)}/delete`,
-        cancelHtml: `<button type="button" class="btn-danger" hx-get="/admin/channels/${encodeURIComponent(channelId)}/delete/confirm" hx-target="#channel-actions" hx-swap="innerHTML">Delete channel</button>`
+        cancelHtml
       })
     );
   }
@@ -568,7 +570,7 @@ export async function handleChannelDeleteConfirm(request, env, channelId) {
   const html = render("adminDeleteConfirm", {
     message: `Delete channel "${channel.id}" (${channel.siteName})? This will remove all subscribers and feeds. This cannot be undone.`,
     confirmAction: `/admin/channels/${encodeURIComponent(channelId)}/delete`,
-    cancelHtml: `<button type="button" class="btn-danger" hx-get="/admin/channels/${encodeURIComponent(channelId)}/delete/confirm" hx-target="#channel-actions" hx-swap="innerHTML">Delete channel</button>`
+    cancelHtml
   });
   return fragmentResponse(html);
 }

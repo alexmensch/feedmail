@@ -1,13 +1,13 @@
 {{#if error}}
-<div class="feedback" data-variant="error" role="alert">{{error}}</div>
+<div class="feedback feedback--error" role="alert">{{error}}</div>
 {{/if}}
 
 {{#if success}}
-<div class="feedback" data-variant="success" role="status">{{success}}</div>
+<div class="feedback feedback--success" role="status">{{success}}</div>
 {{/if}}
 
 {{#if credentials.length}}
-<table class="table">
+<table>
   <thead>
     <tr><th>Name</th><th>Registered</th><th>Actions</th></tr>
   </thead>
@@ -16,10 +16,10 @@
     <tr>
       <td>
         <span id="name-display-{{this.credential_id}}">{{#if this.name}}{{this.name}}{{else}}Unnamed passkey{{/if}}</span>
-        <form method="POST" action="/admin/passkeys/{{this.credential_id}}/rename" class="cluster"
+        <form method="POST" action="/admin/passkeys/{{this.credential_id}}/rename" role="group"
           hx-post="/admin/passkeys/{{this.credential_id}}/rename" hx-target="#passkey-list" hx-swap="innerHTML">
           <input type="text" name="name" value="{{this.name}}" maxlength="100" placeholder="Passkey name" required>
-          <button type="submit" class="btn-small">Rename</button>
+          <button type="submit" class="btn-small secondary">Rename</button>
         </form>
       </td>
       <td>{{formatDate this.created_at}}</td>
@@ -34,5 +34,5 @@
   </tbody>
 </table>
 {{else}}
-<p class="text-muted">No passkeys registered yet.</p>
+<p><small>No passkeys registered yet.</small></p>
 {{/if}}

@@ -5,44 +5,39 @@
 
 <p><a href="/admin/channels">&larr; Back to channels</a></p>
 
-<div id="form-result">
+<div id="form-result" aria-live="polite">
 
 {{#if error}}
-<div class="feedback" data-variant="error" role="alert">{{error}}</div>
+<div class="feedback feedback--error" role="alert">{{error}}</div>
 {{/if}}
 
 {{#if success}}
-<div class="feedback" data-variant="success" role="status">{{success}}</div>
+<div class="feedback feedback--success" role="status">{{success}}</div>
 {{/if}}
 
 <form method="POST" action="{{#if isEdit}}/admin/channels/{{channel.id}}{{else}}/admin/channels{{/if}}" id="channel-form"
   {{#if isEdit}}hx-post="/admin/channels/{{channel.id}}" hx-target="#form-result" hx-swap="innerHTML"{{/if}}>
 
-  <div class="stack" data-gap="m">
-    {{> admin-channel-form-body}}
+  {{> admin-channel-form-body}}
 
-    <div class="cluster">
-      <button type="submit" name="action" value="save" class="btn-primary">{{#if isEdit}}Save Changes{{else}}Create Channel{{/if}}</button>
-      <span class="htmx-indicator"><span class="loading-spinner"></span></span>
-    </div>
-  </div>
+  <button type="submit" name="action" value="save">{{#if isEdit}}Save Changes{{else}}Create Channel{{/if}}</button>
+  <span class="htmx-indicator"><span class="loading-spinner"></span></span>
 </form>
 
 </div>
 
 {{#if isEdit}}
-<div class="channel-actions">
-  <h2>Actions</h2>
-  <div class="cluster">
-    <form method="POST" action="/admin/send">
-      <input type="hidden" name="channelId" value="{{channel.id}}">
-      <button type="submit">Check feeds</button>
-    </form>
+<hr>
+<h2>Actions</h2>
+<div role="group">
+  <form method="POST" action="/admin/send">
+    <input type="hidden" name="channelId" value="{{channel.id}}">
+    <button type="submit" class="secondary">Check feeds</button>
+  </form>
 
-    <div id="channel-actions">
-      <button type="button" class="btn-danger"
-        hx-get="/admin/channels/{{channel.id}}/delete/confirm" hx-target="#channel-actions" hx-swap="innerHTML">Delete channel</button>
-    </div>
+  <div id="channel-actions">
+    <button type="button" class="btn-danger"
+      hx-get="/admin/channels/{{channel.id}}/delete/confirm" hx-target="#channel-actions" hx-swap="innerHTML">Delete channel</button>
   </div>
 </div>
 {{/if}}
@@ -69,18 +64,14 @@
   function addFeedRow() {
     var idx = getNextIndex();
     var html = '<div class="feed-row" data-index="' + idx + '">' +
-      '<div class="form-field">' +
       '<label class="required">Feed Name</label>' +
       '<input type="text" name="feeds[' + idx + '][name]" value="" required>' +
       '<small class="helper-text">Display name for this feed in emails</small>' +
-      '</div>' +
-      '<div class="form-field">' +
       '<label class="required">Feed URL</label>' +
       '<input type="url" name="feeds[' + idx + '][url]" value="" required>' +
       '<small class="helper-text">URL of the RSS or Atom feed</small>' +
-      '</div>' +
       '<div class="feed-row-actions">' +
-      '<button type="button" class="remove-feed-btn btn-small" onclick="removeFeedRow(this)">Remove</button>' +
+      '<button type="button" class="remove-feed-btn btn-small secondary" onclick="removeFeedRow(this)">Remove</button>' +
       '</div>' +
       '</div>';
     document.getElementById('feed-rows').insertAdjacentHTML('beforeend', html);

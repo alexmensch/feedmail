@@ -1,21 +1,21 @@
 {{#> admin-layout pageTitle="Channels" activePage="channels"}}
 {{#*inline "content"}}
 
-<div class="page-header">
+<hgroup>
   <h1>Channels</h1>
-  <a href="/admin/channels/new" class="btn btn-primary">Create channel</a>
-</div>
+</hgroup>
+<p><a href="/admin/channels/new" role="button">Create channel</a></p>
 
 {{#if error}}
-<div class="feedback" data-variant="error" role="alert">{{error}}</div>
+<div class="feedback feedback--error" role="alert">{{error}}</div>
 {{/if}}
 
 {{#if success}}
-<div class="feedback" data-variant="success" role="status">{{success}}</div>
+<div class="feedback feedback--success" role="status">{{success}}</div>
 {{/if}}
 
 {{#if hasChannels}}
-<table class="table">
+<table>
   <thead>
     <tr><th>ID</th><th>Site Name</th><th>Site URL</th></tr>
   </thead>
@@ -30,7 +30,7 @@
   </tbody>
 </table>
 {{else}}
-<p class="text-muted">No channels yet. Create your first channel to get started.</p>
+<p><small>No channels yet. Create your first channel to get started.</small></p>
 {{/if}}
 
 {{/inline}}

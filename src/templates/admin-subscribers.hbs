@@ -4,44 +4,38 @@
 <h1>Subscribers</h1>
 
 {{#if error}}
-<div class="feedback" data-variant="error" role="alert">{{error}}</div>
+<div class="feedback feedback--error" role="alert">{{error}}</div>
 {{/if}}
 
 {{#if hasChannels}}
 <form method="GET" action="/admin/subscribers"
   hx-get="/admin/subscribers" hx-target="#subscriber-table" hx-swap="innerHTML" hx-push-url="true">
-  <div class="cluster">
-    <div class="form-field">
-      <label for="channelId">Channel</label>
-      <select id="channelId" name="channelId">
-        <option value="" {{#if allSelected}}selected{{/if}}>All channels</option>
-        {{#each channels}}
-        <option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{this.siteName}} ({{this.id}})</option>
-        {{/each}}
-      </select>
-    </div>
+  <div role="group">
+    <select id="channelId" name="channelId" aria-label="Channel">
+      <option value="" {{#if allSelected}}selected{{/if}}>All channels</option>
+      {{#each channels}}
+      <option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{this.siteName}} ({{this.id}})</option>
+      {{/each}}
+    </select>
 
-    <div class="form-field">
-      <label for="status">Status</label>
-      <select id="status" name="status">
-        <option value="" {{#unless selectedStatus}}selected{{/unless}}>All</option>
-        <option value="pending" {{#if (eq selectedStatus "pending")}}selected{{/if}}>Pending</option>
-        <option value="verified" {{#if (eq selectedStatus "verified")}}selected{{/if}}>Verified</option>
-        <option value="unsubscribed" {{#if (eq selectedStatus "unsubscribed")}}selected{{/if}}>Unsubscribed</option>
-      </select>
-    </div>
+    <select id="status" name="status" aria-label="Status">
+      <option value="" {{#unless selectedStatus}}selected{{/unless}}>All</option>
+      <option value="pending" {{#if (eq selectedStatus "pending")}}selected{{/if}}>Pending</option>
+      <option value="verified" {{#if (eq selectedStatus "verified")}}selected{{/if}}>Verified</option>
+      <option value="unsubscribed" {{#if (eq selectedStatus "unsubscribed")}}selected{{/if}}>Unsubscribed</option>
+    </select>
 
     <button type="submit">Filter</button>
     <span class="htmx-indicator"><span class="loading-spinner"></span></span>
   </div>
 </form>
 
-<div id="subscriber-table">
+<div id="subscriber-table" aria-live="polite">
 {{> admin-subscriber-table}}
 </div>
 
 {{else}}
-<p class="text-muted">No channels available. <a href="/admin/channels">Create a channel</a> first.</p>
+<p><small>No channels available. <a href="/admin/channels">Create a channel</a> first.</small></p>
 {{/if}}
 
 {{/inline}}

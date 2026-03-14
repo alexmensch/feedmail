@@ -1,63 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Unsubscribed - {{siteName}}</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: Georgia, 'Source Serif 4', serif;
-      background-color: #faf9f7;
-      color: #212a3d;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px 16px;
-    }
-    .container {
-      max-width: 480px;
-      width: 100%;
-      text-align: center;
-    }
-    .site-name {
-      font-family: Inter, Helvetica, Arial, sans-serif;
-      font-size: 16px;
-      font-weight: 700;
-      color: #0c6faa;
-      text-decoration: none;
-      display: inline-block;
-      margin-bottom: 32px;
-    }
-    h1 {
-      font-family: Inter, Helvetica, Arial, sans-serif;
-      font-size: 28px;
-      font-weight: 700;
-      color: #212a3d;
-      margin-bottom: 16px;
-    }
-    .message {
-      font-size: 17px;
-      line-height: 1.7;
-      color: #465270;
-      margin-bottom: 32px;
-    }
-    .back-link {
-      font-family: Inter, Helvetica, Arial, sans-serif;
-      font-size: 15px;
-      color: #0c6faa;
-      text-decoration: none;
-    }
-    .back-link:hover { text-decoration: underline; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <a href="{{siteUrl}}" class="site-name">{{siteName}}</a>
-    <h1>You've been unsubscribed</h1>
-    <p class="message">You won't receive any more emails from {{siteName}}. If you change your mind, you can subscribe again from the website.</p>
-    <a href="{{siteUrl}}" class="back-link">&larr; Back to {{siteName}}</a>
-  </div>
-</body>
-</html>
+{{#> public-page-layout pageTitle="Unsubscribed" siteName=siteName siteUrl=siteUrl}}
+  {{#*inline "content"}}
+      <h1>You've been unsubscribed</h1>
+      <p>You won't receive any more emails from {{siteName}}. If you change your mind, you can subscribe again from the website.</p>
+  {{/inline}}
+{{/public-page-layout}}

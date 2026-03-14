@@ -500,13 +500,14 @@ export async function handlePasskeyDeleteConfirm(request, env, credentialId) {
   }
 
   const credential = await getPasskeyCredentialById(env.DB, credentialId);
+  const cancelHtml = `<button type="button" class="btn-small btn-danger" hx-get="/admin/passkeys/${encodeURIComponent(credentialId)}/delete/confirm" hx-target="#passkey-delete-${encodeURIComponent(credentialId)}" hx-swap="innerHTML">Delete</button>`;
 
   if (!credential) {
     return fragmentResponse(
       render("adminDeleteConfirm", {
         message: "Passkey not found.",
         confirmAction: `/admin/passkeys/${encodeURIComponent(credentialId)}/delete`,
-        cancelHtml: `<button type="button" class="btn-small btn-danger" hx-get="/admin/passkeys/${encodeURIComponent(credentialId)}/delete/confirm" hx-target="#passkey-delete-${encodeURIComponent(credentialId)}" hx-swap="innerHTML">Delete</button>`
+        cancelHtml
       })
     );
   }
@@ -524,7 +525,7 @@ export async function handlePasskeyDeleteConfirm(request, env, credentialId) {
     htmxPost: `/admin/passkeys/${encodeURIComponent(credentialId)}/delete`,
     htmxTarget: "#passkey-list",
     htmxSwap: "innerHTML",
-    cancelHtml: `<button type="button" class="btn-small btn-danger" hx-get="/admin/passkeys/${encodeURIComponent(credentialId)}/delete/confirm" hx-target="#passkey-delete-${encodeURIComponent(credentialId)}" hx-swap="innerHTML">Delete</button>`
+    cancelHtml
   });
   return fragmentResponse(html);
 }

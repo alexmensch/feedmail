@@ -5,14 +5,10 @@
   <title>{{pageTitle}} — feedmail admin</title>
 </head>
 <body>
-  <div class="app-shell sidebar-layout">
-    {{> admin-nav activePage=activePage}}
-    <main class="main-content">
-      <div class="stack" data-gap="m">
-        {{> content}}
-      </div>
-    </main>
-  </div>
+  {{> admin-nav activePage=activePage}}
+  <main class="container">
+    {{> content}}
+  </main>
   <script src="/admin/htmx.min.js"></script>
 </body>
 </html>
