@@ -4,3 +4,5 @@ src/templates/**/*.hbs
 coverage/
 dist/
 .wrangler/
+assets/admin/*.min.css
+assets/admin/*.min.js
