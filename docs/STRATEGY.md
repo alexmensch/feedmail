@@ -42,6 +42,8 @@ feedmail currently runs only on Cloudflare Workers. Cloudflare is converging its
 
 ## Risks and Open Questions
 
+> The concrete **Next step** actions below are tracked in beads under the **Distribution & Validation** epic (`bd show feedmail-4k4`). The single-maintainer-sustainability item has no immediate action and is intentionally not filed.
+
 - **Distribution is unproven.** feedmail has no users beyond its creator, no community presence in SSG spaces, and no content strategy in motion. The plan (writing + community engagement) is plausible but unstarted. Writing and community engagement require sustained personal effort that competes with development time. **Next step:** Write and publish a first blog post explaining the problem feedmail solves and share it in at least one SSG community (e.g., Eleventy Discord).
 
 - **Cloudflare-only deployment limits the audience.** Most static site owners are on Netlify, Vercel, or GitHub Pages, not Cloudflare. Requiring Cloudflare Workers means feedmail is invisible to the majority of its target users. **Next step:** Research what fraction of SSG users are on Cloudflare vs. other platforms. Consider whether a Docker/container deployment option or Terraform configurations for other platforms would meaningfully broaden the audience without undermining the zero-ops positioning.
