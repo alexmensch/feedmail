@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "feedmail",
+  "project_id": "5add76e6-fe6d-48e6-a1f9-6d9a9156673e"
+}
