@@ -4,3 +4,6 @@ src/templates/**/*.hbs
 coverage/
 dist/
 .wrangler/
+
+# bd-managed; bd rewrites these, so prettier shouldn't police them
+.beads/
