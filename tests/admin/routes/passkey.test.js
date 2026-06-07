@@ -163,7 +163,7 @@ describe("handleRegisterOptions", () => {
         sessionToken: "test-session-token",
         challenge: "mock-challenge-base64url",
         type: "registration",
-        expiresAt: expect.any(String)
+        ttlSeconds: 300
       })
     );
   });
@@ -483,7 +483,7 @@ describe("handleAuthenticateOptions", () => {
       expect.objectContaining({
         challenge: "auth-challenge-base64url",
         type: "authentication",
-        expiresAt: expect.any(String)
+        ttlSeconds: 300
       })
     );
   });
@@ -607,7 +607,7 @@ describe("handleAuthenticateVerify", () => {
     expect(createSession).toHaveBeenCalledWith(
       env.DB,
       "mock-session-uuid",
-      expect.any(String)
+      86400
     );
   });
 

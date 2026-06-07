@@ -6,6 +6,7 @@ import { sendEmail } from "../../shared/lib/email.js";
 import { render } from "../../shared/lib/templates.js";
 import { getCredential, getResendApiKey } from "../../shared/lib/db.js";
 import { htmlResponse } from "../../shared/lib/response.js";
+import { parseDbDate } from "../../shared/lib/datetime.js";
 import {
   createMagicLinkToken,
   getMagicLinkToken,
@@ -82,11 +83,8 @@ export async function handleLoginSubmit(request, env) {
   if (adminEmail && normalizedEmail === adminEmail.toLowerCase().trim()) {
     // Generate magic link token
     const token = crypto.randomUUID();
-    const expiresAt = new Date(
-      Date.now() + MAGIC_LINK_TTL_SECONDS * 1000
-    ).toISOString();
 
-    await createMagicLinkToken(env.DB, token, expiresAt);
+    await createMagicLinkToken(env.DB, token, MAGIC_LINK_TTL_SECONDS);
 
     // Send magic link email
     const verifyUrl = `https://${env.DOMAIN}/admin/verify?token=${token}`;
@@ -146,7 +144,7 @@ export async function handleAdminVerify(request, env) {
   }
 
   // Check expiry
-  const expiresAt = new Date(`${magicLink.expires_at}Z`);
+  const expiresAt = parseDbDate(magicLink.expires_at);
   if (expiresAt <= new Date()) {
     return renderAuthError("This link has expired. Please request a new one.");
   }
@@ -159,11 +157,8 @@ export async function handleAdminVerify(request, env) {
 
   // Create session
   const sessionToken = crypto.randomUUID();
-  const sessionExpiresAt = new Date(
-    Date.now() + SESSION_TTL_SECONDS * 1000
-  ).toISOString();
 
-  await createSessionDb(env.DB, sessionToken, sessionExpiresAt);
+  await createSessionDb(env.DB, sessionToken, SESSION_TTL_SECONDS);
 
   // Validate redirect starts with /admin
   const safeRedirect = redirect.startsWith("/admin") ? redirect : "/admin";

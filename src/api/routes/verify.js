@@ -10,6 +10,7 @@ import {
   markSubscriberVerified,
   clearVerificationAttempts
 } from "../../shared/lib/db.js";
+import { parseDbDate } from "../../shared/lib/datetime.js";
 
 /**
  * Handle a verification request.
@@ -40,7 +41,7 @@ export async function handleVerify(request, env, url) {
   }
 
   // Check if token has expired (24 hours from created_at)
-  const createdAt = new Date(`${subscriber.created_at}Z`);
+  const createdAt = parseDbDate(subscriber.created_at);
   const now = new Date();
   const hoursSinceCreation = (now - createdAt) / (1000 * 60 * 60);
 

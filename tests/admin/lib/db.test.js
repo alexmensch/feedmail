@@ -18,34 +18,30 @@ describe("admin db helpers", () => {
   });
 
   describe("createMagicLinkToken", () => {
-    it("inserts a token into magic_link_tokens table", async () => {
+    it("inserts a token with expiry computed in SQL (DB datetime format)", async () => {
       const db = mockDb({});
 
-      await createMagicLinkToken(
-        db,
-        "test-token-uuid",
-        "2025-01-01T12:15:00.000Z"
-      );
+      await createMagicLinkToken(db, "test-token-uuid", 900);
 
-      expect(db.prepare).toHaveBeenCalledWith(
-        expect.stringContaining("INSERT INTO magic_link_tokens")
-      );
-      expect(db._chain.bind).toHaveBeenCalledWith(
-        "test-token-uuid",
-        "2025-01-01T12:15:00.000Z"
-      );
+      const sql = db.prepare.mock.calls[0][0];
+      expect(sql).toContain("INSERT INTO magic_link_tokens");
+      // Expiry is computed via datetime('now', ...) so it is stored in the same
+      // format as column DEFAULTs — never a JS ISO string (the format split that
+      // broke every TTL check).
+      expect(sql).toContain("datetime('now'");
+      expect(db._chain.bind).toHaveBeenCalledWith("test-token-uuid", "+900");
       expect(db._chain.run).toHaveBeenCalled();
     });
 
-    it("binds the provided expiresAt value", async () => {
+    it("binds the TTL as a signed seconds offset, not an ISO timestamp", async () => {
       const db = mockDb({});
-      const expiresAt = "2025-06-15T12:15:00.000Z";
 
-      await createMagicLinkToken(db, "test-token-uuid", expiresAt);
+      await createMagicLinkToken(db, "test-token-uuid", MAGIC_LINK_TTL_SECONDS);
 
       const bindArgs = db._chain.bind.mock.calls[0];
       expect(bindArgs[0]).toBe("test-token-uuid");
-      expect(bindArgs[1]).toBe(expiresAt);
+      expect(bindArgs[1]).toBe(`+${MAGIC_LINK_TTL_SECONDS}`);
+      expect(bindArgs[1]).not.toMatch(/Z$/);
     });
   });
 
@@ -112,30 +108,30 @@ describe("admin db helpers", () => {
   });
 
   describe("createSession", () => {
-    it("inserts a session into admin_sessions table", async () => {
+    it("inserts a session with expiry computed in SQL (DB datetime format)", async () => {
       const db = mockDb({});
 
-      await createSession(db, "session-token-uuid", "2025-01-02T12:00:00.000Z");
+      await createSession(db, "session-token-uuid", 86400);
 
-      expect(db.prepare).toHaveBeenCalledWith(
-        expect.stringContaining("INSERT INTO admin_sessions")
-      );
+      const sql = db.prepare.mock.calls[0][0];
+      expect(sql).toContain("INSERT INTO admin_sessions");
+      expect(sql).toContain("datetime('now'");
       expect(db._chain.bind).toHaveBeenCalledWith(
         "session-token-uuid",
-        "2025-01-02T12:00:00.000Z"
+        "+86400"
       );
       expect(db._chain.run).toHaveBeenCalled();
     });
 
-    it("binds the provided expiresAt value", async () => {
+    it("binds the TTL as a signed seconds offset, not an ISO timestamp", async () => {
       const db = mockDb({});
-      const expiresAt = "2025-01-02T12:00:00.000Z";
 
-      await createSession(db, "session-token", expiresAt);
+      await createSession(db, "session-token", 86400);
 
       const bindArgs = db._chain.bind.mock.calls[0];
       expect(bindArgs[0]).toBe("session-token");
-      expect(bindArgs[1]).toBe(expiresAt);
+      expect(bindArgs[1]).toBe("+86400");
+      expect(bindArgs[1]).not.toMatch(/Z$/);
     });
   });
 

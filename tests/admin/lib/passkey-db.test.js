@@ -209,24 +209,27 @@ describe("passkey DB helpers", () => {
   // ─── WebAuthn Challenges ──────────────────────────────────────────────────
 
   describe("createWebAuthnChallenge", () => {
-    it("inserts a challenge into webauthn_challenges table", async () => {
+    it("upserts a challenge keyed on (session_token, type) with SQL-computed expiry", async () => {
       const db = mockDb({});
 
       await createWebAuthnChallenge(db, {
         sessionToken: "session-123",
         challenge: "challenge-value",
         type: "registration",
-        expiresAt: "2025-01-01T12:05:00.000Z"
+        ttlSeconds: 300
       });
 
-      expect(db.prepare).toHaveBeenCalledWith(
-        expect.stringContaining("INSERT INTO webauthn_challenges")
-      );
+      const sql = db.prepare.mock.calls[0][0];
+      expect(sql).toContain("INSERT INTO webauthn_challenges");
+      // Single outstanding challenge per (session_token, type): a repeat options
+      // request replaces the prior row instead of leaving an ambiguous duplicate.
+      expect(sql).toContain("ON CONFLICT(session_token, type)");
+      expect(sql).toContain("datetime('now'");
       expect(db._chain.bind).toHaveBeenCalledWith(
         "session-123",
         "challenge-value",
         "registration",
-        "2025-01-01T12:05:00.000Z"
+        "+300"
       );
       expect(db._chain.run).toHaveBeenCalled();
     });
@@ -251,6 +254,10 @@ describe("passkey DB helpers", () => {
 
       expect(db.prepare).toHaveBeenCalledWith(
         expect.stringContaining("webauthn_challenges")
+      );
+      // Deterministic latest-challenge resolution when more than one row exists.
+      expect(db.prepare).toHaveBeenCalledWith(
+        expect.stringContaining("ORDER BY id DESC")
       );
       expect(db._chain.bind).toHaveBeenCalledWith(
         "session-123",
