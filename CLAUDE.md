@@ -25,6 +25,15 @@ pnpm run format           # Format all files with Prettier
 pnpm run format:check     # Check formatting without writing
 ```
 
+`lint`, `format:check`, and `test:coverage` are CI-enforced on PRs (`.github/workflows/ci.yml`) — a PR with lint errors or formatting drift fails CI. Run `pnpm run lint` and `pnpm run format:check` before opening a PR (`lint:fix` / `format` auto-fix; `assets/` is excluded from ESLint).
+
+## Code conventions
+
+These **override** the system-prompt defaults ("three similar lines beats a premature abstraction"; "a bug fix needs no surrounding cleanup"):
+
+- **Named constants over magic numbers.** Hoist a numeric literal to a named const in its most-upstream module the moment it's used in a second place, or whenever it encodes a tuned/calibrated value — the name documents intent. Tests import the const; they never redefine it.
+- **DRY via builders.** When two functions, schemas, or structures share more than ~50% of their bodies, extract one builder and pass the differences as parameters. "Slightly different X and Y" between two call sites is the trigger to extract, not a reason to copy-paste — the two-call-site threshold is firm; don't defer with "lift it later if a third site appears."
+
 ## Architecture
 
 feedmail is an RSS-to-email microservice on Cloudflare Workers. It monitors RSS/Atom feeds for new items and emails them to verified subscribers via Resend. Licensed AGPL-3.0.
@@ -146,6 +155,8 @@ To test the full email flow locally:
 2. `pnpm run dev:test` — starts wrangler with the test config on port 8787
 3. `./scripts/test-local.sh <your-email>` — walks through subscribe → verify → send
 
+**Worktree test pickup:** Vitest matches every test file under the repo, including copies inside `.claude/worktrees/`. If a session worktree has the suite checked out, the main checkout's `pnpm run test` also runs the worktree's copy (double counts / confusing failures) — remove or ignore stray worktrees before a full run.
+
 ### Key Design Decisions
 
 - **Two-worker architecture:** The API Worker (`src/api/worker.js`) handles `/api/*` routes and cron triggers. The Admin Worker (`src/admin/worker.js`) handles `/admin/*` routes for the browser-based admin console. Both share the same D1 database and shared modules in `src/shared/`. Each Worker has its own wrangler config (`wrangler.toml` / `wrangler.admin.toml`).
@@ -260,6 +271,8 @@ Requests pass through these checks in order:
 ### Configuration
 
 **`wrangler.toml`** (API Worker) and **`wrangler.admin.toml`** (Admin Worker) are templates with placeholder values (`YOUR_DOMAIN`, `YOUR_DATABASE_ID`, `YOUR_API_WORKER_NAME`). The setup wizard generates `wrangler.prod.toml` and `wrangler.admin.prod.toml` with real values. Both prod configs are gitignored. `build:check` and `build:check:admin` use the template configs (dry-run works with placeholders). The Admin Worker uses a Cloudflare Service Binding (`API_SERVICE`) to call the API Worker directly, avoiding same-zone subrequest routing issues.
+
+`scripts/upgrade.sh` regenerates the gitignored prod configs from the templates on every run, carrying over deployer-specific values (worker name, database ID, domain, service binding, zone, route state). So a new config block added to a template (e.g. `[assets]` or a `[[services]]` binding) propagates to every deployer's prod config automatically — no hand-patching the prod files.
 
 **`wrangler.toml` / `wrangler.prod.toml` vars:**
 
