@@ -77,6 +77,7 @@ src/
       db.js               # Admin D1 helpers (magic link tokens, sessions, passkey credentials, WebAuthn challenges)
       htmx.js             # HTMX helpers: isHtmxRequest(request), fragmentResponse(html, status?, headers?)
       session.js          # Session middleware, cookie/session helpers, getCookieValue utility, HTMX-aware session expiry
+      security.js         # Admin security headers (CSP, frame-ancestors, nosniff, Referrer-Policy) + CSRF same-origin check for state-changing requests
   shared/                 # Shared modules used by both Workers
     lib/
       config.js           # DB-backed config reads, validation helpers (validateChannelId, validateChannelFields, validateFeedFields), rate limit defaults
@@ -88,13 +89,12 @@ src/
       templates.js        # Handlebars precompiled template rendering — render(name, data)
   templates/              # Handlebars (.hbs) source files, precompiled at build time
     partials/
-      admin-head.hbs      # Shared <head> partial for all admin console pages (links to external CSS)
+      admin-head.hbs      # Shared <head> partial for all admin console pages (external CSS + htmx-config meta)
       admin-nav.hbs       # Navigation bar partial with activePage highlighting
       admin-layout.hbs    # Authenticated page layout: sidebar nav, HTMX script, content via {{> @partial-block}}
       admin-auth-layout.hbs  # Auth page layout: centered, no sidebar, no HTMX
       admin-channel-form-body.hbs  # Shared channel form body partial (used by full-page and fragment templates)
       email-footer.hbs    # Shared email footer partial (copyright, unsubscribe, company info)
-      webauthn-helpers.hbs  # Shared base64url conversion functions for WebAuthn inline JS
     newsletter.hbs        # HTML newsletter email (table-based, inline styles)
     newsletter.txt.hbs    # Plain text newsletter
     verification-email.hbs  # Verification CTA email
@@ -120,6 +120,9 @@ assets/
   admin/
     styles.css            # CUBE CSS design system: tokens, dark mode, reset, compositions, utilities, blocks, exceptions
     htmx.min.js           # HTMX 2.0.4 — committed as-is, no build pipeline
+    admin.js              # Shared admin JS (every page): inline-confirm cancel, event-delegated
+    passkeys.js           # WebAuthn ceremonies — passkey login (auth) + settings (register)
+    channel-form.js       # Channel form JS: feed rows, validation, CORS auto-populate (event-delegated, survives HTMX swaps)
 migrations/
   0001_initial.sql        # D1 schema: subscribers, verification_attempts, sent_items
   0002_subscriber_sends.sql  # Per-subscriber send tracking for partial send recovery
@@ -165,7 +168,7 @@ To test the full email flow locally:
 - **Admin console as API proxy:** The Admin Worker renders server-side HTML and acts as a proxy to the API Worker. All data operations go through `callApi()` in `src/admin/lib/api.js`, which reads `admin_api_key` from D1 and makes authenticated requests to the API Worker via a Cloudflare Service Binding (`env.API_SERVICE`). The service binding sends requests directly to the API Worker without going through public HTTP/edge routing, avoiding subrequest loop issues inherent in same-zone worker-to-worker `fetch()` calls. Route handlers parse form data, call the API, and either render a full page or return an HTMX fragment response (detected via `isHtmxRequest()` checking the `HX-Request` header). Templates use `isEdit` boolean to toggle between create and edit modes. The channel form is a unified page combining channel config and inline feed management — on create, at least one feed is required; on edit, the handler diffs submitted feeds against current server state and issues individual create/update/delete API calls. Noscript fallback actions (`add-feed`, `remove-feed`) allow feed row management without JavaScript.
 - **HTMX integration:** HTMX 2.0.4 is served as a static asset (`assets/admin/htmx.min.js`) via Cloudflare Workers static assets (`[assets]` config in `wrangler.admin.toml`). Route handlers detect HTMX requests via the `HX-Request: true` header and return HTML fragments instead of full-page redirects. Fragment templates (e.g. `admin-channel-form-result.hbs`, `admin-subscriber-table.hbs`) are rendered into `hx-target` containers. Session expiry during HTMX requests returns a session-expired fragment instead of a redirect. `isHtmxRequest()` uses strict `=== "true"` comparison.
 - **CUBE CSS design system:** Admin console styling uses CUBE CSS methodology (Compositions, Utilities, Blocks, Exceptions) with Every Layout primitives. CSS is a single external file (`assets/admin/styles.css`) served as a static asset — no build pipeline or minification. Design tokens use Utopia fluid `clamp()` values for responsive typography and spacing. Dark mode via `prefers-color-scheme`. Layout partials (`admin-layout.hbs` for authenticated pages with sidebar nav, `admin-auth-layout.hbs` for centered auth pages) use Handlebars partial blocks (`{{> @partial-block}}`).
-- **Admin console static assets:** The Admin Worker serves static files from the `assets/` directory via Cloudflare Workers static assets (`[assets]` config in `wrangler.admin.toml`). Currently contains `admin/styles.css` and `admin/htmx.min.js`. The `assets/` directory is excluded from ESLint.
+- **Admin console static assets:** The Admin Worker serves static files from the `assets/` directory via Cloudflare Workers static assets (`[assets]` config in `wrangler.admin.toml`): `admin/styles.css`, `admin/htmx.min.js`, and the admin scripts `admin/admin.js`, `admin/passkeys.js`, `admin/channel-form.js`. The `assets/` directory is excluded from ESLint. **All admin JS lives here, never inline:** the admin CSP uses a strict `script-src 'self'` (no `'unsafe-inline'`, no nonces), so templates reference `<script src="/admin/…js">` and use event delegation rather than inline `<script>` blocks or `onclick`/`on*` attributes.
 - **Admin authentication:** Passkey (WebAuthn) authentication as primary login method, with magic link email as fallback. Uses `@simplewebauthn/server` for server-side WebAuthn operations; client-side ceremony code is inline JS (no `@simplewebauthn/browser`). A single admin email is stored in the `credentials` table. Passkey credentials are stored in `passkey_credentials` with public keys as base64url TEXT. WebAuthn challenges are stored in `webauthn_challenges` (Workers are stateless — no in-memory storage). Login page shows passkey button when credentials exist, with magic link form always available. Session cookie is `HttpOnly; Secure; SameSite=Strict; Path=/admin`. Magic link tokens expire after 15 minutes; WebAuthn challenges expire after 5 minutes; sessions expire after 24 hours. Single admin user model — fixed UUID for WebAuthn user ID. Dashboard shows a passkey bootstrap prompt when no passkeys are registered.
 - **Credentials in D1:** Secrets (`resend_api_key`, `admin_api_key`, `admin_email`) are stored in the `credentials` table. The shared `getResendApiKey(env)` helper checks `env.RESEND_API_KEY` first (backward compat) then falls back to D1. The Admin Worker has no Wrangler secrets — it reads all credentials from D1.
 - **DB-backed configuration:** Channel, feed, site settings, and rate limit config are stored in D1 tables (not env vars). Config is read asynchronously via `config.js` helpers that accept the `env` object. Admin API endpoints provide runtime CRUD management without redeployment. `RATE_LIMIT_DEFAULTS` in `config.js` provides hardcoded fallbacks when no DB rows exist.
@@ -238,7 +241,7 @@ To test the full email flow locally:
 - `GET /admin/login` — Login form with passkey button (if registered) and magic link form
 - `POST /admin/login` — Request magic link email
 - `GET /admin/verify?token=` — Validate magic link, create session, redirect
-- `GET /admin/logout` — Destroy session, redirect to login
+- `POST /admin/logout` — Destroy session, redirect to login (POST so it can't be driven by a cross-site navigation; the nav "Logout" link is a form)
 - `GET /admin` — Dashboard with per-channel subscriber/send stats (requires session)
 - `POST /admin/send` — Trigger feed check and send, optional channelId (requires session)
 - `GET /admin/channels` — Channel list (requires session)
@@ -267,9 +270,12 @@ Requests pass through these checks in order:
 2. **CORS preflight** — OPTIONS requests handled immediately
 3. **Method enforcement** — Wrong method on known route → 10s delay + 408; unknown path → immediate 404
 4. **IP rate limiting** — Per-endpoint rolling window via D1; 429 with `Retry-After` header if exceeded. Internal admin requests (with `X-Internal-Request: true` header) defer rate limiting to after auth — skipped on success, applied retroactively on failure.
-5. **Authentication** — Bearer token check for `/api/send` and `/api/admin/*`
-6. **Input validation** — Strict field checking on subscribe (rejects unexpected fields)
-7. **Verification rate limiting** — Per-subscriber email send limits
+5. **CSRF origin check** (Admin Worker) — State-changing requests (POST/PUT/PATCH/DELETE) must carry an `Origin` matching `https://{DOMAIN}` (Referer prefix fallback; fails closed if neither header is present) → 403. Runs before auth so it also guards the public POST routes (login, passkey authenticate). Defense-in-depth atop the session cookie's `SameSite=Strict`.
+6. **Authentication** — Bearer token check for `/api/send` and `/api/admin/*`
+7. **Input validation** — Strict field checking on subscribe (rejects unexpected fields)
+8. **Verification rate limiting** — Per-subscriber email send limits
+
+Every Admin Worker response then passes through a security-headers choke point (`applySecurityHeaders` in `src/admin/lib/security.js`): `Content-Security-Policy` with strict `script-src 'self'` (all admin JS is external under `/admin/*.js`) and `frame-ancestors 'none'`, plus `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: same-origin`. HTMX's injected indicator `<style>` is disabled via a `htmx-config` meta tag so `style-src 'self'` holds.
 
 ### Configuration
 
