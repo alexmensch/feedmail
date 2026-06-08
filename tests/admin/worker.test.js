@@ -140,6 +140,7 @@ describe("admin worker — fetch handler", () => {
         headers: { Location: "/admin/login" }
       })
     );
+    handleDashboard.mockResolvedValue(okResponse);
 
     // Session middleware: response null means allow through
     requireSession.mockResolvedValue({
@@ -598,6 +599,69 @@ describe("admin worker — fetch handler", () => {
       const response = await adminApp.fetch(request, env);
 
       expect(response.status).toBe(500);
+    });
+  });
+
+  describe("security headers", () => {
+    const SECURITY_HEADER_NAMES = [
+      "Content-Security-Policy",
+      "X-Frame-Options",
+      "X-Content-Type-Options",
+      "Referrer-Policy"
+    ];
+
+    it("applies all security headers to a rendered page response", async () => {
+      const response = await adminApp.fetch(
+        makeRequest("GET", "/admin/login"),
+        env
+      );
+
+      for (const name of SECURITY_HEADER_NAMES) {
+        expect(response.headers.get(name)).not.toBeNull();
+      }
+    });
+
+    it("sets a strict script-src and frame-ancestors in the CSP", async () => {
+      const response = await adminApp.fetch(
+        makeRequest("GET", "/admin/login"),
+        env
+      );
+      const csp = response.headers.get("Content-Security-Policy");
+
+      expect(csp).toContain("script-src 'self'");
+      expect(csp).toContain("frame-ancestors 'none'");
+      expect(csp).not.toContain("unsafe-inline");
+    });
+
+    it("sets nosniff and clickjacking protection", async () => {
+      const response = await adminApp.fetch(
+        makeRequest("GET", "/admin/login"),
+        env
+      );
+
+      expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
+      expect(response.headers.get("X-Frame-Options")).toBe("DENY");
+    });
+
+    it("applies security headers to 404 responses", async () => {
+      const response = await adminApp.fetch(
+        makeRequest("GET", "/admin/nonexistent"),
+        env
+      );
+
+      expect(response.status).toBe(404);
+      expect(response.headers.get("Content-Security-Policy")).not.toBeNull();
+    });
+
+    it("applies security headers to the trailing-slash redirect", async () => {
+      const response = await adminApp.fetch(
+        makeRequest("GET", "/admin/login/"),
+        env
+      );
+
+      expect(response.status).toBe(301);
+      expect(response.headers.get("Location")).toBe("/admin/login");
+      expect(response.headers.get("X-Frame-Options")).toBe("DENY");
     });
   });
 });

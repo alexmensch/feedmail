@@ -12,7 +12,6 @@ import { getChannelById } from "./config.js";
 
 // Import precompiled partial specs
 import emailFooterSpec from "../../templates/compiled/partials/email-footer.js";
-import webauthnHelpersSpec from "../../templates/compiled/partials/webauthn-helpers.js";
 import adminNavSpec from "../../templates/compiled/partials/admin-nav.js";
 import adminHeadSpec from "../../templates/compiled/partials/admin-head.js";
 import adminLayoutSpec from "../../templates/compiled/partials/admin-layout.js";
@@ -71,10 +70,6 @@ Handlebars.registerHelper("iif", (conditional, trueVal, falseVal) =>
 Handlebars.registerPartial(
   "email-footer",
   Handlebars.template(emailFooterSpec)
-);
-Handlebars.registerPartial(
-  "webauthn-helpers",
-  Handlebars.template(webauthnHelpersSpec)
 );
 Handlebars.registerPartial("admin-nav", Handlebars.template(adminNavSpec));
 Handlebars.registerPartial("admin-head", Handlebars.template(adminHeadSpec));

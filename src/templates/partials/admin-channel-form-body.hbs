@@ -80,9 +80,9 @@
       <small class="helper-text">URL of the RSS or Atom feed</small>
     </div>
     <div class="feed-row-actions">
-      <button type="button" class="remove-feed-btn btn-small" onclick="removeFeedRow(this)">Remove</button>
+      <button type="button" class="remove-feed-btn btn-small">Remove</button>
       <noscript>
-        <button type="submit" name="action" value="remove-feed" class="btn-small" onclick="this.form.querySelector('[name=removeIndex]') || this.form.insertAdjacentHTML('beforeend','<input type=hidden name=removeIndex value={{@index}}>')">Remove (noscript)</button>
+        <button type="submit" name="action" value="remove-feed" class="btn-small">Remove (noscript)</button>
       </noscript>
     </div>
   </div>
@@ -99,14 +99,14 @@
       <small class="helper-text">URL of the RSS or Atom feed</small>
     </div>
     <div class="feed-row-actions">
-      <button type="button" class="remove-feed-btn btn-small" onclick="removeFeedRow(this)" disabled>Remove</button>
+      <button type="button" class="remove-feed-btn btn-small" disabled>Remove</button>
     </div>
   </div>
   {{/each}}
 </div>
 
 <div class="cluster">
-  <button type="button" id="add-feed-btn" onclick="addFeedRow()">Add feed</button>
+  <button type="button" id="add-feed-btn">Add feed</button>
   <noscript><button type="submit" name="action" value="add-feed">Add feed</button></noscript>
 </div>
 

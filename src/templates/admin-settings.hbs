@@ -60,72 +60,7 @@
   </div>
 </div>
 
-<script>
-(function() {
-  {{> webauthn-helpers}}
-  var btn = document.getElementById('register-btn');
-  var errEl = document.getElementById('register-error');
-  var successEl = document.getElementById('register-success');
-  if (!window.PublicKeyCredential) {
-    btn.disabled = true;
-    btn.textContent = 'Passkeys not supported in this browser';
-    return;
-  }
-  btn.addEventListener('click', async function() {
-    btn.disabled = true;
-    errEl.hidden = true;
-    successEl.hidden = true;
-    var name = document.getElementById('passkey-name').value.trim();
-    try {
-      var optRes = await fetch('/admin/passkeys/register/options', { method: 'POST' });
-      if (!optRes.ok) throw new Error('Failed to get options');
-      var opts = await optRes.json();
-      opts.challenge = base64urlToBuffer(opts.challenge);
-      opts.user.id = base64urlToBuffer(opts.user.id);
-      if (opts.excludeCredentials) {
-        opts.excludeCredentials = opts.excludeCredentials.map(function(c) {
-          return { id: base64urlToBuffer(c.id), type: c.type, transports: c.transports };
-        });
-      }
-      var cred = await navigator.credentials.create({ publicKey: opts });
-      var body = {
-        name: name || null,
-        response: {
-          id: cred.id,
-          rawId: bufferToBase64url(cred.rawId),
-          response: {
-            attestationObject: bufferToBase64url(cred.response.attestationObject),
-            clientDataJSON: bufferToBase64url(cred.response.clientDataJSON),
-            transports: cred.response.getTransports ? cred.response.getTransports() : undefined
-          },
-          type: cred.type,
-          authenticatorAttachment: cred.authenticatorAttachment || undefined,
-          clientExtensionResults: cred.getClientExtensionResults()
-        }
-      };
-      var verRes = await fetch('/admin/passkeys/register/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      var result = await verRes.json();
-      if (result.verified) {
-        window.location.reload();
-      } else {
-        errEl.querySelector('strong').textContent = result.error || 'Registration failed';
-        errEl.hidden = false;
-        btn.disabled = false;
-      }
-    } catch (e) {
-      if (e.name !== 'NotAllowedError') {
-        errEl.querySelector('strong').textContent = 'Registration failed. Please try again.';
-        errEl.hidden = false;
-      }
-      btn.disabled = false;
-    }
-  });
-})();
-</script>
+<script src="/admin/passkeys.js"></script>
 
 {{/inline}}
 {{/admin-layout}}
