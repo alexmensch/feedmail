@@ -337,6 +337,23 @@ img {
   color: var(--color-text-muted);
 }
 
+/* Logout is a POST form (CSRF-safe); its submit button mimics a nav link. */
+.nav-sidebar__bottom form {
+  margin: 0;
+}
+
+.nav-sidebar__bottom button.nav-sidebar__link {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+}
+
+.nav-sidebar__bottom button.nav-sidebar__link:hover {
+  background-color: var(--color-nav-active);
+}
+
 /* ── Card ───────────────────────────────────────────────────────────── */
 
 .card {

@@ -50,3 +50,43 @@ export function applySecurityHeaders(response) {
     headers
   });
 }
+
+/** HTTP methods that mutate state and require a same-origin (CSRF) check. */
+const STATE_CHANGING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+/**
+ * Whether the request uses a state-changing method.
+ * @param {Request} request
+ * @returns {boolean}
+ */
+export function isStateChangingMethod(request) {
+  return STATE_CHANGING_METHODS.has(request.method);
+}
+
+/**
+ * CSRF defense-in-depth: verify a request comes from the admin console's own
+ * origin. Complements the session cookie's SameSite=Strict by also blocking
+ * same-site (sibling-subdomain) and legacy-browser cross-site requests that
+ * SameSite does not stop.
+ *
+ * Prefers the Origin header (exact match against `https://{DOMAIN}`); falls
+ * back to a Referer prefix match for the rare browser that omits Origin on a
+ * same-origin POST. Fails closed when neither header is present.
+ * @param {Request} request
+ * @param {object} env - must provide env.DOMAIN
+ * @returns {boolean}
+ */
+export function isSameOriginRequest(request, env) {
+  const expectedOrigin = `https://${env.DOMAIN}`;
+  const origin = request.headers.get("Origin");
+  if (origin !== null) {
+    return origin === expectedOrigin;
+  }
+  const referer = request.headers.get("Referer");
+  if (referer) {
+    return (
+      referer === expectedOrigin || referer.startsWith(`${expectedOrigin}/`)
+    );
+  }
+  return false;
+}

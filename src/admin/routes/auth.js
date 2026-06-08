@@ -173,7 +173,7 @@ export async function handleAdminVerify(request, env) {
 }
 
 /**
- * GET /admin/logout — destroy session and redirect to login.
+ * POST /admin/logout — destroy session and redirect to login.
  */
 export async function handleLogout(request, env) {
   const token = getSessionFromCookie(request);

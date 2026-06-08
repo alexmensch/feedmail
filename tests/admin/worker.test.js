@@ -116,6 +116,10 @@ const env = {
 
 function makeRequest(method, path, headers = {}) {
   const reqHeaders = new Headers(headers);
+  // Same-origin by default so the CSRF origin check passes; override per test.
+  if (!reqHeaders.has("Origin")) {
+    reqHeaders.set("Origin", "https://feedmail.example.com");
+  }
   return new Request(`https://feedmail.example.com${path}`, {
     method,
     headers: reqHeaders
@@ -187,8 +191,8 @@ describe("admin worker — fetch handler", () => {
       expect(handleAdminVerify).toHaveBeenCalledWith(request, env);
     });
 
-    it("routes GET /admin/logout to handleLogout", async () => {
-      const request = makeRequest("GET", "/admin/logout");
+    it("routes POST /admin/logout to handleLogout", async () => {
+      const request = makeRequest("POST", "/admin/logout");
 
       await adminApp.fetch(request, env);
 
@@ -203,8 +207,8 @@ describe("admin worker — fetch handler", () => {
       expect(response.status).toBe(405);
     });
 
-    it("returns 405 for POST /admin/logout", async () => {
-      const request = makeRequest("POST", "/admin/logout");
+    it("returns 405 for GET /admin/logout", async () => {
+      const request = makeRequest("GET", "/admin/logout");
 
       const response = await adminApp.fetch(request, env);
 
@@ -347,7 +351,7 @@ describe("admin worker — fetch handler", () => {
     });
 
     it("does NOT apply session middleware to /admin/logout", async () => {
-      const request = makeRequest("GET", "/admin/logout");
+      const request = makeRequest("POST", "/admin/logout");
 
       await adminApp.fetch(request, env);
 
@@ -662,6 +666,69 @@ describe("admin worker — fetch handler", () => {
       expect(response.status).toBe(301);
       expect(response.headers.get("Location")).toBe("/admin/login");
       expect(response.headers.get("X-Frame-Options")).toBe("DENY");
+    });
+  });
+
+  describe("CSRF origin check", () => {
+    it("rejects a state-changing POST with a foreign Origin", async () => {
+      const request = makeRequest("POST", "/admin/login", {
+        Origin: "https://evil.example.com"
+      });
+
+      const response = await adminApp.fetch(request, env);
+
+      expect(response.status).toBe(403);
+      expect(handleLoginSubmit).not.toHaveBeenCalled();
+    });
+
+    it("rejects a state-changing POST with no Origin or Referer", async () => {
+      const request = new Request("https://feedmail.example.com/admin/login", {
+        method: "POST"
+      });
+
+      const response = await adminApp.fetch(request, env);
+
+      expect(response.status).toBe(403);
+      expect(handleLoginSubmit).not.toHaveBeenCalled();
+    });
+
+    it("allows a state-changing POST with a matching Origin", async () => {
+      const request = makeRequest("POST", "/admin/login");
+
+      await adminApp.fetch(request, env);
+
+      expect(handleLoginSubmit).toHaveBeenCalled();
+    });
+
+    it("falls back to Referer when Origin is absent", async () => {
+      const request = new Request("https://feedmail.example.com/admin/login", {
+        method: "POST",
+        headers: { Referer: "https://feedmail.example.com/admin/login" }
+      });
+
+      await adminApp.fetch(request, env);
+
+      expect(handleLoginSubmit).toHaveBeenCalled();
+    });
+
+    it("does not block safe GET requests regardless of Origin", async () => {
+      const request = makeRequest("GET", "/admin", {
+        Origin: "https://evil.example.com"
+      });
+
+      const response = await adminApp.fetch(request, env);
+
+      expect(response.status).not.toBe(403);
+    });
+
+    it("rejects a cross-origin channel delete (smoke)", async () => {
+      const request = makeRequest("POST", "/admin/channels/news/delete", {
+        Origin: "https://evil.example.com"
+      });
+
+      const response = await adminApp.fetch(request, env);
+
+      expect(response.status).toBe(403);
     });
   });
 });

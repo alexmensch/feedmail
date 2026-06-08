@@ -7,7 +7,11 @@
 import { getRateLimitConfig } from "../shared/lib/config.js";
 import { checkRateLimit, getEndpointName } from "../shared/lib/rate-limit.js";
 import { rateLimitResponse } from "../shared/lib/response.js";
-import { applySecurityHeaders } from "./lib/security.js";
+import {
+  applySecurityHeaders,
+  isStateChangingMethod,
+  isSameOriginRequest
+} from "./lib/security.js";
 import {
   handleLogin,
   handleLoginSubmit,
@@ -77,6 +81,18 @@ async function routeRequest(request, env, url) {
       }
     }
 
+    // CSRF defense-in-depth: state-changing requests must come from our own
+    // origin. Complements the session cookie's SameSite=Strict (which alone
+    // misses same-site subdomains and legacy browsers). Runs before the
+    // session check so it also guards the public POST routes (login, passkey
+    // authenticate). Safe methods (GET/HEAD) are unaffected.
+    if (isStateChangingMethod(request) && !isSameOriginRequest(request, env)) {
+      return new Response("Forbidden", {
+        status: 403,
+        headers: { "Content-Type": "text/plain" }
+      });
+    }
+
     // Session middleware for protected routes
     if (!PUBLIC_ROUTES.has(url.pathname)) {
       const { response } = await requireSession(request, env);
@@ -107,7 +123,7 @@ async function routeRequest(request, env, url) {
     }
 
     if (url.pathname === "/admin/logout") {
-      if (request.method === "GET") {
+      if (request.method === "POST") {
         return await handleLogout(request, env);
       }
       return new Response(null, { status: 405 });
