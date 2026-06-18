@@ -59,6 +59,29 @@ export async function handleAdminFeeds(request, env, url) {
   return jsonResponse(405, { error: "Method Not Allowed" });
 }
 
+/**
+ * Check whether a feed name/url collides with existing feeds in the channel.
+ * Name comparison is case-insensitive. Pass excludeId to ignore the feed
+ * being updated.
+ * @param {Array<{id: number, name: string, url: string}>} existingFeeds
+ * @param {{name: string, url: string, excludeId?: number|null}} candidate
+ * @returns {string|null} Error message, or null if unique
+ */
+function feedUniquenessError(existingFeeds, { name, url, excludeId = null }) {
+  const others =
+    excludeId === null
+      ? existingFeeds
+      : existingFeeds.filter((f) => f.id !== excludeId);
+
+  if (others.some((f) => f.url === url)) {
+    return "Feed URL already exists in this channel";
+  }
+  if (others.some((f) => f.name.toLowerCase() === name.toLowerCase())) {
+    return "Feed name already exists in this channel (case-insensitive)";
+  }
+  return null;
+}
+
 async function listFeeds(env, channelId) {
   const feeds = await getFeedsByChannelId(env.DB, channelId);
   return jsonResponse(200, {
@@ -84,17 +107,12 @@ async function addFeed(request, env, channelId) {
 
   // Check uniqueness within channel
   const existingFeeds = await getFeedsByChannelId(env.DB, channelId);
-  if (existingFeeds.some((f) => f.url === body.url)) {
-    return jsonResponse(409, {
-      error: "Feed URL already exists in this channel"
-    });
-  }
-  if (
-    existingFeeds.some((f) => f.name.toLowerCase() === body.name.toLowerCase())
-  ) {
-    return jsonResponse(409, {
-      error: "Feed name already exists in this channel (case-insensitive)"
-    });
+  const conflict = feedUniquenessError(existingFeeds, {
+    name: body.name,
+    url: body.url
+  });
+  if (conflict) {
+    return jsonResponse(409, { error: conflict });
   }
 
   const result = await insertFeed(env.DB, channelId, {
@@ -132,23 +150,13 @@ async function updateFeedHandler(request, env, channelId, feedId) {
 
   // Check uniqueness (excluding this feed)
   const existingFeeds = await getFeedsByChannelId(env.DB, channelId);
-  if (
-    url !== existing.url &&
-    existingFeeds.some((f) => f.id !== feedId && f.url === url)
-  ) {
-    return jsonResponse(409, {
-      error: "Feed URL already exists in this channel"
-    });
-  }
-  if (
-    name.toLowerCase() !== existing.name.toLowerCase() &&
-    existingFeeds.some(
-      (f) => f.id !== feedId && f.name.toLowerCase() === name.toLowerCase()
-    )
-  ) {
-    return jsonResponse(409, {
-      error: "Feed name already exists in this channel (case-insensitive)"
-    });
+  const conflict = feedUniquenessError(existingFeeds, {
+    name,
+    url,
+    excludeId: feedId
+  });
+  if (conflict) {
+    return jsonResponse(409, { error: conflict });
   }
 
   await updateFeed(env.DB, feedId, { name, url });

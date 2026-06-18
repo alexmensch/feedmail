@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock all dependencies
 vi.mock("../../../src/shared/lib/config.js", () => ({
-  getChannelById: vi.fn(),
+  getChannelWithFeeds: vi.fn(),
   getVerifyLimits: vi.fn()
 }));
 vi.mock("../../../src/shared/lib/email.js", () => ({
@@ -23,7 +23,7 @@ vi.mock("../../../src/shared/lib/db.js", () => ({
 
 import { handleSubscribe } from "../../../src/api/routes/subscribe.js";
 import {
-  getChannelById,
+  getChannelWithFeeds,
   getVerifyLimits
 } from "../../../src/shared/lib/config.js";
 import { sendEmail } from "../../../src/shared/lib/email.js";
@@ -75,7 +75,7 @@ describe("handleSubscribe", () => {
       randomUUID: vi.fn().mockReturnValue("test-uuid")
     });
 
-    getChannelById.mockReturnValue(CHANNEL);
+    getChannelWithFeeds.mockReturnValue(CHANNEL);
     getVerifyLimits.mockReturnValue({ maxAttempts: 5, windowHours: 24 });
     sendEmail.mockResolvedValue({ success: true });
     countRecentVerificationAttempts.mockResolvedValue(0);
@@ -111,7 +111,7 @@ describe("handleSubscribe", () => {
     });
 
     it("returns 400 for unknown siteId", async () => {
-      getChannelById.mockReturnValue(null);
+      getChannelWithFeeds.mockReturnValue(null);
 
       const response = await handleSubscribe(
         makeRequest({
@@ -341,7 +341,7 @@ describe("handleSubscribe", () => {
 
       for (const existing of statuses) {
         vi.clearAllMocks();
-        getChannelById.mockReturnValue(CHANNEL);
+        getChannelWithFeeds.mockReturnValue(CHANNEL);
         getVerifyLimits.mockReturnValue({ maxAttempts: 5, windowHours: 24 });
         sendEmail.mockResolvedValue({ success: true });
         countRecentVerificationAttempts.mockResolvedValue(0);
@@ -767,7 +767,7 @@ describe("handleSubscribe", () => {
         companyName: "Acme Corp",
         companyAddress: "123 Main St, Springfield, IL 62701"
       };
-      getChannelById.mockReturnValue(channelWithCompany);
+      getChannelWithFeeds.mockReturnValue(channelWithCompany);
       getSubscriberByEmail.mockResolvedValue(null);
 
       const response = await handleSubscribe(
@@ -787,7 +787,7 @@ describe("handleSubscribe", () => {
         companyName: "",
         companyAddress: ""
       };
-      getChannelById.mockReturnValue(channelWithEmpty);
+      getChannelWithFeeds.mockReturnValue(channelWithEmpty);
       getSubscriberByEmail.mockResolvedValue(null);
 
       const response = await handleSubscribe(
@@ -808,7 +808,7 @@ describe("handleSubscribe", () => {
         companyName: "Acme Corp",
         companyAddress: "123 Main St, Springfield, IL 62701"
       };
-      getChannelById.mockReturnValue(channelWithCompany);
+      getChannelWithFeeds.mockReturnValue(channelWithCompany);
       getSubscriberByEmail.mockResolvedValue(null);
 
       await handleSubscribe(
@@ -854,7 +854,7 @@ describe("handleSubscribe", () => {
         companyName: "",
         companyAddress: "123 Main St"
       };
-      getChannelById.mockReturnValue(channelWithEmpty);
+      getChannelWithFeeds.mockReturnValue(channelWithEmpty);
       getSubscriberByEmail.mockResolvedValue(null);
 
       await handleSubscribe(
@@ -878,7 +878,7 @@ describe("handleSubscribe", () => {
         companyName: "Acme Corp",
         companyAddress: "123 Main St, Springfield, IL 62701"
       };
-      getChannelById.mockReturnValue(channelWithCompany);
+      getChannelWithFeeds.mockReturnValue(channelWithCompany);
       getSubscriberByEmail.mockResolvedValue(null);
 
       await handleSubscribe(
@@ -915,7 +915,7 @@ describe("handleSubscribe", () => {
         companyName: "",
         companyAddress: "123 Main St"
       };
-      getChannelById.mockReturnValue(sitePartial);
+      getChannelWithFeeds.mockReturnValue(sitePartial);
       getSubscriberByEmail.mockResolvedValue(null);
 
       await handleSubscribe(
@@ -932,7 +932,7 @@ describe("handleSubscribe", () => {
   describe("Resend API key not configured", () => {
     it("skips sending verification email when key is null", async () => {
       getResendApiKey.mockResolvedValue(null);
-      getChannelById.mockReturnValue(CHANNEL);
+      getChannelWithFeeds.mockReturnValue(CHANNEL);
       getSubscriberByEmail.mockResolvedValue(null);
       insertSubscriber.mockResolvedValue({ meta: { last_row_id: 1 } });
       countRecentVerificationAttempts.mockResolvedValue(0);

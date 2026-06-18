@@ -32,7 +32,12 @@ vi.mock("../../../src/admin/lib/htmx.js", () => ({
         status: 200,
         headers: { "Content-Type": "text/html; charset=utf-8" }
       })
-  )
+  ),
+  respondFeedback: vi
+    .fn()
+    .mockImplementation(({ htmx, fragment, redirectUrl }) =>
+      htmx ? fragment() : Response.redirect(redirectUrl, 302)
+    )
 }));
 
 import { handleSendTrigger } from "../../../src/admin/routes/dashboard.js";

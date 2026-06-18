@@ -4,6 +4,8 @@
  * https://resend.com/docs/api-reference/rate-limit
  */
 
+import { sleep } from "./sleep.js";
+
 const RESEND_API_URL = "https://api.resend.com/emails";
 
 /** Max number of retries on 429 responses. */
@@ -136,13 +138,4 @@ function parseRetryAfter(value) {
   }
 
   return 1;
-}
-
-/**
- * Sleep for a given number of milliseconds.
- * @param {number} ms
- * @returns {Promise<void>}
- */
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -3,12 +3,13 @@
  * Handles unsubscribe requests (link clicks and List-Unsubscribe-Post).
  */
 
-import { getChannelById } from "../../shared/lib/config.js";
+import { getChannelWithFeeds } from "../../shared/lib/config.js";
 import { render, renderErrorPage } from "../../shared/lib/templates.js";
 import {
   getSubscriberByUnsubscribeToken,
   markSubscriberUnsubscribed
 } from "../../shared/lib/db.js";
+import { htmlResponse } from "../../shared/lib/response.js";
 
 /**
  * Handle an unsubscribe request.
@@ -35,7 +36,7 @@ export async function handleUnsubscribe(request, env, url) {
     await markSubscriberUnsubscribed(env.DB, subscriber.id);
   }
 
-  const channel = await getChannelById(env, subscriber.channel_id);
+  const channel = await getChannelWithFeeds(env, subscriber.channel_id);
 
   // POST requests come from List-Unsubscribe-Post (RFC 8058) — return 200 OK
   if (request.method === "POST") {
@@ -48,8 +49,5 @@ export async function handleUnsubscribe(request, env, url) {
     siteUrl: channel?.siteUrl || "/"
   });
 
-  return new Response(html, {
-    status: 200,
-    headers: { "Content-Type": "text/html; charset=utf-8" }
-  });
+  return htmlResponse(html);
 }

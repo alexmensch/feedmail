@@ -32,6 +32,13 @@ vi.mock("../../src/shared/lib/db.js", () => ({
   getCredential: vi.fn()
 }));
 vi.mock("../../src/shared/lib/response.js", () => ({
+  jsonResponse: vi.fn().mockImplementation(
+    (status, body) =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { "Content-Type": "application/json" }
+      })
+  ),
   rateLimitResponse: vi.fn().mockImplementation(
     (retryAfter) =>
       new Response(JSON.stringify({ error: "Too Many Requests" }), {

@@ -7,6 +7,7 @@ vi.mock("../../../src/shared/lib/db.js", () => ({
   getAllChannels: vi.fn(),
   getChannelById: vi.fn(),
   getFeedsByChannelId: vi.fn(),
+  getFeedsByChannelIds: vi.fn(),
   getSiteConfig: vi.fn(),
   getRateLimitConfigs: vi.fn()
 }));
@@ -15,6 +16,7 @@ import {
   getAllChannels,
   getChannelById as dbGetChannelById,
   getFeedsByChannelId,
+  getFeedsByChannelIds,
   getSiteConfig,
   getRateLimitConfigs
 } from "../../../src/shared/lib/db.js";
@@ -50,7 +52,7 @@ function makeEnv(overrides = {}) {
 
 describe("config (async DB-backed)", () => {
   let getChannels,
-    getChannelById,
+    getChannelWithFeeds,
     getVerifyLimits,
     getAllCorsOrigins,
     getRateLimitConfig;
@@ -58,9 +60,10 @@ describe("config (async DB-backed)", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     vi.resetModules();
+    getFeedsByChannelIds.mockResolvedValue([]);
     const mod = await import("../../../src/shared/lib/config.js");
     getChannels = mod.getChannels;
-    getChannelById = mod.getChannelById;
+    getChannelWithFeeds = mod.getChannelWithFeeds;
     getVerifyLimits = mod.getVerifyLimits;
     getAllCorsOrigins = mod.getAllCorsOrigins;
     getRateLimitConfig = mod.getRateLimitConfig;
@@ -99,13 +102,44 @@ describe("config (async DB-backed)", () => {
       expect(getAllChannels).toHaveBeenCalled();
       expect(result[0].id).toBe("test-channel");
     });
+
+    it("fetches all feeds in one batched query, not per channel (no N+1)", async () => {
+      getAllChannels.mockResolvedValue([
+        makeChannel({ id: "a" }),
+        makeChannel({ id: "b" }),
+        makeChannel({ id: "c" })
+      ]);
+      getFeedsByChannelIds.mockResolvedValue([
+        { id: 1, channel_id: "a", name: "A", url: "https://a.com/feed" },
+        { id: 2, channel_id: "c", name: "C", url: "https://c.com/feed" }
+      ]);
+
+      const result = await getChannels(makeEnv());
+
+      // One batched call regardless of channel count; never the per-channel query.
+      expect(getFeedsByChannelIds).toHaveBeenCalledTimes(1);
+      expect(getFeedsByChannelIds).toHaveBeenCalledWith(makeEnv().DB, [
+        "a",
+        "b",
+        "c"
+      ]);
+      expect(getFeedsByChannelId).not.toHaveBeenCalled();
+      // Feeds are grouped onto the right channel; channels with none get [].
+      expect(result.find((c) => c.id === "a").feeds).toEqual([
+        { id: 1, name: "A", url: "https://a.com/feed" }
+      ]);
+      expect(result.find((c) => c.id === "b").feeds).toEqual([]);
+      expect(result.find((c) => c.id === "c").feeds).toEqual([
+        { id: 2, name: "C", url: "https://c.com/feed" }
+      ]);
+    });
   });
 
-  describe("getChannelById", () => {
+  describe("getChannelWithFeeds", () => {
     it("returns matching channel from the database", async () => {
       dbGetChannelById.mockResolvedValue(makeChannel());
 
-      const channel = await getChannelById(makeEnv(), "test-channel");
+      const channel = await getChannelWithFeeds(makeEnv(), "test-channel");
 
       expect(dbGetChannelById).toHaveBeenCalledWith(
         makeEnv().DB,
@@ -119,7 +153,7 @@ describe("config (async DB-backed)", () => {
     it("returns null for unknown channel ID", async () => {
       dbGetChannelById.mockResolvedValue(null);
 
-      const channel = await getChannelById(makeEnv(), "nonexistent");
+      const channel = await getChannelWithFeeds(makeEnv(), "nonexistent");
 
       expect(channel).toBeNull();
     });
@@ -130,7 +164,7 @@ describe("config (async DB-backed)", () => {
       dbGetChannelById.mockResolvedValue(channel);
       getFeedsByChannelId.mockResolvedValue(feeds);
 
-      const result = await getChannelById(makeEnv(), "test-channel");
+      const result = await getChannelWithFeeds(makeEnv(), "test-channel");
 
       expect(result).toBeTruthy();
       // Channel should include feeds
@@ -143,7 +177,7 @@ describe("config (async DB-backed)", () => {
       dbGetChannelById.mockResolvedValue(makeChannel());
       getFeedsByChannelId.mockResolvedValue([]);
 
-      const result = await getChannelById(makeEnv(), "test-channel");
+      const result = await getChannelWithFeeds(makeEnv(), "test-channel");
 
       expect(result.feeds).toEqual([]);
     });

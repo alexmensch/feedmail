@@ -86,6 +86,7 @@ src/
       email.js            # Resend API email sending wrapper
       rate-limit.js       # IP-based rate limiting: config, atomic rolling-window check-and-record, endpoint name mapping
       response.js         # Shared HTTP response helpers (jsonResponse, htmlResponse, rateLimitResponse)
+      sleep.js            # Shared sleep(ms) promise helper (used by email retry + worker timeout)
       templates.js        # Handlebars precompiled template rendering — render(name, data)
   templates/              # Handlebars (.hbs) source files, precompiled at build time
     partials/

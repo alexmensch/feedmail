@@ -28,3 +28,17 @@ export function fragmentResponse(html, status = 200, headers = {}) {
     }
   });
 }
+
+/**
+ * Respond to a state-changing admin action: an HTMX fragment for HTMX requests,
+ * otherwise a 302 redirect carrying query-param feedback. The fragment is built
+ * lazily so its work (often a DB read / API call) only runs on the HTMX path.
+ * @param {object} opts
+ * @param {boolean} opts.htmx
+ * @param {() => Response|Promise<Response>} opts.fragment - Lazy fragment builder
+ * @param {string} opts.redirectUrl - Absolute URL for the non-HTMX redirect
+ * @returns {Response|Promise<Response>}
+ */
+export function respondFeedback({ htmx, fragment, redirectUrl }) {
+  return htmx ? fragment() : Response.redirect(redirectUrl, 302);
+}

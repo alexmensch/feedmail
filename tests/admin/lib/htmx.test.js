@@ -1,8 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 import {
   isHtmxRequest,
-  fragmentResponse
+  fragmentResponse,
+  respondFeedback
 } from "../../../src/admin/lib/htmx.js";
 
 describe("isHtmxRequest", () => {
@@ -78,5 +79,44 @@ describe("fragmentResponse", () => {
     expect(body).not.toContain("<head");
     expect(body).not.toContain("<body");
     expect(body).toBe(html);
+  });
+});
+
+describe("respondFeedback", () => {
+  it("calls the fragment builder for HTMX requests", () => {
+    const fragment = vi.fn().mockReturnValue("FRAGMENT");
+    const result = respondFeedback({
+      htmx: true,
+      fragment,
+      redirectUrl: "https://feedmail.cc/admin?error=x"
+    });
+
+    expect(fragment).toHaveBeenCalledOnce();
+    expect(result).toBe("FRAGMENT");
+  });
+
+  it("returns a 302 redirect for non-HTMX requests", () => {
+    const fragment = vi.fn();
+    const response = respondFeedback({
+      htmx: false,
+      fragment,
+      redirectUrl: "https://feedmail.cc/admin?success=done"
+    });
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("Location")).toBe(
+      "https://feedmail.cc/admin?success=done"
+    );
+  });
+
+  it("does not build the fragment on the redirect path (lazy)", () => {
+    const fragment = vi.fn();
+    respondFeedback({
+      htmx: false,
+      fragment,
+      redirectUrl: "https://feedmail.cc/admin"
+    });
+
+    expect(fragment).not.toHaveBeenCalled();
   });
 });

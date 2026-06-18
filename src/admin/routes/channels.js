@@ -5,7 +5,11 @@
 import { callApi, API_UNREACHABLE_ERROR } from "../lib/api.js";
 import { render } from "../../shared/lib/templates.js";
 import { htmlResponse } from "../../shared/lib/response.js";
-import { isHtmxRequest, fragmentResponse } from "../lib/htmx.js";
+import {
+  isHtmxRequest,
+  fragmentResponse,
+  respondFeedback
+} from "../lib/htmx.js";
 
 /**
  * Parse corsOrigins textarea value into a JSON array.
@@ -458,29 +462,28 @@ export async function handleChannelUpdate(request, env, channelId) {
     }
   }
 
+  const channelUrl = `https://${env.DOMAIN}/admin/channels/${encodeURIComponent(channelId)}`;
+
   if (errors.length > 0) {
     const errorMsg = `Channel saved, but ${errors.join("; ")}`;
-    if (htmx) {
-      return renderChannelFormFragment(env, channelId, body, feedRows, {
-        error: errorMsg
-      });
-    }
-    return Response.redirect(
-      `https://${env.DOMAIN}/admin/channels/${encodeURIComponent(channelId)}?error=${encodeURIComponent(errorMsg)}`,
-      302
-    );
-  }
-
-  if (htmx) {
-    return renderChannelFormFragment(env, channelId, body, [], {
-      success: "Channel updated"
+    return respondFeedback({
+      htmx,
+      fragment: () =>
+        renderChannelFormFragment(env, channelId, body, feedRows, {
+          error: errorMsg
+        }),
+      redirectUrl: `${channelUrl}?error=${encodeURIComponent(errorMsg)}`
     });
   }
 
-  return Response.redirect(
-    `https://${env.DOMAIN}/admin/channels/${encodeURIComponent(channelId)}?success=${encodeURIComponent("Channel updated")}`,
-    302
-  );
+  return respondFeedback({
+    htmx,
+    fragment: () =>
+      renderChannelFormFragment(env, channelId, body, [], {
+        success: "Channel updated"
+      }),
+    redirectUrl: `${channelUrl}?success=${encodeURIComponent("Channel updated")}`
+  });
 }
 
 /**
@@ -554,12 +557,20 @@ export async function handleChannelDeleteConfirm(request, env, channelId) {
     `/admin/channels/${encodeURIComponent(channelId)}`
   );
 
+  const encodedId = encodeURIComponent(channelId);
+  const cancelFields = {
+    cancelClass: "btn-danger",
+    cancelHxGet: `/admin/channels/${encodedId}/delete/confirm`,
+    cancelHxTarget: "#channel-actions",
+    cancelLabel: "Delete channel"
+  };
+
   if (!result.ok) {
     return fragmentResponse(
       render("adminDeleteConfirm", {
         message: "Channel not found.",
-        confirmAction: `/admin/channels/${encodeURIComponent(channelId)}/delete`,
-        cancelHtml: `<button type="button" class="btn-danger" hx-get="/admin/channels/${encodeURIComponent(channelId)}/delete/confirm" hx-target="#channel-actions" hx-swap="innerHTML">Delete channel</button>`
+        confirmAction: `/admin/channels/${encodedId}/delete`,
+        ...cancelFields
       })
     );
   }
@@ -567,8 +578,8 @@ export async function handleChannelDeleteConfirm(request, env, channelId) {
   const channel = result.data;
   const html = render("adminDeleteConfirm", {
     message: `Delete channel "${channel.id}" (${channel.siteName})? This will remove all subscribers and feeds. This cannot be undone.`,
-    confirmAction: `/admin/channels/${encodeURIComponent(channelId)}/delete`,
-    cancelHtml: `<button type="button" class="btn-danger" hx-get="/admin/channels/${encodeURIComponent(channelId)}/delete/confirm" hx-target="#channel-actions" hx-swap="innerHTML">Delete channel</button>`
+    confirmAction: `/admin/channels/${encodedId}/delete`,
+    ...cancelFields
   });
   return fragmentResponse(html);
 }

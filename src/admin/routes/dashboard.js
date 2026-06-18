@@ -6,7 +6,11 @@ import { callApi, API_UNREACHABLE_ERROR } from "../lib/api.js";
 import { render } from "../../shared/lib/templates.js";
 import { htmlResponse } from "../../shared/lib/response.js";
 import { getPasskeyCredentialCount } from "../lib/db.js";
-import { isHtmxRequest, fragmentResponse } from "../lib/htmx.js";
+import {
+  isHtmxRequest,
+  fragmentResponse,
+  respondFeedback
+} from "../lib/htmx.js";
 
 /**
  * GET /admin — Dashboard page.
@@ -89,35 +93,41 @@ export async function handleSendTrigger(request, env) {
   const body = channelId ? { channelId } : undefined;
   const result = await callApi(env, "POST", "/send", body);
 
-  // HTMX request: return inline feedback fragment
-  if (isHtmxRequest(request)) {
-    const html = render("adminSendFeedback", {
-      success: result.ok ? "Feed check completed" : "",
-      error: result.ok ? "" : result.data?.error || "Feed check failed"
-    });
-    return fragmentResponse(html);
-  }
+  const kind = result.ok ? "success" : "error";
+  const message = result.ok
+    ? "Feed check completed"
+    : result.data?.error || "Feed check failed";
 
-  // Standard request: redirect with query-param feedback
+  return respondFeedback({
+    htmx: isHtmxRequest(request),
+    fragment: () =>
+      fragmentResponse(
+        render("adminSendFeedback", {
+          success: result.ok ? message : "",
+          error: result.ok ? "" : message
+        })
+      ),
+    redirectUrl: `https://${env.DOMAIN}${refererAdminPath(request)}?${kind}=${encodeURIComponent(message)}`
+  });
+}
+
+/**
+ * Resolve the redirect target after a non-HTMX send trigger: the referring
+ * admin page if it's under /admin, else the dashboard.
+ * @param {Request} request
+ * @returns {string}
+ */
+function refererAdminPath(request) {
   const referer = request.headers.get("Referer");
-  let redirectPath = "/admin";
   if (referer) {
     try {
       const refererUrl = new URL(referer);
       if (refererUrl.pathname.startsWith("/admin")) {
-        redirectPath = refererUrl.pathname;
+        return refererUrl.pathname;
       }
     } catch {
       // Invalid referer URL
     }
   }
-
-  const param = result.ok
-    ? `success=${encodeURIComponent("Feed check completed")}`
-    : `error=${encodeURIComponent(result.data?.error || "Feed check failed")}`;
-
-  return Response.redirect(
-    `https://${env.DOMAIN}${redirectPath}?${param}`,
-    302
-  );
+  return "/admin";
 }

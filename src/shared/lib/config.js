@@ -7,9 +7,13 @@ import {
   getAllChannels as dbGetAllChannels,
   getChannelById as dbGetChannelById,
   getFeedsByChannelId,
+  getFeedsByChannelIds,
   getSiteConfig,
   getRateLimitConfigs
 } from "./db.js";
+
+/** Default verification rate limits when no site_config row exists. */
+export const VERIFY_DEFAULTS = { maxAttempts: 3, windowHours: 24 };
 
 export const RATE_LIMIT_DEFAULTS = {
   subscribe: { windowHours: 1, maxRequests: 10 },
@@ -150,6 +154,11 @@ export function validateFeedFields(feed) {
 
 // ─── DB-backed config readers ───────────────────────────────────────────────
 
+/** Normalize a feed DB row to the public {id, name, url} shape. */
+function toFeedSummary(feed) {
+  return { id: feed.id, name: feed.name, url: feed.url };
+}
+
 /**
  * Get all configured channels with their feeds.
  * @param {object} env - Worker environment bindings
@@ -158,9 +167,18 @@ export function validateFeedFields(feed) {
 export async function getChannels(env) {
   validateDomain(env.DOMAIN);
   const channels = await dbGetAllChannels(env.DB);
+  const feeds = await getFeedsByChannelIds(
+    env.DB,
+    channels.map((c) => c.id)
+  );
+  const feedsByChannel = new Map();
+  for (const feed of feeds) {
+    const list = feedsByChannel.get(feed.channel_id) || [];
+    list.push(toFeedSummary(feed));
+    feedsByChannel.set(feed.channel_id, list);
+  }
   for (const channel of channels) {
-    const feeds = (await getFeedsByChannelId(env.DB, channel.id)) || [];
-    channel.feeds = feeds.map((f) => ({ id: f.id, name: f.name, url: f.url }));
+    channel.feeds = feedsByChannel.get(channel.id) || [];
   }
   return channels;
 }
@@ -171,13 +189,13 @@ export async function getChannels(env) {
  * @param {string} channelId
  * @returns {Promise<object|null>}
  */
-export async function getChannelById(env, channelId) {
+export async function getChannelWithFeeds(env, channelId) {
   const channel = await dbGetChannelById(env.DB, channelId);
   if (!channel) {
     return null;
   }
   const feeds = (await getFeedsByChannelId(env.DB, channel.id)) || [];
-  channel.feeds = feeds.map((f) => ({ id: f.id, name: f.name, url: f.url }));
+  channel.feeds = feeds.map(toFeedSummary);
   return channel;
 }
 
@@ -189,8 +207,8 @@ export async function getChannelById(env, channelId) {
 export async function getVerifyLimits(env) {
   const config = await getSiteConfig(env.DB);
   return {
-    maxAttempts: config?.verifyMaxAttempts ?? 3,
-    windowHours: config?.verifyWindowHours ?? 24
+    maxAttempts: config?.verifyMaxAttempts ?? VERIFY_DEFAULTS.maxAttempts,
+    windowHours: config?.verifyWindowHours ?? VERIFY_DEFAULTS.windowHours
   };
 }
 
