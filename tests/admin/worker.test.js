@@ -116,6 +116,10 @@ const env = {
 
 function makeRequest(method, path, headers = {}) {
   const reqHeaders = new Headers(headers);
+  // Same-origin by default so the CSRF origin check passes; override per test.
+  if (!reqHeaders.has("Origin")) {
+    reqHeaders.set("Origin", "https://feedmail.example.com");
+  }
   return new Request(`https://feedmail.example.com${path}`, {
     method,
     headers: reqHeaders
@@ -140,6 +144,7 @@ describe("admin worker — fetch handler", () => {
         headers: { Location: "/admin/login" }
       })
     );
+    handleDashboard.mockResolvedValue(okResponse);
 
     // Session middleware: response null means allow through
     requireSession.mockResolvedValue({
@@ -186,8 +191,8 @@ describe("admin worker — fetch handler", () => {
       expect(handleAdminVerify).toHaveBeenCalledWith(request, env);
     });
 
-    it("routes GET /admin/logout to handleLogout", async () => {
-      const request = makeRequest("GET", "/admin/logout");
+    it("routes POST /admin/logout to handleLogout", async () => {
+      const request = makeRequest("POST", "/admin/logout");
 
       await adminApp.fetch(request, env);
 
@@ -202,8 +207,8 @@ describe("admin worker — fetch handler", () => {
       expect(response.status).toBe(405);
     });
 
-    it("returns 405 for POST /admin/logout", async () => {
-      const request = makeRequest("POST", "/admin/logout");
+    it("returns 405 for GET /admin/logout", async () => {
+      const request = makeRequest("GET", "/admin/logout");
 
       const response = await adminApp.fetch(request, env);
 
@@ -346,7 +351,7 @@ describe("admin worker — fetch handler", () => {
     });
 
     it("does NOT apply session middleware to /admin/logout", async () => {
-      const request = makeRequest("GET", "/admin/logout");
+      const request = makeRequest("POST", "/admin/logout");
 
       await adminApp.fetch(request, env);
 
@@ -598,6 +603,132 @@ describe("admin worker — fetch handler", () => {
       const response = await adminApp.fetch(request, env);
 
       expect(response.status).toBe(500);
+    });
+  });
+
+  describe("security headers", () => {
+    const SECURITY_HEADER_NAMES = [
+      "Content-Security-Policy",
+      "X-Frame-Options",
+      "X-Content-Type-Options",
+      "Referrer-Policy"
+    ];
+
+    it("applies all security headers to a rendered page response", async () => {
+      const response = await adminApp.fetch(
+        makeRequest("GET", "/admin/login"),
+        env
+      );
+
+      for (const name of SECURITY_HEADER_NAMES) {
+        expect(response.headers.get(name)).not.toBeNull();
+      }
+    });
+
+    it("sets a strict script-src and frame-ancestors in the CSP", async () => {
+      const response = await adminApp.fetch(
+        makeRequest("GET", "/admin/login"),
+        env
+      );
+      const csp = response.headers.get("Content-Security-Policy");
+
+      expect(csp).toContain("script-src 'self'");
+      expect(csp).toContain("frame-ancestors 'none'");
+      expect(csp).not.toContain("unsafe-inline");
+    });
+
+    it("sets nosniff and clickjacking protection", async () => {
+      const response = await adminApp.fetch(
+        makeRequest("GET", "/admin/login"),
+        env
+      );
+
+      expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
+      expect(response.headers.get("X-Frame-Options")).toBe("DENY");
+    });
+
+    it("applies security headers to 404 responses", async () => {
+      const response = await adminApp.fetch(
+        makeRequest("GET", "/admin/nonexistent"),
+        env
+      );
+
+      expect(response.status).toBe(404);
+      expect(response.headers.get("Content-Security-Policy")).not.toBeNull();
+    });
+
+    it("applies security headers to the trailing-slash redirect", async () => {
+      const response = await adminApp.fetch(
+        makeRequest("GET", "/admin/login/"),
+        env
+      );
+
+      expect(response.status).toBe(301);
+      expect(response.headers.get("Location")).toBe("/admin/login");
+      expect(response.headers.get("X-Frame-Options")).toBe("DENY");
+    });
+  });
+
+  describe("CSRF origin check", () => {
+    it("rejects a state-changing POST with a foreign Origin", async () => {
+      const request = makeRequest("POST", "/admin/login", {
+        Origin: "https://evil.example.com"
+      });
+
+      const response = await adminApp.fetch(request, env);
+
+      expect(response.status).toBe(403);
+      expect(handleLoginSubmit).not.toHaveBeenCalled();
+    });
+
+    it("rejects a state-changing POST with no Origin or Referer", async () => {
+      const request = new Request("https://feedmail.example.com/admin/login", {
+        method: "POST"
+      });
+
+      const response = await adminApp.fetch(request, env);
+
+      expect(response.status).toBe(403);
+      expect(handleLoginSubmit).not.toHaveBeenCalled();
+    });
+
+    it("allows a state-changing POST with a matching Origin", async () => {
+      const request = makeRequest("POST", "/admin/login");
+
+      await adminApp.fetch(request, env);
+
+      expect(handleLoginSubmit).toHaveBeenCalled();
+    });
+
+    it("falls back to Referer when Origin is absent", async () => {
+      const request = new Request("https://feedmail.example.com/admin/login", {
+        method: "POST",
+        headers: { Referer: "https://feedmail.example.com/admin/login" }
+      });
+
+      await adminApp.fetch(request, env);
+
+      expect(handleLoginSubmit).toHaveBeenCalled();
+    });
+
+    it("does not block safe GET requests regardless of Origin", async () => {
+      const request = makeRequest("GET", "/admin", {
+        Origin: "https://evil.example.com"
+      });
+
+      const response = await adminApp.fetch(request, env);
+
+      expect(response.status).not.toBe(403);
+    });
+
+    it("rejects a cross-origin channel delete (smoke)", async () => {
+      const request = makeRequest("POST", "/admin/channels/news/delete", {
+        Origin: "https://evil.example.com"
+      });
+
+      const response = await adminApp.fetch(request, env);
+
+      expect(response.status).toBe(403);
     });
   });
 });

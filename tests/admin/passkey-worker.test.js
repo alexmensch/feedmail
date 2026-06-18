@@ -121,6 +121,10 @@ const env = {
 
 function makeRequest(method, path, headers = {}) {
   const reqHeaders = new Headers(headers);
+  // Same-origin by default so the CSRF origin check passes; override per test.
+  if (!reqHeaders.has("Origin")) {
+    reqHeaders.set("Origin", "https://feedmail.example.com");
+  }
   return new Request(`https://feedmail.example.com${path}`, {
     method,
     headers: reqHeaders

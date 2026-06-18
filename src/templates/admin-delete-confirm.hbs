@@ -5,7 +5,8 @@
       <button type="submit" class="btn-small btn-danger"
         {{#if htmxPost}}hx-post="{{htmxPost}}" hx-target="{{htmxTarget}}" hx-swap="{{htmxSwap}}"{{/if}}>Confirm</button>
     </form>
-    <button type="button" class="btn-small"
-      {{#if htmxCancelGet}}hx-get="{{htmxCancelGet}}" hx-target="{{htmxCancelTarget}}" hx-swap="innerHTML"{{else}}onclick="this.closest('.inline-confirm').outerHTML = '{{cancelHtml}}'"{{/if}}>Cancel</button>
+    <button type="button" class="btn-small" data-confirm-cancel>Cancel</button>
   </div>
+  {{!-- cancelHtml is server-built, trusted markup (fixed template + validated, encodeURIComponent'd IDs). It is kept inert in a <template> and restored via cloneNode in admin.js — never parsed from a string at runtime — so it is not an XSS sink. Do not feed user-controlled data into cancelHtml. --}}
+  <template data-cancel-restore>{{{cancelHtml}}}</template>
 </div>

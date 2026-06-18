@@ -132,6 +132,10 @@ const okResponse = new Response("<html>OK</html>", {
 
 function makeRequest(method, path, headers = {}) {
   const reqHeaders = new Headers(headers);
+  // Same-origin by default so the CSRF origin check passes; override per test.
+  if (!reqHeaders.has("Origin")) {
+    reqHeaders.set("Origin", "https://feedmail.example.com");
+  }
   const options = { method, headers: reqHeaders };
   if (method === "POST" && !reqHeaders.has("Content-Type")) {
     reqHeaders.set("Content-Type", "application/x-www-form-urlencoded");

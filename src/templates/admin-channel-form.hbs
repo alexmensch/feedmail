@@ -15,7 +15,7 @@
 <div class="feedback" data-variant="success" role="status">{{success}}</div>
 {{/if}}
 
-<form method="POST" action="{{#if isEdit}}/admin/channels/{{channel.id}}{{else}}/admin/channels{{/if}}" id="channel-form"
+<form method="POST" action="{{#if isEdit}}/admin/channels/{{channel.id}}{{else}}/admin/channels{{/if}}" id="channel-form" data-mode="{{#if isEdit}}edit{{else}}create{{/if}}"
   {{#if isEdit}}hx-post="/admin/channels/{{channel.id}}" hx-target="#form-result" hx-swap="innerHTML"{{/if}}>
 
   <div class="stack" data-gap="m">
@@ -47,129 +47,7 @@
 </div>
 {{/if}}
 
-<script>
-  function getNextIndex() {
-    var rows = document.querySelectorAll('.feed-row');
-    var max = -1;
-    for (var i = 0; i < rows.length; i++) {
-      var idx = parseInt(rows[i].getAttribute('data-index'), 10);
-      if (idx > max) max = idx;
-    }
-    return max + 1;
-  }
-
-  function updateRemoveButtons() {
-    var rows = document.querySelectorAll('.feed-row');
-    var btns = document.querySelectorAll('.remove-feed-btn');
-    for (var i = 0; i < btns.length; i++) {
-      btns[i].disabled = rows.length <= 1;
-    }
-  }
-
-  function addFeedRow() {
-    var idx = getNextIndex();
-    var html = '<div class="feed-row" data-index="' + idx + '">' +
-      '<div class="form-field">' +
-      '<label class="required">Feed Name</label>' +
-      '<input type="text" name="feeds[' + idx + '][name]" value="" required>' +
-      '<small class="helper-text">Display name for this feed in emails</small>' +
-      '</div>' +
-      '<div class="form-field">' +
-      '<label class="required">Feed URL</label>' +
-      '<input type="url" name="feeds[' + idx + '][url]" value="" required>' +
-      '<small class="helper-text">URL of the RSS or Atom feed</small>' +
-      '</div>' +
-      '<div class="feed-row-actions">' +
-      '<button type="button" class="remove-feed-btn btn-small" onclick="removeFeedRow(this)">Remove</button>' +
-      '</div>' +
-      '</div>';
-    document.getElementById('feed-rows').insertAdjacentHTML('beforeend', html);
-    updateRemoveButtons();
-  }
-
-  function removeFeedRow(btn) {
-    var rows = document.querySelectorAll('.feed-row');
-    if (rows.length <= 1) return;
-    if (!confirm('Remove this feed?')) return;
-    btn.closest('.feed-row').remove();
-    updateRemoveButtons();
-  }
-
-  // Channel ID inline validation (create only)
-  // Validation rules mirror validateChannelId() in src/shared/lib/config.js
-  (function() {
-    var idInput = document.getElementById('id');
-    if (!idInput) return;
-    var helper = document.getElementById('id-helper');
-    var defaultText = helper.textContent;
-    var pattern = new RegExp(idInput.getAttribute('pattern'));
-
-    idInput.addEventListener('input', function() {
-      var val = idInput.value;
-      if (!val) { showHelper(helper, defaultText); return; }
-      if (/[A-Z]/.test(val)) { showError(helper, 'Must be lowercase'); return; }
-      if (/\s/.test(val)) { showError(helper, 'No spaces allowed'); return; }
-      if (val.startsWith('-') || val.endsWith('-')) { showError(helper, 'Must not start or end with a hyphen'); return; }
-      if (/--/.test(val)) { showError(helper, 'No consecutive hyphens'); return; }
-      if (!pattern.test(val)) { showError(helper, 'Only lowercase letters, numbers, and hyphens'); return; }
-      showHelper(helper, defaultText);
-    });
-  })();
-
-  // From-user inline validation
-  (function() {
-    var input = document.getElementById('fromUser');
-    if (!input) return;
-    var helper = document.getElementById('fromUser-helper');
-    var defaultText = helper.textContent;
-
-    input.addEventListener('input', function() {
-      var val = input.value;
-      if (!val) { showHelper(helper, defaultText); return; }
-      if (val.indexOf('@') !== -1) { showError(helper, 'Enter just the local part (before the @)'); return; }
-      if (/\s/.test(val)) { showError(helper, 'No spaces allowed'); return; }
-      showHelper(helper, defaultText);
-    });
-  })();
-
-  // CORS origin auto-populate (create only)
-  {{#unless isEdit}}
-  (function() {
-    var siteUrlInput = document.getElementById('siteUrl');
-    var corsTextarea = document.getElementById('corsOrigins');
-    var corsManuallyEdited = false;
-
-    corsTextarea.addEventListener('input', function() {
-      corsManuallyEdited = true;
-    });
-
-    siteUrlInput.addEventListener('blur', function() {
-      if (corsManuallyEdited) return;
-      var val = siteUrlInput.value.trim();
-      if (!val) return;
-      try {
-        var origin = new URL(val).origin;
-        if (origin && origin !== 'null') {
-          corsTextarea.value = origin;
-        }
-      } catch (e) { /* invalid URL, ignore */ }
-    });
-  })();
-  {{/unless}}
-
-  function showError(el, msg) {
-    el.textContent = msg;
-    el.className = 'field-error';
-  }
-
-  function showHelper(el, msg) {
-    el.textContent = msg;
-    el.className = 'helper-text';
-  }
-
-  // Initialize remove button state
-  updateRemoveButtons();
-</script>
+<script src="/admin/channel-form.js"></script>
 
 {{/inline}}
 {{/admin-layout}}
