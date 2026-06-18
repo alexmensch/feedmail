@@ -168,7 +168,7 @@ describe("handleLoginSubmit", () => {
     expect(createMagicLinkToken).toHaveBeenCalledWith(
       env.DB,
       "mock-magic-token-uuid",
-      expect.any(String)
+      900
     );
     expect(sendEmail).toHaveBeenCalled();
   });
@@ -436,7 +436,7 @@ describe("handleAdminVerify", () => {
     expect(createSession).toHaveBeenCalledWith(
       env.DB,
       "mock-session-token-uuid",
-      expect.any(String)
+      86400
     );
     expect(response.status).toBe(302);
     expect(response.headers.get("Location")).toBe("/admin");

@@ -5,6 +5,7 @@
 import { getSession } from "./db.js";
 import { isHtmxRequest, fragmentResponse } from "./htmx.js";
 import { render } from "../../shared/lib/templates.js";
+import { parseDbDate } from "../../shared/lib/datetime.js";
 
 /** Cookie name for admin sessions. */
 export const SESSION_COOKIE_NAME = "feedmail_admin_session";
@@ -83,7 +84,7 @@ export async function requireSession(request, env) {
   }
 
   // Check expiry
-  const expiresAt = new Date(`${session.expires_at}Z`);
+  const expiresAt = parseDbDate(session.expires_at);
   if (expiresAt <= new Date()) {
     return { session: null, response: sessionExpiredResponse(request) };
   }

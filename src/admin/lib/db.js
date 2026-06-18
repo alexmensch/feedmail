@@ -1,16 +1,24 @@
 /**
  * D1 query helpers for admin auth: magic link tokens and sessions.
+ *
+ * Expiry is computed in SQL via DB_EXPIRY_SQL so it is stored in the same
+ * datetime() format as column DEFAULTs (see datetime.js for why one format
+ * matters). Write functions take a TTL in seconds, not a precomputed string.
  */
+
+import { DB_EXPIRY_SQL } from "../../shared/lib/datetime.js";
 
 /** Magic link token TTL in seconds (15 minutes). */
 export const MAGIC_LINK_TTL_SECONDS = 900;
 
 // ─── Magic Link Tokens ──────────────────────────────────────────────────────
 
-export async function createMagicLinkToken(db, token, expiresAt) {
+export async function createMagicLinkToken(db, token, ttlSeconds) {
   return db
-    .prepare("INSERT INTO magic_link_tokens (token, expires_at) VALUES (?, ?)")
-    .bind(token, expiresAt)
+    .prepare(
+      `INSERT INTO magic_link_tokens (token, expires_at) VALUES (?, ${DB_EXPIRY_SQL})`
+    )
+    .bind(token, `+${ttlSeconds}`)
     .run();
 }
 
@@ -32,10 +40,12 @@ export async function markMagicLinkTokenUsed(db, token) {
 
 // ─── Admin Sessions ──────────────────────────────────────────────────────────
 
-export async function createSession(db, token, expiresAt) {
+export async function createSession(db, token, ttlSeconds) {
   return db
-    .prepare("INSERT INTO admin_sessions (token, expires_at) VALUES (?, ?)")
-    .bind(token, expiresAt)
+    .prepare(
+      `INSERT INTO admin_sessions (token, expires_at) VALUES (?, ${DB_EXPIRY_SQL})`
+    )
+    .bind(token, `+${ttlSeconds}`)
     .run();
 }
 
@@ -130,21 +140,29 @@ export async function deletePasskeyCredential(db, credentialId) {
 
 export async function createWebAuthnChallenge(
   db,
-  { sessionToken, challenge, type, expiresAt }
+  { sessionToken, challenge, type, ttlSeconds }
 ) {
+  // Upsert keyed on (session_token, type): exactly one outstanding challenge
+  // per ceremony. Requesting options twice (double-click, retry, two tabs)
+  // replaces the prior challenge rather than leaving an ambiguous duplicate
+  // that consumeChallenge would resolve and delete inconsistently.
   return db
     .prepare(
       `INSERT INTO webauthn_challenges (session_token, challenge, type, expires_at)
-       VALUES (?, ?, ?, ?)`
+       VALUES (?, ?, ?, ${DB_EXPIRY_SQL})
+       ON CONFLICT(session_token, type) DO UPDATE SET
+         challenge = excluded.challenge,
+         expires_at = excluded.expires_at,
+         created_at = datetime('now')`
     )
-    .bind(sessionToken, challenge, type, expiresAt)
+    .bind(sessionToken, challenge, type, `+${ttlSeconds}`)
     .run();
 }
 
 export async function getWebAuthnChallenge(db, sessionToken, type) {
   return db
     .prepare(
-      "SELECT * FROM webauthn_challenges WHERE session_token = ? AND type = ? LIMIT 1"
+      "SELECT * FROM webauthn_challenges WHERE session_token = ? AND type = ? ORDER BY id DESC LIMIT 1"
     )
     .bind(sessionToken, type)
     .first();

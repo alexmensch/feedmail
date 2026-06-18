@@ -80,9 +80,10 @@ src/
   shared/                 # Shared modules used by both Workers
     lib/
       config.js           # DB-backed config reads, validation helpers (validateChannelId, validateChannelFields, validateFeedFields), rate limit defaults
+      datetime.js         # Single DB datetime format: parseDbDate() for reads + DB_EXPIRY_SQL for expiry writes
       db.js               # All D1 query helpers (subscribers, config, channels, feeds, credentials)
       email.js            # Resend API email sending wrapper
-      rate-limit.js       # IP-based rate limiting: config, rolling window check, endpoint name mapping
+      rate-limit.js       # IP-based rate limiting: config, atomic rolling-window check-and-record, endpoint name mapping
       response.js         # Shared HTTP response helpers (jsonResponse, htmlResponse, rateLimitResponse)
       templates.js        # Handlebars precompiled template rendering — render(name, data)
   templates/              # Handlebars (.hbs) source files, precompiled at build time
@@ -127,6 +128,7 @@ migrations/
   0005_config_tables.sql  # DB-backed config: site_config, rate_limit_config, channels, feeds
   0006_admin_auth.sql     # Admin auth: credentials, magic_link_tokens, admin_sessions tables
   0007_passkey_credentials.sql  # WebAuthn passkey credentials and challenge storage
+  0008_webauthn_challenge_unique.sql  # UNIQUE(session_token, type) on webauthn_challenges (single outstanding challenge)
 wrangler.toml             # API Worker config template with placeholders
 wrangler.admin.toml       # Admin Worker config template with placeholders
 wrangler.prod.toml        # API Worker deployer-specific config (gitignored)
@@ -173,7 +175,8 @@ To test the full email flow locally:
 - **Structured feeds:** Each feed is an object with `name`, `url`, and integer `id` (auto-increment PK for stable REST URLs).
 - **No info leakage:** Subscribe endpoint always returns the same success response regardless of whether email is new, already subscribed, rate-limited, or unsubscribed. Verify endpoint shows the same error for invalid and expired tokens.
 - **Verification rate limiting:** `verification_attempts` table tracks emails sent per subscriber. Rolling window (default 24h) with max attempts (default 3). Configurable at runtime via admin config API.
-- **IP-based rate limiting:** `rate_limits` table tracks requests per IP per endpoint using a rolling window. Default limits per endpoint (subscribe: 10/hr, verify: 20/hr, unsubscribe: 20/hr, send: 5/hr, admin: 30/hr, admin_login: 10/hr, admin_verify: 10/hr) stored as `RATE_LIMIT_DEFAULTS` in `config.js`, overridable via `rate_limit_config` DB table and admin config API. Rate limiting runs before authentication to protect against brute-force API key guessing. `Retry-After` header uses oldest-request-expiry strategy with 0–30s random jitter to prevent thundering herd retries. Expired rows for the specific IP+endpoint are cleaned up on every check; rows older than 7 days (from IPs that stopped visiting) are pruned probabilistically — 1% chance per check — via a fire-and-forget global DELETE, distributing cleanup load across normal traffic without blocking request handling. **Internal admin requests** (via the Service Binding) are identified by an `X-Internal-Request: true` header set by `callApi()`. For `/api/admin/*` routes, rate limiting is deferred until after auth: authenticated internal requests skip rate limiting entirely; failed-auth internal requests are rate-limited retroactively. Non-admin routes ignore the header. The shared `rateLimitResponse()` helper in `response.js` constructs 429 responses for both workers.
+- **IP-based rate limiting:** `rate_limits` table tracks requests per IP per endpoint using a rolling window. The check-and-record is one atomic `INSERT … SELECT … WHERE (window count) < max` statement (not a separate count-then-insert), so a concurrent burst from a single IP cannot exceed the limit; a malformed insert result fails closed. Default limits per endpoint (subscribe: 10/hr, verify: 20/hr, unsubscribe: 20/hr, send: 5/hr, admin: 30/hr, admin_login: 10/hr, admin_verify: 10/hr) stored as `RATE_LIMIT_DEFAULTS` in `config.js`, overridable via `rate_limit_config` DB table and admin config API. Rate limiting runs before authentication to protect against brute-force API key guessing. `Retry-After` header uses oldest-request-expiry strategy with 0–30s random jitter to prevent thundering herd retries. Expired rows for the specific IP+endpoint are cleaned up on every check; rows older than 7 days (from IPs that stopped visiting) are pruned probabilistically — 1% chance per check — via a fire-and-forget global DELETE, distributing cleanup load across normal traffic without blocking request handling. **Internal admin requests** (via the Service Binding) are identified by an `X-Internal-Request: true` header set by `callApi()`. For `/api/admin/*` routes, rate limiting is deferred until after auth: authenticated internal requests skip rate limiting entirely; failed-auth internal requests are rate-limited retroactively. Non-admin routes ignore the header. The shared `rateLimitResponse()` helper in `response.js` constructs 429 responses for both workers.
+- **Single DB datetime format:** Every timestamp in D1 is stored in SQLite's `datetime()` text format ("YYYY-MM-DD HH:MM:SS", UTC, no zone suffix) — what column DEFAULTs and expiry writes (`datetime('now', '+N seconds')`) produce. Expiry columns are written via SQL, never a JS `.toISOString()`; reads parse through `parseDbDate()` (`datetime.js`), which is ISO-tolerant and fails closed (epoch) on bad input. Keeping one format is what makes SQL comparisons against `datetime('now')` (e.g. `cleanupExpiredChallenges`) and JS TTL checks correct. Mixing in ISO strings reintroduces the double-Z `Invalid Date` bug that silently disabled every time-based expiry.
 - **Strict HTTP method enforcement:** `ROUTE_METHODS` in `worker.js` explicitly lists every route and its allowed methods. Known routes with wrong methods receive a deliberate 10-second delay then 408 timeout (discourages bot probing). Unknown paths get an immediate 404 with no body.
 - **Strict input validation:** Subscribe endpoint rejects requests with any fields beyond `email` and `channelId` (same error as malformed JSON — no info leak). This enables invisible honeypot fields in the subscribe form.
 - **Feed bootstrapping:** First time a feed URL is seen, all existing items are inserted into `sent_items` with `recipient_count = 0` — prevents blasting historical content on first deployment.
@@ -209,7 +212,7 @@ To test the full email flow locally:
 **Passkey tables (migration 0007):**
 
 - `passkey_credentials` — credential_id (PK, base64url TEXT), public_key (base64url TEXT), counter (INTEGER), transports (JSON TEXT), name (TEXT, nullable), created_at.
-- `webauthn_challenges` — id (auto-increment PK), session_token, type, challenge (TEXT), expires_at. Temporary challenge storage for WebAuthn ceremonies.
+- `webauthn_challenges` — id (auto-increment PK), session_token, type, challenge (TEXT), expires_at. UNIQUE(session_token, type) (migration 0008) — one outstanding challenge per ceremony; `createWebAuthnChallenge` upserts on it. Temporary challenge storage for WebAuthn ceremonies.
 
 ### API Routes
 

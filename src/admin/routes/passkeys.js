@@ -33,6 +33,7 @@ import {
   SESSION_TTL_SECONDS
 } from "../lib/session.js";
 import { isHtmxRequest, fragmentResponse } from "../lib/htmx.js";
+import { parseDbDate } from "../../shared/lib/datetime.js";
 
 /** Fixed WebAuthn user ID for the single admin user (as Uint8Array). */
 const WEBAUTHN_USER_ID = new TextEncoder().encode(
@@ -94,7 +95,7 @@ async function consumeChallenge(db, token, type) {
   }
 
   // Check expiry
-  const expiresAt = new Date(`${row.expires_at}Z`);
+  const expiresAt = parseDbDate(row.expires_at);
   if (expiresAt <= new Date()) {
     return null;
   }
@@ -135,9 +136,6 @@ export async function handleRegisterOptions(request, env) {
 
   // Store challenge linked to session token
   const sessionToken = getSessionFromCookie(request);
-  const expiresAt = new Date(
-    Date.now() + CHALLENGE_TTL_SECONDS * 1000
-  ).toISOString();
 
   // Fire-and-forget cleanup of expired challenges
   cleanupExpiredChallenges(env.DB).catch((err) =>
@@ -148,7 +146,7 @@ export async function handleRegisterOptions(request, env) {
     sessionToken,
     challenge: options.challenge,
     type: "registration",
-    expiresAt
+    ttlSeconds: CHALLENGE_TTL_SECONDS
   });
 
   return jsonResponse(200, options);
@@ -235,9 +233,6 @@ export async function handleAuthenticateOptions(request, env) {
 
   // Store challenge linked to a cookie-based identifier
   const challengeToken = crypto.randomUUID();
-  const expiresAt = new Date(
-    Date.now() + CHALLENGE_TTL_SECONDS * 1000
-  ).toISOString();
 
   // Fire-and-forget cleanup
   cleanupExpiredChallenges(env.DB).catch((err) =>
@@ -248,7 +243,7 @@ export async function handleAuthenticateOptions(request, env) {
     sessionToken: challengeToken,
     challenge: options.challenge,
     type: "authentication",
-    expiresAt
+    ttlSeconds: CHALLENGE_TTL_SECONDS
   });
 
   const cookieHeader = `${CHALLENGE_COOKIE_NAME}=${challengeToken}; HttpOnly; Secure; SameSite=Strict; Path=/admin; Max-Age=${CHALLENGE_TTL_SECONDS}`;
@@ -368,11 +363,8 @@ export async function handleAuthenticateVerify(request, env) {
 
   // Create session identical to magic link verification
   const sessionToken = crypto.randomUUID();
-  const sessionExpiresAt = new Date(
-    Date.now() + SESSION_TTL_SECONDS * 1000
-  ).toISOString();
 
-  await createSessionDb(env.DB, sessionToken, sessionExpiresAt);
+  await createSessionDb(env.DB, sessionToken, SESSION_TTL_SECONDS);
 
   // Clear the challenge cookie, set the session cookie
   const clearChallengeCookie = `${CHALLENGE_COOKIE_NAME}=; HttpOnly; Secure; SameSite=Strict; Path=/admin; Max-Age=0`;

@@ -3,6 +3,8 @@
  * Rolling window counting — tracks individual requests per IP per endpoint.
  */
 
+import { parseDbDate } from "./datetime.js";
+
 /** Maximum age for rate limit rows before they are eligible for cleanup (7 days). */
 export const STALE_ROW_MAX_AGE_SECONDS = 604800;
 
@@ -46,37 +48,45 @@ export async function checkRateLimit(
     .bind(ip, endpoint, `-${windowSeconds}`)
     .run();
 
-  // Count recent requests within the rolling window
-  const result = await db
+  // Atomic check-and-record: the row is inserted only if the in-window count is
+  // still under the limit, evaluated inside one INSERT...SELECT...WHERE. SQLite
+  // runs a single statement under a write lock, so concurrent requests from one
+  // IP serialize and cannot all pass a stale count — closing the check-then-
+  // insert race where a burst could exceed maxRequests. meta.changes is 1 when
+  // the request was recorded (allowed) and 0 when the guard rejected it.
+  const insert = await db
     .prepare(
-      `SELECT COUNT(*) as count, MIN(requested_at) as oldest
-       FROM rate_limits
+      `INSERT INTO rate_limits (ip, endpoint)
+       SELECT ?, ?
+       WHERE (
+         SELECT COUNT(*) FROM rate_limits
+         WHERE ip = ? AND endpoint = ? AND requested_at >= datetime('now', ? || ' seconds')
+       ) < ?`
+    )
+    .bind(ip, endpoint, ip, endpoint, `-${windowSeconds}`, maxRequests)
+    .run();
+
+  if (insert?.meta?.changes) {
+    return { allowed: true };
+  }
+
+  // Denied. Compute retryAfter from when the oldest in-window request expires.
+  // Add 0-30s random jitter to prevent thundering herd retries.
+  const oldestRow = await db
+    .prepare(
+      `SELECT MIN(requested_at) as oldest FROM rate_limits
        WHERE ip = ? AND endpoint = ? AND requested_at >= datetime('now', ? || ' seconds')`
     )
     .bind(ip, endpoint, `-${windowSeconds}`)
     .first();
 
-  const count = result?.count || 0;
+  const oldest = oldestRow?.oldest ? parseDbDate(oldestRow.oldest) : new Date();
+  const expiresAt = new Date(oldest.getTime() + windowSeconds * 1000);
+  const jitter = Math.floor(Math.random() * 31);
+  const retryAfter =
+    Math.max(1, Math.ceil((expiresAt - new Date()) / 1000)) + jitter;
 
-  if (count >= maxRequests) {
-    // Calculate retryAfter: when the oldest request in the window expires
-    // Add 0-30s random jitter to prevent thundering herd retries
-    const oldest = result?.oldest ? new Date(`${result.oldest}Z`) : new Date();
-    const expiresAt = new Date(oldest.getTime() + windowSeconds * 1000);
-    const jitter = Math.floor(Math.random() * 31);
-    const retryAfter =
-      Math.max(1, Math.ceil((expiresAt - new Date()) / 1000)) + jitter;
-
-    return { allowed: false, retryAfter };
-  }
-
-  // Record this request
-  await db
-    .prepare("INSERT INTO rate_limits (ip, endpoint) VALUES (?, ?)")
-    .bind(ip, endpoint)
-    .run();
-
-  return { allowed: true };
+  return { allowed: false, retryAfter };
 }
 
 /**
