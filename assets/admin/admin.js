@@ -2,10 +2,11 @@
  * Shared admin-console behaviour, loaded on every authenticated page.
  *
  * Currently: the inline-confirm "Cancel" action. The confirmation fragment
- * (admin-delete-confirm.hbs) carries the original control's markup in
- * `data-cancel-html`; clicking Cancel restores it. HTMX's mutation observer
- * re-processes the restored control's hx-* attributes. Extracted from an
- * inline onclick so the admin CSP can use `script-src 'self'`.
+ * (admin-delete-confirm.hbs) carries the original control inside an inert
+ * <template>; clicking Cancel restores it by cloning that template's nodes —
+ * no HTML-from-string parsing, so it is not an XSS sink. HTMX's mutation
+ * observer plus an explicit htmx.process re-activate the restored control's
+ * hx-* attributes.
  */
 (function () {
   document.addEventListener("click", function (e) {
@@ -13,9 +14,13 @@
     if (!btn) return;
     var box = btn.closest(".inline-confirm");
     if (!box) return;
-    var html = btn.getAttribute("data-cancel-html");
-    if (html !== null) {
-      box.outerHTML = html;
+    var tpl = box.querySelector("template[data-cancel-restore]");
+    if (!tpl) return;
+    var frag = tpl.content.cloneNode(true);
+    var restored = frag.firstElementChild;
+    box.replaceWith(frag);
+    if (restored && window.htmx && typeof window.htmx.process === "function") {
+      window.htmx.process(restored);
     }
   });
 })();
