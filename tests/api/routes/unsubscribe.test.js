@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../../../src/shared/lib/config.js", () => ({
-  getChannelById: vi.fn()
+  getChannelWithFeeds: vi.fn()
 }));
 vi.mock("../../../src/shared/lib/templates.js", () => ({
   render: vi.fn().mockReturnValue("<html>rendered</html>"),
@@ -19,7 +19,7 @@ vi.mock("../../../src/shared/lib/db.js", () => ({
 }));
 
 import { handleUnsubscribe } from "../../../src/api/routes/unsubscribe.js";
-import { getChannelById } from "../../../src/shared/lib/config.js";
+import { getChannelWithFeeds } from "../../../src/shared/lib/config.js";
 import { render, renderErrorPage } from "../../../src/shared/lib/templates.js";
 import {
   getSubscriberByUnsubscribeToken,
@@ -49,7 +49,7 @@ function makeRequest(method = "GET") {
 describe("handleUnsubscribe", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getChannelById.mockReturnValue(CHANNEL);
+    getChannelWithFeeds.mockReturnValue(CHANNEL);
   });
 
   describe("missing or invalid token", () => {
@@ -195,7 +195,7 @@ describe("handleUnsubscribe", () => {
 
   describe("site fallbacks", () => {
     it("uses fallback when site not found in config", async () => {
-      getChannelById.mockReturnValue(null);
+      getChannelWithFeeds.mockReturnValue(null);
       getSubscriberByUnsubscribeToken.mockResolvedValue({
         id: 42,
         status: "verified",

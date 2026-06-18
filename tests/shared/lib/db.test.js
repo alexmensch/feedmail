@@ -32,6 +32,7 @@ import {
   updateChannel,
   deleteChannel,
   getFeedsByChannelId,
+  getFeedsByChannelIds,
   getFeedById,
   insertFeed,
   updateFeed,
@@ -1140,6 +1141,34 @@ describe("db", () => {
         const result = await getFeedsByChannelId(db, "ch1");
 
         expect(typeof result[0].id).toBe("number");
+      });
+    });
+
+    describe("getFeedsByChannelIds", () => {
+      it("fetches feeds for multiple channels in a single query", async () => {
+        const feeds = [
+          { id: 1, channel_id: "ch1", name: "A", url: "https://a.com/feed" },
+          { id: 2, channel_id: "ch2", name: "B", url: "https://b.com/feed" }
+        ];
+        const db = mockDb({ results: feeds });
+
+        const result = await getFeedsByChannelIds(db, ["ch1", "ch2"]);
+
+        expect(db.prepare).toHaveBeenCalledOnce();
+        expect(db.prepare).toHaveBeenCalledWith(
+          expect.stringContaining("channel_id IN (?, ?)")
+        );
+        expect(db._chain.bind).toHaveBeenCalledWith("ch1", "ch2");
+        expect(result).toEqual(feeds);
+      });
+
+      it("short-circuits without querying when no channel IDs are given", async () => {
+        const db = mockDb({ results: [] });
+
+        const result = await getFeedsByChannelIds(db, []);
+
+        expect(result).toEqual([]);
+        expect(db.prepare).not.toHaveBeenCalled();
       });
     });
 

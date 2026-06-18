@@ -9,7 +9,10 @@ import {
   getRateLimitConfigs,
   upsertRateLimitConfig
 } from "../../shared/lib/db.js";
-import { RATE_LIMIT_DEFAULTS } from "../../shared/lib/config.js";
+import {
+  RATE_LIMIT_DEFAULTS,
+  VERIFY_DEFAULTS
+} from "../../shared/lib/config.js";
 import { jsonResponse } from "../../shared/lib/response.js";
 
 const VALID_ENDPOINTS = Object.keys(RATE_LIMIT_DEFAULTS);
@@ -42,8 +45,10 @@ async function getConfig(env) {
   }
 
   return jsonResponse(200, {
-    verifyMaxAttempts: siteConfig?.verifyMaxAttempts ?? 3,
-    verifyWindowHours: siteConfig?.verifyWindowHours ?? 24,
+    verifyMaxAttempts:
+      siteConfig?.verifyMaxAttempts ?? VERIFY_DEFAULTS.maxAttempts,
+    verifyWindowHours:
+      siteConfig?.verifyWindowHours ?? VERIFY_DEFAULTS.windowHours,
     rateLimits
   });
 }
@@ -85,9 +90,13 @@ async function updateConfig(request, env) {
     }
 
     const maxAttempts =
-      body.verifyMaxAttempts ?? currentSiteConfig?.verifyMaxAttempts ?? 3;
+      body.verifyMaxAttempts ??
+      currentSiteConfig?.verifyMaxAttempts ??
+      VERIFY_DEFAULTS.maxAttempts;
     const windowHours =
-      body.verifyWindowHours ?? currentSiteConfig?.verifyWindowHours ?? 24;
+      body.verifyWindowHours ??
+      currentSiteConfig?.verifyWindowHours ??
+      VERIFY_DEFAULTS.windowHours;
 
     await upsertSiteConfig(env.DB, {
       verifyMaxAttempts: maxAttempts,

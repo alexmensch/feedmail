@@ -4,7 +4,7 @@
  * All routes require ADMIN_API_KEY authentication (enforced in index.js).
  */
 
-import { getChannelById } from "../../shared/lib/config.js";
+import { getChannelWithFeeds } from "../../shared/lib/config.js";
 import { jsonResponse } from "../../shared/lib/response.js";
 import {
   getSubscriberStats,
@@ -70,7 +70,7 @@ async function handleStats(env, url) {
     return jsonResponse(400, { error: "Missing channelId query parameter" });
   }
 
-  const channel = await getChannelById(env, channelId);
+  const channel = await getChannelWithFeeds(env, channelId);
   if (!channel) {
     return jsonResponse(404, { error: "Unknown channel" });
   }
@@ -98,7 +98,7 @@ async function handleSubscribers(env, url) {
   const channelId = url.searchParams.get("channelId") || "";
 
   if (channelId) {
-    const channel = await getChannelById(env, channelId);
+    const channel = await getChannelWithFeeds(env, channelId);
     if (!channel) {
       return jsonResponse(404, { error: "Unknown channel" });
     }

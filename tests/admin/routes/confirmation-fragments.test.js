@@ -67,13 +67,18 @@ describe("channel delete confirmation fragment", () => {
     const response = await handleChannelDeleteConfirm(request, env, "blog");
 
     expect(response.status).toBe(200);
-    // The shared delete confirm template receives message, confirmAction, cancelHtml
+    // The shared delete confirm template receives message + confirmAction plus
+    // structured cancel-button fields (data-driven, escaped by the template).
     expect(render).toHaveBeenCalledWith(
       "adminDeleteConfirm",
       expect.objectContaining({
         message: expect.stringContaining("blog"),
         confirmAction: expect.stringContaining("/admin/channels/blog/delete"),
-        cancelHtml: expect.any(String)
+        cancelLabel: "Delete channel",
+        cancelHxGet: expect.stringContaining(
+          "/admin/channels/blog/delete/confirm"
+        ),
+        cancelHxTarget: "#channel-actions"
       })
     );
   });

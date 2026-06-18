@@ -7,6 +7,6 @@
     </form>
     <button type="button" class="btn-small" data-confirm-cancel>Cancel</button>
   </div>
-  {{!-- cancelHtml is server-built, trusted markup (fixed template + validated, encodeURIComponent'd IDs). It is kept inert in a <template> and restored via cloneNode in admin.js — never parsed from a string at runtime — so it is not an XSS sink. Do not feed user-controlled data into cancelHtml. --}}
-  <template data-cancel-restore>{{{cancelHtml}}}</template>
+  {{!-- The cancel control is restored on "Cancel" via cloneNode in admin.js (never parsed from a string), and every field below is Handlebars-escaped — so it is not an XSS sink. --}}
+  <template data-cancel-restore><button type="button" class="{{cancelClass}}" hx-get="{{cancelHxGet}}" hx-target="{{cancelHxTarget}}" hx-swap="innerHTML">{{cancelLabel}}</button></template>
 </div>

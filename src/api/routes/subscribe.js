@@ -3,7 +3,10 @@
  * Handles new subscription requests with rate limiting.
  */
 
-import { getChannelById, getVerifyLimits } from "../../shared/lib/config.js";
+import {
+  getChannelWithFeeds,
+  getVerifyLimits
+} from "../../shared/lib/config.js";
 import { jsonResponse } from "../../shared/lib/response.js";
 import { sendEmail } from "../../shared/lib/email.js";
 import { render } from "../../shared/lib/templates.js";
@@ -68,7 +71,7 @@ export async function handleSubscribe(request, env) {
     });
   }
 
-  const channel = await getChannelById(env, channelId);
+  const channel = await getChannelWithFeeds(env, channelId);
   if (!channel) {
     return jsonResponse(400, {
       success: false,

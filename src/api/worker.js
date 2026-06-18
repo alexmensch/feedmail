@@ -12,7 +12,8 @@ import { handleCORSPreflight, withCORS } from "./lib/cors.js";
 import { getRateLimitConfig } from "../shared/lib/config.js";
 import { checkRateLimit, getEndpointName } from "../shared/lib/rate-limit.js";
 import { getCredential } from "../shared/lib/db.js";
-import { rateLimitResponse } from "../shared/lib/response.js";
+import { jsonResponse, rateLimitResponse } from "../shared/lib/response.js";
+import { sleep } from "../shared/lib/sleep.js";
 
 /**
  * Allowed HTTP methods per route path.
@@ -76,10 +77,7 @@ async function isAuthorized(request, env) {
  * @returns {Response}
  */
 function unauthorizedResponse() {
-  return new Response(JSON.stringify({ error: "Unauthorized" }), {
-    status: 401,
-    headers: { "Content-Type": "application/json" }
-  });
+  return jsonResponse(401, { error: "Unauthorized" });
 }
 
 /**
@@ -88,7 +86,7 @@ function unauthorizedResponse() {
  * @returns {Promise<Response>}
  */
 async function timeoutResponse() {
-  await new Promise((resolve) => setTimeout(resolve, TIMEOUT_DELAY_MS));
+  await sleep(TIMEOUT_DELAY_MS);
   return new Response(null, { status: 408 });
 }
 
@@ -215,10 +213,7 @@ export default {
       return new Response(null, { status: 404 });
     } catch (err) {
       console.error("Unhandled error:", err);
-      return new Response(JSON.stringify({ error: "Internal Server Error" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" }
-      });
+      return jsonResponse(500, { error: "Internal Server Error" });
     }
   },
 

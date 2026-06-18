@@ -397,6 +397,28 @@ export async function getFeedsByChannelId(db, channelId) {
   return results;
 }
 
+/**
+ * Fetch feeds for many channels in a single query (avoids the per-channel N+1).
+ * Returns a flat array; callers group by channel_id.
+ * @param {object} db
+ * @param {string[]} channelIds
+ * @returns {Promise<Array<{id: number, channel_id: string, name: string, url: string}>>}
+ */
+export async function getFeedsByChannelIds(db, channelIds) {
+  if (channelIds.length === 0) {
+    return [];
+  }
+  const placeholders = channelIds.map(() => "?").join(", ");
+  const { results } = await db
+    .prepare(
+      `SELECT id, channel_id, name, url FROM feeds
+       WHERE channel_id IN (${placeholders}) ORDER BY channel_id, id`
+    )
+    .bind(...channelIds)
+    .all();
+  return results;
+}
+
 export async function getFeedById(db, feedId) {
   return db
     .prepare("SELECT id, channel_id, name, url FROM feeds WHERE id = ?")

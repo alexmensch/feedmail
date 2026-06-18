@@ -8,7 +8,8 @@
  */
 
 import Handlebars from "handlebars/runtime.js";
-import { getChannelById } from "./config.js";
+import { getChannelWithFeeds } from "./config.js";
+import { htmlResponse } from "./response.js";
 
 // Import precompiled partial specs
 import emailFooterSpec from "../../templates/compiled/partials/email-footer.js";
@@ -137,7 +138,7 @@ export function render(name, data) {
  * @returns {Response}
  */
 export async function renderErrorPage(env, channelId, message) {
-  const channel = channelId ? await getChannelById(env, channelId) : null;
+  const channel = channelId ? await getChannelWithFeeds(env, channelId) : null;
 
   const html = render("errorPage", {
     siteName: channel?.siteName || "feedmail",
@@ -145,8 +146,5 @@ export async function renderErrorPage(env, channelId, message) {
     errorMessage: message
   });
 
-  return new Response(html, {
-    status: 200,
-    headers: { "Content-Type": "text/html; charset=utf-8" }
-  });
+  return htmlResponse(html);
 }

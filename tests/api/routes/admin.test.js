@@ -4,7 +4,7 @@ vi.mock("../../../src/shared/lib/config.js", async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
-    getChannelById: vi.fn()
+    getChannelWithFeeds: vi.fn()
   };
 });
 vi.mock("../../../src/shared/lib/db.js", () => ({
@@ -24,7 +24,7 @@ vi.mock("../../../src/shared/lib/db.js", () => ({
 }));
 
 import { handleAdmin } from "../../../src/api/routes/admin.js";
-import { getChannelById } from "../../../src/shared/lib/config.js";
+import { getChannelWithFeeds } from "../../../src/shared/lib/config.js";
 import {
   getSubscriberStats,
   getSentItemStats,
@@ -57,7 +57,7 @@ function makeRequest(pathname, params = {}) {
 describe("handleAdmin", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getChannelById.mockReturnValue(CHANNEL);
+    getChannelWithFeeds.mockReturnValue(CHANNEL);
     getSubscriberStats.mockResolvedValue({
       total: 10,
       verified: 7,
@@ -131,7 +131,7 @@ describe("handleAdmin", () => {
 
   describe("stats with empty feeds", () => {
     it("returns zero sent items when channel has no feeds", async () => {
-      getChannelById.mockReturnValue({
+      getChannelWithFeeds.mockReturnValue({
         ...CHANNEL,
         feeds: []
       });
@@ -199,7 +199,7 @@ describe("handleAdmin", () => {
     });
 
     it("returns 404 for unknown site", async () => {
-      getChannelById.mockReturnValue(null);
+      getChannelWithFeeds.mockReturnValue(null);
       const { request, url } = makeRequest("/api/admin/stats", {
         channelId: "nonexistent"
       });
@@ -252,7 +252,7 @@ describe("handleAdmin", () => {
 
   describe("handleSubscribers", () => {
     it("returns 404 for unknown channel", async () => {
-      getChannelById.mockReturnValue(null);
+      getChannelWithFeeds.mockReturnValue(null);
       const { request, url } = makeRequest("/api/admin/subscribers", {
         channelId: "nonexistent"
       });
@@ -376,7 +376,7 @@ describe("handleAdmin", () => {
 
       await handleAdmin(request, env, url);
 
-      expect(getChannelById).not.toHaveBeenCalled();
+      expect(getChannelWithFeeds).not.toHaveBeenCalled();
     });
 
     it("every subscriber row includes channel_id field", async () => {
@@ -397,7 +397,7 @@ describe("handleAdmin", () => {
     });
 
     it("validates channel and returns 404 for invalid channelId", async () => {
-      getChannelById.mockReturnValue(null);
+      getChannelWithFeeds.mockReturnValue(null);
 
       const { request, url } = makeRequest("/api/admin/subscribers", {
         channelId: "bad-channel"

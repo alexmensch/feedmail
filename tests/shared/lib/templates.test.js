@@ -42,7 +42,7 @@ vi.mock("../../../src/templates/compiled/admin-placeholder.js", () => ({
 
 // Mock config.js for renderErrorPage
 vi.mock("../../../src/shared/lib/config.js", () => ({
-  getChannelById: vi.fn()
+  getChannelWithFeeds: vi.fn()
 }));
 
 // Mock Handlebars runtime to capture template instantiation
@@ -120,10 +120,10 @@ describe("templates", () => {
 
   describe("renderErrorPage", () => {
     it("renders error page with channel branding when channelId is provided", async () => {
-      // Mock getChannelById (imported inside templates.js from config.js)
-      const { getChannelById } =
+      // Mock getChannelWithFeeds (imported inside templates.js from config.js)
+      const { getChannelWithFeeds } =
         await import("../../../src/shared/lib/config.js");
-      vi.mocked(getChannelById).mockResolvedValue({
+      vi.mocked(getChannelWithFeeds).mockResolvedValue({
         siteName: "My Site",
         siteUrl: "https://example.com"
       });
@@ -151,9 +151,9 @@ describe("templates", () => {
     });
 
     it("renders error page with defaults when channel is not found", async () => {
-      const { getChannelById } =
+      const { getChannelWithFeeds } =
         await import("../../../src/shared/lib/config.js");
-      vi.mocked(getChannelById).mockResolvedValue(null);
+      vi.mocked(getChannelWithFeeds).mockResolvedValue(null);
 
       const env = { DB: {} };
       const response = await renderErrorPage(

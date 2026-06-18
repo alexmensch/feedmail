@@ -3,13 +3,14 @@
  * Handles email verification link clicks.
  */
 
-import { getChannelById } from "../../shared/lib/config.js";
+import { getChannelWithFeeds } from "../../shared/lib/config.js";
 import { render, renderErrorPage } from "../../shared/lib/templates.js";
 import {
   getSubscriberByVerifyToken,
   markSubscriberVerified,
   clearVerificationAttempts
 } from "../../shared/lib/db.js";
+import { htmlResponse } from "../../shared/lib/response.js";
 import { parseDbDate } from "../../shared/lib/datetime.js";
 
 /**
@@ -59,15 +60,12 @@ export async function handleVerify(request, env, url) {
   // Clear verification attempt history
   await clearVerificationAttempts(env.DB, subscriber.id);
 
-  const channel = await getChannelById(env, subscriber.channel_id);
+  const channel = await getChannelWithFeeds(env, subscriber.channel_id);
 
   const html = render("verifyPage", {
     siteName: channel?.siteName || "the newsletter",
     siteUrl: channel?.siteUrl || "/"
   });
 
-  return new Response(html, {
-    status: 200,
-    headers: { "Content-Type": "text/html; charset=utf-8" }
-  });
+  return htmlResponse(html);
 }
